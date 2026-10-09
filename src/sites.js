@@ -1,0 +1,9 @@
+/** East-positive longitude; reference point metadata is transparent to the user. */
+export const SITES = [
+  {id:'mons-mouton',name:'Mons Mouton',tag:'CLPS · IM-2',region:'Lunar highlands',lat:-84.79,lon:29.20,kind:'Historic landing',accent:'#d2aa80',source:'https://pds.nasa.gov/ds-view/pds/viewContext.jsp?identifier=urn%3Anasa%3Apds%3Acontext%3Ainstrument_host%3Aspacecraft.clps_to_prime1_athena&version=1.0',detail:'NASA PDS documents the IM-2 Athena landing at 84.79°S, 29.20°E on 6 March 2025.'},
+  {id:'malapert',name:'Malapert Region',tag:'Research region',region:'Malapert massif region',lat:-85.99,lon:357.07,kind:'Reference coordinate',accent:'#87b8c2',source:'https://science.nasa.gov/image-detail/20100618/',detail:'NASA describes the Malapert region near 85.99°S, 357.07°E as promising for illumination and communications.'},
+  {id:'shackleton',name:'Shackleton Rim',tag:'Pole · candidate',region:'Shackleton crater',lat:-89.9,lon:180,kind:'Approx. candidate',accent:'#e2d1a0',source:'https://www.hq.nasa.gov/office/pao/FOIA/ESAS/ESAS_Appendix_4B.pdf',detail:'Approximate coordinate from a historic NASA candidate-site listing, not a surveyed landing point.'},
+  {id:'faustini',name:'Faustini Rim',tag:'Study point',region:'Faustini crater',lat:-87.89,lon:85,kind:'Illustrative point',accent:'#bfa8d0',source:'https://science.nasa.gov/moon/',detail:'Illustrative reference point for studying how longitude and latitude affect visibility; not a verified landing location.'},
+  {id:'nobile',name:'Nobile Region',tag:'Study point',region:'Nobile crater',lat:-85.44,lon:37.37,kind:'Illustrative point',accent:'#9fb9a9',source:'https://science.nasa.gov/moon/',detail:'Illustrative study coordinate. Not a specific, terrain-assessed or certified landing site.'}
+];
+export const fmtCoord = (lat,lon) => `${Math.abs(lat).toFixed(2)}°${lat<0?'S':'N'}  ·  ${(((lon%360)+360)%360).toFixed(2)}°E`;
