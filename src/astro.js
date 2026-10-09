@@ -103,6 +103,24 @@ export function summarize(samples) {
   return {sun:avg(x=>x.sun.visible),earth:avg(x=>x.earth.visible),dual:avg(x=>x.dual),longestBlackoutHours:max};
 }
 
+/** Longest sampled continuous period with the Sun and Earth both above the horizon. */
+export function longestDualWindow(samples) {
+  if (samples.length < 2) return {start:null,end:null,hours:0};
+  const step=(Date.parse(samples[1].time)-Date.parse(samples[0].time))/3600000;
+  let best={start:null,end:null,hours:0},runStart=-1;
+  const intervals=samples.length-1;
+  for(let i=0;i<=intervals;i++) {
+    const active=i<intervals && samples[i].dual;
+    if(active && runStart<0)runStart=i;
+    if(!active && runStart>=0) {
+      const hours=(i-runStart)*step;
+      if(hours>best.hours)best={start:samples[runStart].time,end:samples[i].time,hours};
+      runStart=-1;
+    }
+  }
+  return best;
+}
+
 export function rankedSites(sites,start,days) {
   return sites.map(site=>({site,stats:summarize(sampleWindow({start,days,stepHours:4,lat:site.lat,lon:site.lon}))}))
     .sort((a,b)=>b.stats.dual-a.stats.dual || b.stats.sun-a.stats.sun);

@@ -9,7 +9,7 @@ An independently built, transparent lunar south-pole mission-planning experience
 - Analytical Moon-fixed **Sun and Earth azimuth/elevation**, recalculated as the UTC timeline moves
 - Local sky-dome plot and replayable illumination / Earth-link / overlap timelines
 - Same-window ranked comparison of five study points (with individual coordinate provenance)
-- Simultaneous availability %, solar access %, Earth visibility %, and longest sampled Earth blackout
+- Simultaneous availability %, solar access %, Earth visibility %, longest continuous dual-access period, and longest sampled Earth blackout
 - Export sampled observations as CSV; generate/copy/print mission briefing; share URL state
 - Responsive, high-contrast UI without build-time client dependencies
 - Explicit scientific disclaimers and linked primary references
