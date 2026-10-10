@@ -23,3 +23,12 @@ test('navigation uses deliberate screening language rather than unqualified accu
  assert.match(html,/not universal error bounds/i);
  assert.match(html,/four hours/i);
 });
+
+test('terrain-aware finder mode advertises honest site coverage and exposes loading controls',()=>{
+ for(const id of ['finder-mode','finder-load-all','finder-open-terrain','finder-terrain-count','finder-data-status']){
+   assert.ok(html.includes('id="'+id+'"'),'Missing coverage UI: '+id);
+   assert.ok(app.includes("'#"+id+"'"),'Missing coverage JS: '+id);
+ }
+ assert.match(html,/Unloaded sites are excluded/i);
+ assert.match(app,/getCachedTerrain/);
+});
