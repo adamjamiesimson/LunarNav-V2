@@ -7,7 +7,8 @@
   "scripts": {
     "test": "node --test tests/*.test.js && node --check src/globe.js",
     "dev": "python3 -m http.server 4173",
-    "build": "node scripts/build.js"
+    "build": "node scripts/build.js",
+    "validate:horizons": "node scripts/validate-horizons.js"
   },
   "engines": {
     "node": ">=18"
