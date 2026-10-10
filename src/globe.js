@@ -241,8 +241,12 @@ export function createMap(canvas,{onPick,onHover}){
      loaded=true;request();
    }catch(e){console.warn('LROC map not available; using procedural texture.',e);}
  };
- img.onerror=()=>console.warn('NASA globe imagery could not load; procedural visual fallback is active.');
- img.src='https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg';
+ let triedDirect=false;
+ img.onerror=()=>{
+   if(!triedDirect){triedDirect=true;img.src='https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg';}
+   else console.warn('NASA globe imagery could not load; procedural visual fallback is active.');
+ };
+ img.src='/assets/lroc-color.jpg';
  if(typeof ResizeObserver!=='undefined')new ResizeObserver(size).observe(stage);
  else window.addEventListener('resize',size);
  size();
