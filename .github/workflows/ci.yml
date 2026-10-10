@@ -19,18 +19,13 @@ jobs:
         if: github.event_name == 'pull_request'
         continue-on-error: true
         run: npm run check:lola
-      - name: Validate one real NASA LOLA 80m raster patch (best effort)
+      - name: Produce genuine LOLA horizon cache for built-in sites (one-off)
         if: github.event_name == 'pull_request' && github.head_ref == 'feature/validate-real-lola-patch'
         timeout-minutes: 3
         continue-on-error: true
         run: |
           npm install --no-save --no-package-lock geotiff@2.1.3
-          node scripts/validate-real-lola-patch.js
-      - name: Produce genuine LOLA horizon cache for built-in sites (one-off)
-        if: github.event_name == 'pull_request' && github.head_ref == 'feature/validate-real-lola-patch'
-        timeout-minutes: 3
-        continue-on-error: true
-        run: node scripts/generate-lola-profiles.js
+          node scripts/generate-lola-profiles.js
       - name: Live independent NASA/JPL Horizons audit (best effort)
         if: github.event_name == 'pull_request'
         continue-on-error: true
