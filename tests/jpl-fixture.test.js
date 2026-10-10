@@ -25,3 +25,20 @@ test('Archived independent Horizons 2026 reference matches current model within 
  assert.ok(azMax<1, '2026 reference azimuth error exceeds 1°: '+azMax);
  assert.ok(elMax<1, '2026 reference elevation error exceeds 1°: '+elMax);
 });
+
+
+test('Broader independently archived JPL reference passes explicit 1° regression tolerance across three seasons',()=>{
+ const raw=readFileSync(new URL('./fixtures/jpl-horizons-three-seasons.csv',import.meta.url),'utf-8').trim().split(/\r?\n/);
+ assert.equal(raw.length-1,45);
+ let azMax=0,elMax=0;
+ for(const row of raw.slice(1)){
+   const [utc,...vals]=row.split(',');
+   const [lat,lon,sAz,sEl,eAz,eEl]=vals.map(Number);
+   assert.ok(vals.every(v=>Number.isFinite(Number(v))));
+   const obs=ephemeris(utc,lat,lon);
+   azMax=Math.max(azMax,circle(obs.sun.azimuth,sAz),circle(obs.earth.azimuth,eAz));
+   elMax=Math.max(elMax,Math.abs(obs.sun.elevation-sEl),Math.abs(obs.earth.elevation-eEl));
+ }
+ assert.ok(azMax<1,'More than 1° azimuth discrepancy on archived Horizons samples: '+azMax);
+ assert.ok(elMax<1,'More than 1° elevation discrepancy on archived Horizons samples: '+elMax);
+});
