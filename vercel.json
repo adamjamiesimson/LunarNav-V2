@@ -8,6 +8,10 @@
     {
       "source": "/assets/lroc-color.jpg",
       "destination": "https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg"
+    },
+    {
+      "source": "/assets/lola-80m.tif",
+      "destination": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_80MPP_ADJ.TIF"
     }
   ]
 }
