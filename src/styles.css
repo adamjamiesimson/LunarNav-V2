@@ -6,3 +6,16 @@
 @media print{body{background:#fff;color:#000}#app,.dialog-head,.report-actions{display:none!important}.dialog{position:static;display:block!important;width:100%;box-shadow:none;border:0;max-height:none;color:#000}.dialog::backdrop{display:none}.dialog-body,.dialog-body h3,.report-grid strong{color:#000!important}.report-warning{border:1px solid #999;background:#eee;color:#000}.report-grid>div{border-color:#bbb}.report-grid small,.report-coordinates{color:#333}}
 
 .best-window{border-top:1px solid var(--line);padding:16px 0 0;margin-top:16px}.best-window span{display:block;font:9px 'DM Mono';letter-spacing:.06em;color:#9bacb1}.best-window strong{display:block;font:500 21px 'Space Grotesk';margin:7px 0 3px;color:#c5e7c9}.best-window small{font:9px 'DM Mono';color:#829eaa;line-height:1.5}
+
+/* LunarNav V2 immersive globe enhancement. Drawing stays progressive and dependency-free. */
+.map-stage{background:radial-gradient(ellipse at 50% 45%,#132337 0%,#060b14 78%);border:1px solid rgba(139,185,203,.17);box-shadow:inset 0 0 100px #0008;}
+.map-stage canvas#moon-globe{z-index:0;pointer-events:none;touch-action:none;}
+.map-stage canvas#moon-map{z-index:1;cursor:grab;touch-action:none;}
+.map-stage canvas#moon-map:active{cursor:grabbing;}
+.map-stage .map-overlay-top,.map-stage .map-overlay-bottom{z-index:2;}
+.map-stage .map-tooltip{z-index:5;}
+.map-pill{background:rgba(6,14,24,.78);border-color:rgba(173,217,222,.25);}
+.map-live{color:#c2f3d1;}
+.map-panel-head .map-tool:focus-visible,#moon-map:focus-visible{outline:2px solid #ddf9d6;outline-offset:2px;}
+@media(max-width:760px){.map-stage{height:470px}.map-footer{line-height:1.5}.map-panel-head .map-tool{min-width:28px;}}
+@media(max-width:450px){.map-stage{height:380px}}
