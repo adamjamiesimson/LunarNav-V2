@@ -122,3 +122,18 @@ For strict quality gating of the independently measured maximum angular error:
     HORIZONS_MAX_ERROR_DEG=1 npm run validate:jpl
 
 The existing CSV-based independent reference comparison tool remains available: `npm run validate:horizons -- references.csv [maximum_error_deg]`. Neither command can verify terrain model accuracy. Reproducible data and actual in-browser NASA DEM reading still require additional validation.
+
+### Independent JPL validation results — October 10, 2026
+
+The live audit successfully retrieved **90 independent Sun/Earth azimuth/elevation observations** (45 unique site/UTC epochs, two celestial targets) across three lunar sites and three dates separated by months: November 14–15, 2026, March 14–15, 2027, and July 14–15, 2027.
+
+| Angular comparison | Maximum absolute error | Mean absolute error | RMSE |
+| --- | ---: | ---: | ---: |
+| Azimuth (circular difference) | 0.47998° | 0.42715° | 0.42867° |
+| Elevation | 0.28492° | 0.14149° | 0.18812° |
+
+Source: real [NASA/JPL Horizons API](https://ssd-api.jpl.nasa.gov/doc/horizons.html) outputs from [GitHub Actions run 38064420213](https://github.com/adamjamiesimson/LunarNav-V2/actions/runs/38064420213) (successful live audit step). Verified reference angles are preserved in:
+- [Three-site three-season fixture](tests/fixtures/jpl-horizons-three-seasons.csv) — 45 UTC/site rows = 90 independently queried target angles.
+- [Initial November 2026 fixture](tests/fixtures/jpl-horizons-20261114.csv) — 10 UTC/site rows = 20 independently queried target angles.
+
+Automated regression checks ensure each of these **sampled reference cases** stays within a 1° tolerance. That tolerance is an engineering test threshold and **not** a blanket accuracy claim: worst-case angular error across all lunar dates/coordinates is not established. Predictions within approximately a degree of the apparent horizon are particularly sensitive to model error, sample interval, terrain, solar/Earth disc size and illumination/refraction conventions. JPL apparent positions and the current analytical geometry are not identical in their physical assumptions. We have not independently verified the LOLA DEM loader's absolute georegistration, all landing-site coordinates, or the power model against flight-grade software. A future kernel-based ephemeris should aim to reduce the remaining systematic angle differences.
