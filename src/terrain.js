@@ -97,6 +97,10 @@ function subsetWindow(image,site,radiusKm){
   const rows=[(siteXY.y-extra-originY)/resolutionY,(siteXY.y+extra-originY)/resolutionY];
   const left=clamp(Math.floor(Math.min(...cols)),0,image.getWidth()),right=clamp(Math.ceil(Math.max(...cols)),0,image.getWidth());
   const top=clamp(Math.floor(Math.min(...rows)),0,image.getHeight()),bottom=clamp(Math.ceil(Math.max(...rows)),0,image.getHeight());
+  const pixelSize=Math.max(Math.abs(resolutionX),Math.abs(resolutionY));
+  if(pixelSize<60||pixelSize>100)throw Error('Expected NASA 80 m/pixel DEM; found '+pixelSize.toFixed(1)+' m/pixel');
+  if(Math.abs(Math.abs(resolutionX)-Math.abs(resolutionY))>1)
+    throw Error('DEM pixels are not square; cannot use stereographic horizon assumptions');
   if(right-left<3||bottom-top<3)throw Error('Site outside the selected LOLA raster');
   if((right-left)*(bottom-top)>1600000)throw Error('DEM window too large for interactive terrain sampling');
   return {window:[left,top,right,bottom],
@@ -111,6 +115,15 @@ export async function loadLolaTerrain(site,{file=null,onProgress=()=>{}}={}){
   // Local .tif files remain an escape hatch when CORS or upstream access fails.
   const tiff=file?await g.fromBlob(file):await g.fromUrl(LOLA_COG);
   const image=await tiff.getImage();
+  // Coordinate conventions are explicit: MOON_ME south-polar stereographic,
+  // metres and 80m/pixel. GeoTIFF projection metadata is often custom for
+  // planetary CRS, so we validate measurable bounds/resolution instead of
+  // quietly assuming an Earth EPSG identifier.
+  const box=image.getBoundingBox();
+  const center=polarXY(site.lat,site.lon);
+  if(box.length!==4 || !box.every(Number.isFinite) || center.x<box[0]||
+    center.x>box[2]||center.y<box[1]||center.y>box[3])
+    throw Error('Selected coordinates do not project inside this DEM; verify MOON_ME south-polar georeferencing');
   const radiusKm=20;
   const {window,...geo}=subsetWindow(image,site,radiusKm);
   onProgress('Reading a local 40 km DEM patch (may take a moment)…');
@@ -121,6 +134,9 @@ export async function loadLolaTerrain(site,{file=null,onProgress=()=>{}}={}){
     data,width:r.width,height:r.height,...geo,
     noData:typeof image.getGDALNoData==='function'?image.getGDALNoData():null
   },site,{radiusKm,azimuthBins:72,stepMeters:200});
-  result.loadedFrom=file?'Local NASA LOLA GeoTIFF':'NASA LOLA COG via byte-range reads';
+  result.loadedFrom=file?'Local GeoTIFF supplied by user':'NASA LOLA COG via byte-range reads';
+  result.provenance=file?'User-provided GeoTIFF: its origin is NOT independently verified':'NASA PGDA source URL';
+  result.source=file?'User-supplied 80m GeoTIFF, asserted compatible with LOLA MOON_ME projection':'NASA GSFC PGDA LOLA 80m south-polar DEM';
+  result.verifiedSource=!file;
   return result;
 }
