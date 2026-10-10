@@ -16,9 +16,9 @@ const spherical=(lat,lon)=>[Math.cos(lat*D)*Math.cos(lon*D),Math.cos(lat*D)*Math
 const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
 const norm=a=>{const d=Math.hypot(...a)||1;return a.map(x=>x/d);};
 const add=(a,b,k=1)=>a.map((x,i)=>x+k*b[i]);
-const vertex=String.raw\`attribute vec2 position;
-void main(){gl_Position=vec4(position,0.0,1.0);}\`;
-const fragment=String.raw\`precision highp float;
+const vertex=String.raw`attribute vec2 position;
+void main(){gl_Position=vec4(position,0.0,1.0);}`;
+const fragment=String.raw`precision highp float;
 uniform vec2 resolution;
 uniform vec3 forward, right, up, sun;
 uniform float zoom, hasTexture;
@@ -62,7 +62,7 @@ void main(){
  result+=vec3(0.18,0.28,0.32)*rim*0.19;
  result=mix(result,space,smoothstep(0.994,1.0,rr)*0.24);
  gl_FragColor=vec4(result,1.0);
-}\`;
+}`;
 
 function program(gl){
  const compile=(type,src)=>{const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
