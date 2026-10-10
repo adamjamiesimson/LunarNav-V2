@@ -3,6 +3,7 @@ import {SITES,fmtCoord} from './sites.js';
 import {createMap} from './globe.js';
 import {simulateMission,DEFAULT_ENGINEERING} from './mission.js';
 import {loadLolaTerrain} from './terrain.js';
+import {findMissionWindows} from './finder.js';
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
 const fmtPct=n=>`${n.toFixed(1)}%`;
@@ -144,6 +145,114 @@ function exportEngineeringCSV(){
   toast('Engineering simulation CSV exported');
 }
 
+
+let finderRequest=0;
+function finderOpen(siteId,iso,days){
+  const site=SITES.find(s=>s.id===siteId);
+  if(!site)return;
+  stopPlay();
+  state.site=site;
+  state.days=days;
+  $('#mission-date').value=iso;
+  // Respect the mission time chosen by the user (finder scans at 12:00 UTC).
+  $('#mission-time').value='12:00';
+  $('#duration button').forEach(b=>b.classList.toggle('selected',Number(b.dataset.days)===days));
+  siteSelect.value=site.id;
+  updateAnalysis();
+  $('#planner').scrollIntoView({behavior:'smooth',block:'start'});
+  toast('Opened '+site.name+' · '+iso+' · '+days+' days (12:00 UTC)');
+}
+function finderPreview(result){
+  const {matrix,searchDays,windowDays,stepHours,priority}=result;
+  const cols=searchDays;
+  const scores=matrix.flatMap(m=>m.windows.map(w=>w.score));
+  const top=Math.max(0.01,...scores),low=Math.min(...scores);
+  const span=Math.max(1,top-low);
+  const width=Math.max(700,190+cols*25);
+  let html='<div class="finder-table" style="--day-count:'+cols+';min-width:'+width+'px">';
+  html+='<div class="finder-table-heading"><div>LANDING SITE</div>'+
+    matrix[0].windows.map((w,i)=>'<span class="finder-date-label" title="'+w.startDate+'">'+
+      (i===0||i%5===0?w.startDate.slice(5):'·')+'</span>').join('')+'</div>';
+  for(const entry of matrix){
+    html+='<div class="finder-table-row"><div class="finder-site-label"><strong>'+escapeHTML(entry.site.name)+
+      '</strong><small>'+escapeHTML(fmtCoord(entry.site.lat,entry.site.lon))+'</small></div>';
+    html+=entry.windows.map(w=>{
+      const alpha=(0.18+0.77*((w.score-low)/span)).toFixed(3);
+      const short=w.startDate.slice(5);
+      const label=entry.site.name+' '+w.startDate+': '+w.dualPct.toFixed(1)+'% dual access, '+w.sunPct.toFixed(1)+'% Sun, '+w.earthPct.toFixed(1)+'% Earth, '+w.longestDarknessHours+' h longest darkness';
+      return '<button type="button" class="finder-day" title="'+escapeHTML(label)+'" aria-label="'+escapeHTML(label)+
+        '" data-site="'+escapeHTML(entry.site.id)+'" data-date="'+w.startDate+
+        '" style="--heat:'+alpha+';"><span class="sr-only">'+short+'</span></button>';
+    }).join('');
+    html+='</div>';
+  }
+  html+='</div>';
+  $('#finder-heatmap').innerHTML=html;
+  $('#finder-caption').textContent=matrix.length+' sites × '+searchDays+' UTC start dates · '+windowDays+'-day missions · '+stepHours+'-hour sampling';
+  const chosen=[],used={};
+  for(const w of result.ranked){
+    if(chosen.length===6)break;
+    const prior=used[w.siteId]||[];
+    if(prior.length>=2 || prior.some(date=>Math.abs((Date.parse(date)-Date.parse(w.startDate))/86400000)<3))continue;
+    chosen.push(w);
+    used[w.siteId]=[...prior,w.startDate];
+  }
+  $('#finder-top').innerHTML=chosen.map((w,i)=>{
+    const scoreLabel=priority==='sun'?'Sun access':priority==='earth'?'Earth visibility':'Balanced score';
+    return '<button type="button" class="finder-window-card" data-site="'+escapeHTML(w.siteId)+'" data-date="'+w.startDate+
+      '"><span class="finder-ranking">#'+String(i+1).padStart(2,'0')+'</span><div class="finder-window-main">'+
+      '<strong>'+escapeHTML(w.siteName)+'</strong><span>START '+w.startDate+' · '+windowDays+' DAYS</span>'+
+      '<div class="finder-window-details">☀ '+w.sunPct.toFixed(1)+'% Sun <b>·</b> ◉ '+w.earthPct.toFixed(1)+'% Earth <b>·</b> '+
+      w.longestDarknessHours+'h longest dark</div></div><div class="finder-window-score"><strong>'+w.score.toFixed(1)+
+      '</strong><small>'+scoreLabel+'</small></div><span aria-hidden="true" class="finder-window-arrow">↗</span></button>';
+  }).join('');
+  $('#finder-shell-status').textContent='Ranking criterion: '+result.scoring+'; 0° geometric horizon, UTC noon starts.';
+  for(const element of document.querySelectorAll('[data-date][data-site]')){
+    element.addEventListener('click',()=>finderOpen(element.dataset.site,element.dataset.date,windowDays));
+  }
+}
+function runFinder(){
+  const startDate=$('#finder-date').value;
+  const searchDays=Number($('#finder-range').value);
+  const windowDays=Number($('#finder-duration').value);
+  const priority=$('#finder-priority').value;
+  const token=++finderRequest;
+  $('#finder-run').disabled=true;
+  $('#finder-caption').textContent='Scanning dates and sites…';
+  // Give the browser a chance to repaint the loading state before calculating.
+  requestAnimationFrame(()=>{
+    if(token!==finderRequest)return;
+    try{
+      const result=findMissionWindows({
+        sites:SITES,startDate,searchDays,windowDays,stepHours:4,priority
+      });
+      state.finder=result;
+      finderPreview(result);
+    }catch(error){
+      $('#finder-caption').textContent=error.message||'Finder could not calculate windows.';
+      $('#finder-heatmap').textContent='';
+      $('#finder-top').textContent='';
+      state.finder=null;
+    }finally{$('#finder-run').disabled=false;}
+  });
+}
+function exportFinderCSV(){
+  if(!state.finder)return toast('Run the window finder first');
+  const header=['site','start_utc','duration_days','sun_pct','earth_pct','dual_pct','max_dark_hours','max_earth_gap_hours','longest_dual_hours','rank_score','priority','sampling_hours','horizon'];
+  const lines=state.finder.ranked.map(w=>[
+    w.siteName,w.startDate,w.windowDays,w.sunPct.toFixed(2),w.earthPct.toFixed(2),
+    w.dualPct.toFixed(2),w.longestDarknessHours,w.longestEarthBlackoutHours,
+    w.longestDualHours,w.score.toFixed(2),state.finder.priority,state.finder.stepHours,
+    'smooth spherical 0 deg, no terrain'
+  ].map(value=>'"'+String(value).replaceAll('"','""')+'"').join(','));
+  const csv=[header.join(','),...lines].join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='lunarnav-windows-'+state.finder.startDate+'-'+state.finder.searchDays+'d.csv';
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+  toast('All candidate mission windows exported');
+}
+
 // Events
 siteSelect.addEventListener('change',()=>{const s=SITES.find(x=>x.id===siteSelect.value);if(s)selectSite(s);});
 $$('#duration button').forEach(b=>b.addEventListener('click',()=>{state.days=Number(b.dataset.days);$$('#duration button').forEach(x=>x.classList.toggle('selected',x===b));stopPlay();updateAnalysis();}));
@@ -177,4 +286,9 @@ $('#terrain-file').addEventListener('change',e=>{
   e.target.value='';
 });
 $('#export-model').addEventListener('click',exportEngineeringCSV);
+$('#finder-date').value=state.date;
+$('#finder-duration').value=[3,7,14].includes(state.days)?String(state.days):'7';
+$('#finder-run').addEventListener('click',runFinder);
+$('#finder-export').addEventListener('click',exportFinderCSV);
 updateAnalysis();
+runFinder();

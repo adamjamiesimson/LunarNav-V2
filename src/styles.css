@@ -61,3 +61,57 @@
 @media(max-width:1290px){.engineering-grid{grid-template-columns:minmax(250px,1fr) minmax(370px,1.3fr)}.terrain-panel{grid-column:1/-1}.terrain-plot{height:90px}}
 @media(max-width:770px){.engineering-section{padding:27px 15px}.engineering-grid{grid-template-columns:1fr}.terrain-panel{grid-column:auto}.engineering-grid .panel{padding:20px}.engineering-heading{display:block}.engineering-heading .sim-tag{margin:12px 0}.engineering-kpis strong{font-size:29px}}
 @media(max-width:450px){.engineering-inputs{gap:10px}.engineering-kpis{gap:8px}.engineering-kpis>div{padding:11px}.engineering-kpis strong{font-size:25px}}
+
+
+/* Mission Window Finder — high-information, accessible multi-site calendar */
+.finder-section{padding:40px clamp(16px,3.6vw,66px) 28px;scroll-margin-top:78px}
+.finder-heading{align-items:flex-end}
+.finder-heading h2{font-size:clamp(28px,3.2vw,44px);letter-spacing:-.03em}
+.finder-heading h2 em{color:#bedcc9;font-style:normal}
+.finder-heading .sim-tag{margin-bottom:10px}
+.finder-shell{padding:23px;border:1px solid rgba(166,210,210,.17);border-radius:10px;background:radial-gradient(ellipse at 76% 0%,rgba(47,77,72,.13),transparent 49%),#0c151e}
+.finder-toolbar{display:grid;grid-template-columns:minmax(152px,1.3fr) repeat(3,minmax(130px,1fr)) minmax(140px,auto);gap:12px;align-items:end}
+.finder-toolbar label{font:10px 'DM Mono',monospace;color:#aabdc3;letter-spacing:.025em;display:flex;flex-direction:column;gap:9px}
+.finder-toolbar input,.finder-toolbar select{background:#07111b;border:1px solid rgba(161,203,211,.2);border-radius:5px;padding:13px 11px;color:#f0f5f4;font:500 13px 'DM Sans',sans-serif;min-width:0;width:100%}
+.finder-toolbar select option{background:#101923}
+.finder-run{min-height:44px;padding:11px 17px;white-space:nowrap}
+.finder-run:disabled{opacity:.55;cursor:progress}
+.finder-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#9db5bd;margin:27px 0 12px;font:10px 'DM Mono',monospace}
+.finder-meta>div{display:flex;align-items:center;gap:7px}
+.finder-small-dot{width:6px;height:6px;background:#b6dcbf;border-radius:50%;box-shadow:0 0 8px #a7e4b778}
+.finder-legend{display:flex;align-items:center;gap:15px}
+.finder-legend i{width:11px;height:11px;border-radius:2px;display:inline-block;background:rgba(168,227,190,.22)}
+.finder-legend i.finder-legend-high{background:rgba(168,227,190,.92)}
+.finder-heatmap-wrap{overflow-x:auto;overscroll-behavior-x:contain;border:1px solid rgba(165,206,208,.12);border-radius:7px;background:#071019;padding:15px 11px 15px;scrollbar-color:#31535c #09141b}
+.finder-table{display:flex;flex-direction:column;gap:5px}
+.finder-table-heading,.finder-table-row{display:grid;grid-template-columns:181px repeat(var(--day-count),minmax(23px,1fr));gap:3px;align-items:center}
+.finder-table-heading{margin-bottom:7px}
+.finder-table-heading>div{color:#8099a5;font:9px 'DM Mono',monospace}
+.finder-date-label{color:#8094a0;font:9px 'DM Mono',monospace;overflow:visible;white-space:nowrap}
+.finder-site-label{overflow:hidden;padding:4px 7px 4px 0}
+.finder-site-label strong{display:block;font:600 12px 'DM Sans',sans-serif;color:#e4eeeb;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.finder-site-label small{display:block;font:9px 'DM Mono',monospace;color:#7d97a4;margin-top:5px;white-space:nowrap}
+.finder-day{height:32px;min-width:23px;border:1px solid rgba(194,236,207,.14);border-radius:3px;background:rgba(168,227,190,var(--heat));transition:transform .12s,border-color .12s;cursor:pointer;padding:0}
+.finder-day:hover,.finder-day:focus-visible{transform:scale(1.2);border-color:#f2ffef;outline:1px solid #f0fae8;outline-offset:0;z-index:1}
+.finder-results-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:28px 0 13px}
+.finder-results-heading h3{margin:7px 0 0;font:600 21px 'Space Grotesk',sans-serif}
+.finder-results-heading .outline-button{font-size:11px}
+.finder-recommendations{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.finder-window-card{border:1px solid rgba(162,204,210,.18);background:rgba(16,27,36,.8);border-radius:6px;padding:15px 13px;display:flex;align-items:center;gap:11px;color:#eef4f0;text-align:left;min-width:0;transition:background .15s,border-color .15s}
+.finder-window-card:hover,.finder-window-card:focus-visible{background:rgba(35,59,61,.82);border-color:rgba(187,236,201,.62)}
+.finder-ranking{font:10px 'DM Mono',monospace;color:#b6d7c4;align-self:flex-start;padding-top:3px}
+.finder-window-main{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}
+.finder-window-main>strong{font:600 15px 'Space Grotesk',sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.finder-window-main>span{font:9px 'DM Mono',monospace;color:#a1b8be}
+.finder-window-details{font:10px 'DM Mono',monospace;color:#9daeb5;line-height:1.5}
+.finder-window-details b{color:#5c7c87;font-weight:400}
+.finder-window-score{text-align:right;display:flex;flex-direction:column;gap:3px;white-space:nowrap}
+.finder-window-score strong{font:600 25px 'Space Grotesk',sans-serif;color:#cceccb}
+.finder-window-score small{font:9px 'DM Mono',monospace;color:#96b0b5}
+.finder-window-arrow{font-size:16px;color:#b8dfc9}
+.finder-score-note{margin:16px 0 0;color:#a5c7bc;font:10px 'DM Mono',monospace}
+.finder-notice{border-top:1px solid rgba(146,184,192,.15);margin-top:19px;padding-top:15px;font-size:11px;line-height:1.8;color:#92abb5}
+.finder-notice strong{color:#c9dad5}
+.sr-only{position:absolute;width:1px;height:1px;clip:rect(0,0,0,0);clip-path:inset(50%);overflow:hidden;white-space:nowrap}
+@media(max-width:1120px){.finder-toolbar{grid-template-columns:repeat(2,minmax(160px,1fr))}.finder-run{grid-column:1/-1}.finder-recommendations{grid-template-columns:1fr}}
+@media(max-width:650px){.finder-section{padding:28px 15px}.finder-shell{padding:16px}.finder-heading .sim-tag{display:inline-flex;margin:13px 0}.finder-toolbar{grid-template-columns:1fr 1fr;gap:9px}.finder-toolbar label:first-child{grid-column:1/-1}.finder-results-heading{align-items:start;flex-direction:column}.finder-meta{align-items:flex-start;flex-direction:column;line-height:1.5}.finder-window-card{gap:9px;padding:12px 10px}.finder-window-score strong{font-size:22px}}

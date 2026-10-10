@@ -94,3 +94,46 @@ The command reports maximum absolute error, mean absolute error and RMSE in degr
     npm run build
 
 New tests cover battery accounting/brownout, Earth antenna masks, terrain occlusion, azimuth interpolation, stereographic coordinates and DEM coverage failure. These are unit checks, **not** independent scientific validation or browser verification of NASA COG availability.
+
+
+## Mission Window Finder (Phase 3)
+
+The new **Window Finder** compares the site catalog against possible mission start dates rather than ranking all sites for only one start date. Choose a UTC scan start, 30 or 60 consecutive possible starts, 3/7/14-day duration, and the ranking objective. A heatmap shows each site vs date, recommended window cards list approximate solar, Earth, and simultaneous access, and clicking a heatmap square or recommendation opens the existing planner at that site/window. Export all candidate start-date results as CSV.
+
+**Methodology and constraints:**
+- Reuses the `src/astro.js` analytical Sun/Earth solver. Samples **every 4 hours** and assumes each 4-hour interval has the state of its starting sample. Each candidate day is evaluated from **12:00 UTC**. The normal planner resamples at 2 hours, so its more detailed metrics can differ slightly.
+- Balanced score is explicitly `0.70 * dualAccessPct + 0.15 * solarAccessPct + 0.15 * earthVisibilityPct`. Solar or Earth priorities use the corresponding percentage directly. Rankings are **heuristics**, not scientifically optimized landing choices.
+- All candidate scores remain on a **spherical 0° geometric horizon** for consistent comparisons. Existing optional DEM terrain is not applied to the finder. **No slope/landability, engineering energy balance, communication link margin, eclipse, PSR hazards, human factors or trajectory constraints** enter this ranking.
+- Input dates are validated as actual UTC dates, and multi-date sampling is reused once per site rather than recomputing each overlapping window from scratch.
+- New unit tests compare finder percentages with the planner's 4-hour sampling and check ranking order, UTC year transitions, blackout bounds, date validation and score math.
+
+### Independent NASA/JPL ephemeris audit
+
+**Scientific validation must be measured, not assumed.** The local checker `npm run validate:jpl` requests airless Sun (10) and Earth (399) azimuth/elevation quantities directly from [NASA JPL Horizons](https://ssd-api.jpl.nasa.gov/doc/horizons.html), from three Moon-fixed geodetic sites (`coord@301`) in November 2026 and March/July 2027. It compares those independent observations with `src/astro.js` and prints a JSON report with input queries, UTC timestamps, model and reference angles, azimuth-wrapped errors, maximum error, mean absolute error and RMSE (degrees).
+
+The first 20 real Horizons observations from Mons Mouton and Malapert on 14–15 November 2026 are preserved in `tests/fixtures/jpl-horizons-20261114.csv`, with a 1° regression threshold **only for those specific samples**. The standard pull-request CI executes a broader three-site/three-season audit on a **best-effort basis**. If JPL cannot be contacted or does not return a valid ephemeris, the script fails explicitly; the successful build/tests still only attest to program correctness. **A successful test build is not independent validation**, and no results must be quoted without confirming the actual audit output. The simple analytical engine and Horizons use different apparent/geometric conventions, so nonzero errors are expected. The model should be corrected or replaced with a cached JPL/NAIF SPICE ephemeris if errors prove material.
+
+Run standalone:
+
+    npm run validate:jpl
+
+For strict quality gating of the independently measured maximum angular error:
+
+    HORIZONS_MAX_ERROR_DEG=1 npm run validate:jpl
+
+The existing CSV-based independent reference comparison tool remains available: `npm run validate:horizons -- references.csv [maximum_error_deg]`. Neither command can verify terrain model accuracy. Reproducible data and actual in-browser NASA DEM reading still require additional validation.
+
+### Independent JPL validation results — October 10, 2026
+
+The live audit successfully retrieved **90 independent Sun/Earth azimuth/elevation observations** (45 unique site/UTC epochs, two celestial targets) across three lunar sites and three dates separated by months: November 14–15, 2026, March 14–15, 2027, and July 14–15, 2027.
+
+| Angular comparison | Maximum absolute error | Mean absolute error | RMSE |
+| --- | ---: | ---: | ---: |
+| Azimuth (circular difference) | 0.47998° | 0.42715° | 0.42867° |
+| Elevation | 0.28492° | 0.14149° | 0.18812° |
+
+Source: real [NASA/JPL Horizons API](https://ssd-api.jpl.nasa.gov/doc/horizons.html) outputs from [GitHub Actions run 38064420213](https://github.com/adamjamiesimson/LunarNav-V2/actions/runs/38064420213) (successful live audit step). Verified reference angles are preserved in:
+- [Three-site three-season fixture](tests/fixtures/jpl-horizons-three-seasons.csv) — 45 UTC/site rows = 90 independently queried target angles.
+- [Initial November 2026 fixture](tests/fixtures/jpl-horizons-20261114.csv) — 10 UTC/site rows = 20 independently queried target angles.
+
+Automated regression checks ensure each of these **sampled reference cases** stays within a 1° tolerance. That tolerance is an engineering test threshold and **not** a blanket accuracy claim: worst-case angular error across all lunar dates/coordinates is not established. Predictions within approximately a degree of the apparent horizon are particularly sensitive to model error, sample interval, terrain, solar/Earth disc size and illumination/refraction conventions. JPL apparent positions and the current analytical geometry are not identical in their physical assumptions. We have not independently verified the LOLA DEM loader's absolute georegistration, all landing-site coordinates, or the power model against flight-grade software. A future kernel-based ephemeris should aim to reduce the remaining systematic angle differences.
