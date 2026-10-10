@@ -15,3 +15,7 @@ jobs:
           node-version: '22'
       - run: npm test
       - run: npm run build
+      - name: Live independent NASA/JPL Horizons audit (best effort)
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        run: npm run validate:jpl
