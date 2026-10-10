@@ -115,3 +115,18 @@
 .sr-only{position:absolute;width:1px;height:1px;clip:rect(0,0,0,0);clip-path:inset(50%);overflow:hidden;white-space:nowrap}
 @media(max-width:1120px){.finder-toolbar{grid-template-columns:repeat(2,minmax(160px,1fr))}.finder-run{grid-column:1/-1}.finder-recommendations{grid-template-columns:1fr}}
 @media(max-width:650px){.finder-section{padding:28px 15px}.finder-shell{padding:16px}.finder-heading .sim-tag{display:inline-flex;margin:13px 0}.finder-toolbar{grid-template-columns:1fr 1fr;gap:9px}.finder-toolbar label:first-child{grid-column:1/-1}.finder-results-heading{align-items:start;flex-direction:column}.finder-meta{align-items:flex-start;flex-direction:column;line-height:1.5}.finder-window-card{gap:9px;padding:12px 10px}.finder-window-score strong{font-size:22px}}
+
+
+/* Terrain-aware Finder: provenance-first controls */
+.finder-terrain-controls{display:flex;align-items:center;gap:12px;justify-content:space-between;
+ padding:15px 13px;margin:19px 0 0;border:1px solid rgba(162,205,191,.21);border-radius:6px;
+ background:rgba(19,41,44,.45);flex-wrap:wrap}
+.finder-terrain-controls>div{min-width:225px;flex:1 1 270px}
+.finder-terrain-controls strong{display:block;color:#d4e8de;font:600 12px 'Space Grotesk',sans-serif}
+.finder-terrain-controls small{display:block;margin-top:5px;font:10px/1.55 'DM Mono',monospace;color:#a3b9bc}
+.finder-terrain-controls .outline-button{font-size:10px;padding:10px 12px;white-space:normal;text-align:center}
+.finder-terrain-controls .outline-button:disabled{opacity:.55;cursor:progress}
+.finder-data-status{margin:10px 0 2px;color:#bdd7ca;font:10px/1.7 'DM Mono',monospace}
+.finder-site-label small{overflow:hidden;text-overflow:ellipsis}
+@media(max-width:650px){.finder-terrain-controls{align-items:stretch;flex-direction:column}
+.finder-terrain-controls .outline-button{width:100%}}
