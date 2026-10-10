@@ -15,7 +15,18 @@ globalThis.GeoTIFF=GeoTIFF;
 const profiles={};
 for(const site of SITES){
   console.error('Fetching real NASA LOLA horizon: '+site.name);
-  const profile=await loadLolaTerrain(site,{onProgress:s=>console.error(site.id+': '+s)});
+  let profile,lastError;
+  for(let attempt=1;attempt<=4;attempt++){
+    try{
+      profile=await loadLolaTerrain(site,{onProgress:s=>console.error(site.id+' attempt '+attempt+': '+s)});
+      break;
+    }catch(error){
+      lastError=error;
+      console.error('NASA tile request failed at '+site.name+' attempt '+attempt+': '+error.message);
+      if(attempt<4)await new Promise(resolve=>setTimeout(resolve,800*attempt));
+    }
+  }
+  if(!profile)throw Error('Cannot publish terrain data for '+site.name+' after retries: '+lastError?.message);
   if(!profile.verifiedSource||profile.coveragePct<80)
     throw Error('Refusing to archive incomplete/non-NASA profile: '+site.name);
   const entries=profile.elevationDeg;
