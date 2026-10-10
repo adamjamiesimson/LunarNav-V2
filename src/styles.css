@@ -19,3 +19,45 @@
 .map-panel-head .map-tool:focus-visible,#moon-map:focus-visible{outline:2px solid #ddf9d6;outline-offset:2px;}
 @media(max-width:760px){.map-stage{height:470px}.map-footer{line-height:1.5}.map-panel-head .map-tool{min-width:28px;}}
 @media(max-width:450px){.map-stage{height:380px}}
+
+
+/* Phase 2: engineering feasibility and optional NASA DEM */
+.engineering-section{padding:42px clamp(16px,3.6vw,66px) 22px;scroll-margin-top:76px}
+.engineering-heading{align-items:flex-end}
+.engineering-heading h2{font-size:clamp(28px,3vw,44px)}
+.engineering-grid{display:grid;grid-template-columns:minmax(240px,.94fr) minmax(320px,1.35fr) minmax(260px,.98fr);gap:14px;align-items:stretch}
+.engineering-grid .panel{padding:24px;border:1px solid rgba(138,184,205,.16);border-radius:8px;background:radial-gradient(ellipse at 15% -15%,rgba(35,65,75,.2),transparent 60%),#0e171f}
+.engineering-grid h3{font:600 18px 'Space Grotesk',sans-serif;margin:7px 0 0}
+.sim-tag{display:inline-flex;align-items:center;padding:7px 9px;border:1px solid rgba(199,230,219,.18);border-radius:4px;font:9px 'DM Mono',monospace;letter-spacing:.05em;color:#b1d4c4;white-space:nowrap}
+.engineering-heading .sim-tag{margin-bottom:8px}
+.engineering-inputs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:21px 0}
+.engineering-inputs label{font-size:12px;color:#c8d7da;font-weight:500;display:flex;flex-direction:column;gap:8px}
+.engineering-inputs label small{font:10px 'DM Mono',monospace;color:#96a9b4}
+.engineering-inputs input{width:100%;border:1px solid rgba(159,201,208,.19);border-radius:4px;background:#081019;color:#eff8f6;padding:10px 12px;font:500 15px 'Space Grotesk',sans-serif}
+.engineering-inputs input:focus{border-color:#b5e1c5}
+.assumption-caption,.terrain-foot{font-size:11px;line-height:1.7;color:#8fa5b3}
+.engineering-export{margin-top:12px;width:100%;justify-content:center}
+.engineering-kpis{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin:22px 0}
+.engineering-kpis>div{border:1px solid rgba(150,183,201,.15);background:rgba(4,12,18,.36);border-radius:5px;padding:14px;min-width:0}
+.engineering-kpis small{font:10px 'DM Mono',monospace;color:#9fb3bd;display:block;line-height:1.5}
+.engineering-kpis strong{display:block;color:#eaf3ed;font:600 clamp(24px,2.2vw,34px) 'Space Grotesk',sans-serif;margin:10px 0 6px}
+.engineering-kpis span{font:10px 'DM Mono',monospace;color:#93a9b1}
+.charge-chart-head{display:flex;justify-content:space-between;gap:8px;color:#a8b8bf;font:9px 'DM Mono',monospace}
+.charge-chart{width:100%;height:105px;margin-top:14px;background:linear-gradient(180deg,rgba(54,91,86,.13),transparent);border-bottom:1px solid rgba(179,207,217,.12)}
+.charge-chart svg,.terrain-plot svg{width:100%;height:100%;display:block}
+.engineering-verdict{font-size:12px;line-height:1.6;background:rgba(8,21,26,.76);padding:12px;border-left:2px solid #b5d4ad;color:#d2e7d6}
+.terrain-intro{color:#b5c5cd;font-size:12px;line-height:1.75;margin:14px 0 16px}
+.terrain-intro a,.terrain-foot a{color:#d4e6d4;text-underline-offset:4px}
+.terrain-actions{display:flex;flex-direction:column;gap:12px}
+.terrain-load{padding:12px 15px;width:100%;text-align:center}
+.terrain-load:disabled{opacity:.5;cursor:wait}
+.terrain-import{font-size:11px;color:#d1e5dc;text-align:center;cursor:pointer;text-decoration:underline;text-underline-offset:4px}
+#terrain-file{max-width:100%;width:100%;color:#95acb5;font-size:10px}
+#terrain-file::file-selector-button{display:none}
+.terrain-status{font-size:11px;line-height:1.7;color:#b1c6c6;min-height:60px}
+.terrain-plot{height:104px;position:relative;border:1px solid rgba(150,190,205,.16);border-radius:4px;padding:4px}
+.terrain-empty{padding:25px 13px;text-align:center;color:#899da9;font:10px 'DM Mono',monospace;line-height:2}
+.terrain-empty span{color:#d3b48e}
+@media(max-width:1290px){.engineering-grid{grid-template-columns:minmax(250px,1fr) minmax(370px,1.3fr)}.terrain-panel{grid-column:1/-1}.terrain-plot{height:90px}}
+@media(max-width:770px){.engineering-section{padding:27px 15px}.engineering-grid{grid-template-columns:1fr}.terrain-panel{grid-column:auto}.engineering-grid .panel{padding:20px}.engineering-heading{display:block}.engineering-heading .sim-tag{margin:12px 0}.engineering-kpis strong{font-size:29px}}
+@media(max-width:450px){.engineering-inputs{gap:10px}.engineering-kpis{gap:8px}.engineering-kpis>div{padding:11px}.engineering-kpis strong{font-size:25px}}
