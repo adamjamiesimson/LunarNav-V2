@@ -16,6 +16,10 @@ const startSite=SITES.find(x=>x.id===params.get('site'))||SITES[0];
 const startDays=[3,7,14,28].includes(Number(params.get('days')))?Number(params.get('days')):7;
 const startDate=/^\d{4}-\d{2}-\d{2}$/.test(params.get('date')||'')?params.get('date'):'2026-11-14';
 const state={site:startSite,date:startDate,time:'12:00',days:startDays,offset:0,base:null,samples:[],ranking:[],playing:false,terrain:null,engineering:{...DEFAULT_ENGINEERING},simulation:null};
+const terrainProfiles=new Map();
+const terrainKey=site=>site.id+'|'+site.lat.toFixed(6)+'|'+site.lon.toFixed(6);
+const getCachedTerrain=site=>terrainProfiles.get(terrainKey(site))||null;
+let terrainBatchLoading=false;
 let playTimer,toastTimer;
 const siteSelect=$('#site-select');
 SITES.forEach(site=>siteSelect.add(new Option(`${site.name}  ·  ${site.tag}`,site.id)));
@@ -29,7 +33,7 @@ const map=createMap($('#moon-map'),{onPick:selectSite,onHover:(site,e)=>{const t
 function selectSite(site){stopPlay();state.site=site;if(site.custom&&!siteSelect.querySelector('[value="custom"]'))siteSelect.add(new Option('Custom waypoint  ·  Map-selected','custom'));siteSelect.value=site.id;updateAnalysis();toast(`${site.name} selected`);}
 function updateSelected(){const site=state.site;$('#selected-name').textContent=site.name;$('#selected-tag').textContent=site.tag;$('#selected-coord').textContent=fmtCoord(site.lat,site.lon);$('#selected-type').textContent=site.kind;$('#site-source').href=site.source||'https://science.nasa.gov/moon/';$('#site-source').style.display=site.custom?'none':'';$('#map-site-name').textContent=site.name.toUpperCase();$('#map-coordinate').textContent=fmtCoord(site.lat,site.lon);$('.site-dot').style.background=site.accent;map.render(site);}
 function readDate(){const date=$('#mission-date').value;const time=$('#mission-time').value;if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d\d:\d\d$/.test(time))throw new Error('Enter a valid UTC date and time.');const base=new Date(`${date}T${time}:00Z`);if(!Number.isFinite(base.getTime()))throw new Error('Invalid UTC date.');return {date,time,base};}
-function updateAnalysis(){try{if(state.terrain&&(state.terrain.lat!==state.site.lat||state.terrain.lon!==state.site.lon))state.terrain=null;const x=readDate();state.date=x.date;state.time=x.time;state.base=x.base;state.offset=0;state.samples=sampleWindow({start:state.base,lat:state.site.lat,lon:state.site.lon,days:state.days,stepHours:2});state.ranking=rankedSites(SITES,state.base,state.days);$('#time-scrubber').max=String(state.days*24);$('#time-scrubber').value='0';$('#metric-days').textContent=`${state.days} DAYS`;$('#end-label').textContent=`+${state.days} DAYS`;$('#timeline-start').textContent=shortDate(state.base);$('#timeline-end').textContent=shortDate(new Date(state.base.getTime()+state.days*86400000));updateSelected();updateMetrics();drawTimeline();drawComparison();updateInspection();updateMissionPanels();updateURL();}catch(e){toast(e.message||'Could not calculate the mission window.');}}
+function updateAnalysis(){try{state.terrain=getCachedTerrain(state.site);const x=readDate();state.date=x.date;state.time=x.time;state.base=x.base;state.offset=0;state.samples=sampleWindow({start:state.base,lat:state.site.lat,lon:state.site.lon,days:state.days,stepHours:2});state.ranking=rankedSites(SITES,state.base,state.days);$('#time-scrubber').max=String(state.days*24);$('#time-scrubber').value='0';$('#metric-days').textContent=`${state.days} DAYS`;$('#end-label').textContent=`+${state.days} DAYS`;$('#timeline-start').textContent=shortDate(state.base);$('#timeline-end').textContent=shortDate(new Date(state.base.getTime()+state.days*86400000));updateSelected();updateMetrics();drawTimeline();drawComparison();updateInspection();updateMissionPanels();updateURL();}catch(e){toast(e.message||'Could not calculate the mission window.');}}
 function updateMetrics(){const stats=summarize(state.samples);$('#dual-value').textContent=stats.dual.toFixed(1);$('#sun-value').textContent=fmtPct(stats.sun);$('#earth-value').textContent=fmtPct(stats.earth);$('#blackout-value').textContent=stats.longestBlackoutHours.toFixed(0)+' h';$('#sun-bar').style.width=`${stats.sun}%`;$('#earth-bar').style.width=`${stats.earth}%`;$('#metric-ring').style.setProperty('--metric-pct',`${stats.dual}%`);const best=longestDualWindow(state.samples);$('#best-window-length').textContent=best.hours?`${best.hours.toFixed(0)} hours`:'No dual-access window';$('#best-window-dates').textContent=best.start?`${shortDate(new Date(best.start))} → ${shortDate(new Date(best.end))} (UTC)`:'No continuous overlap detected in sampled period';}
 function drawTimeline(){const list=state.samples.slice(0,-1),N=list.length;const rows=[['SUNLIGHT',x=>x.sun.visible,'sun'],['EARTH LINK',x=>x.earth.visible,'earth'],['DUAL WINDOW',x=>x.dual,'dual']];const W=960,H=126,L=112,R=12,Y=17,rowGap=34,rowH=17,width=W-L-R;let svg=`<svg class="timeline-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Mission visibility timeline">`;
   for(let d=0;d<=state.days;d++){const x=L+width*d/state.days;svg+=`<line x1="${x}" x2="${x}" y1="6" y2="${Y+rowGap*2+rowH+7}" stroke="rgba(211,224,233,${d===0||d===state.days?'.17':'.08'})" stroke-dasharray="3 5"/>`;if(d<state.days)svg+=`<text x="${x+4}" y="${H-6}" fill="#7e909d" font-size="10" font-family="DM Mono,monospace">${d===0?'D01':d%2===0||state.days<=7?'D'+String(d+1).padStart(2,'0'):''}</text>`;}
@@ -94,7 +98,7 @@ function updateTerrainPanel(){
     $('#terrain-plot').innerHTML='<div class="terrain-empty">WAITING FOR ELEVATION DATA <span>—</span> FLAT HORIZON</div>';
     return;
   }
-  $('#terrain-status').textContent='LOLA terrain active at '+state.site.name+' · '+p.resolutionM.toFixed(0)+' m/pixel · '+p.radiusKm+' km search · '+p.coveragePct.toFixed(0)+'% sample coverage. Estimates are not flight validated.';
+  $('#terrain-status').textContent=(p.provenance||p.source)+' · '+state.site.name+' · '+p.resolutionM.toFixed(0)+' m/pixel · '+p.radiusKm+' km search · '+p.coveragePct.toFixed(0)+'% coverage. Not flight validated.';
   const points=p.elevationDeg.map((v,i)=>{
     const x=10+i*890/(p.elevationDeg.length-1),y=73-Math.min(60,v*13);
     return x.toFixed(1)+','+y.toFixed(1);
@@ -116,9 +120,11 @@ async function requestTerrain(file=null){
       toast('Site changed while loading terrain; reload for the current site.');
       return;
     }
+    terrainProfiles.set(terrainKey(state.site),profile);
     state.terrain=profile;
     updateMissionPanels();
-    toast('NASA LOLA terrain horizon applied to selected-site feasibility');
+    updateFinderCoverage();
+    toast('Terrain loaded for '+state.site.name+' · '+profile.provenance);
   }catch(e){
     state.terrain=null;
     updateMissionPanels();
@@ -145,6 +151,48 @@ function exportEngineeringCSV(){
   toast('Engineering simulation CSV exported');
 }
 
+
+
+function coverageEntries(){
+  return SITES.map(site=>({site,terrain:getCachedTerrain(site)})).filter(entry=>Boolean(entry.terrain));
+}
+function updateFinderCoverage(){
+  const available=coverageEntries();
+  $('#finder-terrain-count').textContent=available.length+' of '+SITES.length+' sites have loaded terrain ('+
+    available.filter(entry=>entry.terrain.verifiedSource).length+' from NASA URL)';
+  if($('#finder-mode').value==='terrain' && available.length<2){
+    $('#finder-data-status').textContent='Terrain comparison needs at least two valid loaded DEM profiles. Load NASA data or import a compatible GeoTIFF for two sites in the planner.';
+  }
+}
+async function tryLoadAllTerrain(){
+  if(terrainBatchLoading||$('#terrain-load').disabled)return;
+  terrainBatchLoading=true;$('#finder-load-all').disabled=true;
+  const failures=[];
+  try{
+    for(const site of SITES){
+      if(getCachedTerrain(site))continue;
+      $('#finder-data-status').textContent='Requesting NASA 80m LOLA DEM: '+site.name+'…';
+      try{
+        const profile=await loadLolaTerrain(site,{onProgress:message=>{
+          $('#finder-data-status').textContent=site.name+' · '+message;
+        }});
+        terrainProfiles.set(terrainKey(site),profile);
+        if(state.site.id===site.id&&state.site.lat===site.lat&&state.site.lon===site.lon){
+          state.terrain=profile;updateMissionPanels();
+        }
+      }catch(error){
+        failures.push(site.name+': '+error.message);
+      }
+      updateFinderCoverage();
+    }
+    const count=coverageEntries().length;
+    $('#finder-data-status').textContent=failures.length
+      ?'Loaded '+count+' sites. '+failures.length+' failed (NASA/CDN or projection): '+failures.slice(0,2).join(' | ')+
+         (failures.length>2?'…':'')+'. Only successfully loaded sites can participate.'
+      :'Loaded '+count+' NASA terrain profiles. Select loaded terrain mode and run the finder.';
+    if($('#finder-mode').value==='terrain'&&count>=2)runFinder();
+  }finally{terrainBatchLoading=false;$('#finder-load-all').disabled=false;}
+}
 
 let finderRequest=0;
 function finderOpen(siteId,iso,days){
@@ -188,7 +236,7 @@ function finderPreview(result){
   }
   html+='</div>';
   $('#finder-heatmap').innerHTML=html;
-  $('#finder-caption').textContent=matrix.length+' sites × '+searchDays+' UTC start dates · '+windowDays+'-day missions · '+stepHours+'-hour sampling';
+  $('#finder-caption').textContent=matrix.length+' '+(result.terrainMode==='terrain'?'terrain-covered':'geometric')+' sites × '+searchDays+' UTC start dates · '+windowDays+'-day missions · '+stepHours+'-hour sampling';
   const chosen=[],used={};
   for(const w of result.ranked){
     if(chosen.length===6)break;
@@ -206,7 +254,7 @@ function finderPreview(result){
       w.longestDarknessHours+'h longest dark</div></div><div class="finder-window-score"><strong>'+w.score.toFixed(1)+
       '</strong><small>'+scoreLabel+'</small></div><span aria-hidden="true" class="finder-window-arrow">↗</span></button>';
   }).join('');
-  $('#finder-shell-status').textContent='Ranking criterion: '+result.scoring+'; 0° geometric horizon, UTC noon starts.';
+  $('#finder-shell-status').textContent='Ranking: '+result.scoring+'; '+(result.terrainMode==='terrain'?'loaded DEM azimuth horizons for all displayed sites':'geometric flat 0° horizon')+'; UTC noon starts. No landing safety or RF link budgets.';
   for(const element of document.querySelectorAll('[data-date][data-site]')){
     element.addEventListener('click',()=>finderOpen(element.dataset.site,element.dataset.date,windowDays));
   }
@@ -216,6 +264,7 @@ function runFinder(){
   const searchDays=Number($('#finder-range').value);
   const windowDays=Number($('#finder-duration').value);
   const priority=$('#finder-priority').value;
+  const terrainMode=$('#finder-mode').value;
   const token=++finderRequest;
   $('#finder-run').disabled=true;
   $('#finder-caption').textContent='Scanning dates and sites…';
@@ -223,8 +272,13 @@ function runFinder(){
   requestAnimationFrame(()=>{
     if(token!==finderRequest)return;
     try{
+      const entries=coverageEntries();
+      if(terrainMode==='terrain'&&entries.length<2)throw Error('Load terrain profiles for at least two sites. Cannot rank unavailable DEM as flat terrain.');
+      const sites=terrainMode==='terrain'?entries.map(entry=>entry.site):SITES;
+      const terrainById=Object.fromEntries(entries.map(entry=>[entry.site.id,entry.terrain]));
       const result=findMissionWindows({
-        sites:SITES,startDate,searchDays,windowDays,stepHours:4,priority
+        sites,startDate,searchDays,windowDays,stepHours:4,priority,
+        terrainMode,terrainProfiles:terrainMode==='terrain'?terrainById:null
       });
       state.finder=result;
       finderPreview(result);
@@ -238,12 +292,13 @@ function runFinder(){
 }
 function exportFinderCSV(){
   if(!state.finder)return toast('Run the window finder first');
-  const header=['site','start_utc','duration_days','sun_pct','earth_pct','dual_pct','max_dark_hours','max_earth_gap_hours','longest_dual_hours','rank_score','priority','sampling_hours','horizon'];
+  const header=['site','start_utc','duration_days','sun_pct','earth_pct','dual_pct','max_dark_hours','max_earth_gap_hours','longest_dual_hours','rank_score','priority','sampling_hours','horizon','data_source'];
   const lines=state.finder.ranked.map(w=>[
     w.siteName,w.startDate,w.windowDays,w.sunPct.toFixed(2),w.earthPct.toFixed(2),
     w.dualPct.toFixed(2),w.longestDarknessHours,w.longestEarthBlackoutHours,
     w.longestDualHours,w.score.toFixed(2),state.finder.priority,state.finder.stepHours,
-    'smooth spherical 0 deg, no terrain'
+    state.finder.terrainMode==='terrain'?'loaded DEM 20km azimuth horizon for this site':'smooth spherical 0 deg, no terrain',
+    state.finder.terrainMode==='terrain'?(getCachedTerrain(SITES.find(x=>x.id===w.siteId))?.provenance||'source unavailable'):'analytical-screening-v1'
   ].map(value=>'"'+String(value).replaceAll('"','""')+'"').join(','));
   const csv=[header.join(','),...lines].join('\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
@@ -289,6 +344,13 @@ $('#export-model').addEventListener('click',exportEngineeringCSV);
 $('#finder-date').value=state.date;
 $('#finder-duration').value=[3,7,14].includes(state.days)?String(state.days):'7';
 $('#finder-run').addEventListener('click',runFinder);
+$('#finder-mode').addEventListener('change',()=>{updateFinderCoverage();runFinder();});
+$('#finder-load-all').addEventListener('click',tryLoadAllTerrain);
+$('#finder-open-terrain').addEventListener('click',()=>{
+  $('#engineering').scrollIntoView({behavior:'smooth',block:'start'});
+  toast('Select a site above, then load NASA terrain or import its 80m GeoTIFF.');
+});
 $('#finder-export').addEventListener('click',exportFinderCSV);
 updateAnalysis();
+updateFinderCoverage();
 runFinder();

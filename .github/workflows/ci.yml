@@ -15,6 +15,10 @@ jobs:
           node-version: '22'
       - run: npm test
       - run: npm run build
+      - name: Check NASA LOLA range access and GeoTIFF bundle (best effort)
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        run: npm run check:lola
       - name: Live independent NASA/JPL Horizons audit (best effort)
         if: github.event_name == 'pull_request'
         continue-on-error: true

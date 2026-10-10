@@ -2,15 +2,15 @@
  * Sliding mission-window scan for Moon south-pole candidate sites.
  *
  * Uses exactly the same analytical ephemeris as the mission planner, sampled
- * on a uniform UTC grid. No terrain is applied: the finder is intended to
- * compare like-for-like sites without mixing loaded and missing DEM coverage.
+ * on a uniform UTC grid. Optional loaded NASA LOLA horizon profiles can be
+ * applied to sites whose DEM was actually loaded; no mixed-mode rankings.
  * All percentages are sample-based exploratory estimates, NOT verified
  * JPL Horizons or flight-qualified operational probabilities.
  */
 import {ephemeris} from './astro.js';
+import {horizonAt} from './mission.js';
 
 const HOUR=3600000,DAY=24*HOUR;
-const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 
 export const FINDER_WEIGHTS=Object.freeze({dual:0.7,sun:0.15,earth:0.15});
 export const finderScore=(v,priority)=>{
@@ -39,25 +39,42 @@ const longestRun=(values,start,length,predicate,stepHours)=>{
 
 /** Analyze each possible UTC start date, sharing one sampled ephemeris array per site. */
 export function findMissionWindows({
-  sites,startDate,searchDays=30,windowDays=7,stepHours=4,priority='balanced'
+  sites,startDate,searchDays=30,windowDays=7,stepHours=4,priority='balanced',
+  terrainProfiles=null,terrainMode='flat'
 }={}){
   const epoch=ensureDate(startDate);
+  if(!['flat','terrain'].includes(terrainMode))throw Error('Unknown terrain mode');
   if(!Array.isArray(sites)||!sites.length||sites.length>20)throw Error('Select 1–20 valid sites');
   if(!Number.isInteger(searchDays)||searchDays<1||searchDays>90)throw Error('Search must be 1–90 days');
   if(!Number.isInteger(windowDays)||windowDays<1||windowDays>28)throw Error('Mission duration must be 1–28 days');
   if(![1,2,3,4,6,8,12,24].includes(stepHours))throw Error('Unsupported sampling step');
   if(!['balanced','sun','earth'].includes(priority))throw Error('Invalid finder priority');
   if(24%stepHours!==0)throw Error('Sampling must evenly divide a day');
+  if(terrainMode==='terrain'){
+    if(!terrainProfiles||typeof terrainProfiles!=='object')throw Error('NASA terrain data must be loaded before terrain-aware rankings');
+    const missing=sites.filter(site=>{
+      const p=terrainProfiles[site.id];
+      return !p||!Array.isArray(p.azimuthDeg)||!Array.isArray(p.elevationDeg)||
+        p.azimuthDeg.length<8||p.elevationDeg.length!==p.azimuthDeg.length||
+        Math.abs(p.lat-site.lat)>0.000001||Math.abs(p.lon-site.lon)>0.000001||
+        !p.source||!(p.coveragePct>=80)||
+        !p.elevationDeg.every(v=>Number.isFinite(v)&&v>=0&&v<=90)||
+        !p.azimuthDeg.every((v,i)=>Number.isFinite(v)&&Math.abs(v-i*360/p.azimuthDeg.length)<0.001);
+    });
+    if(missing.length)throw Error('Cannot compare mixed terrain coverage. Missing valid NASA DEM: '+missing.map(s=>s.name).join(', '));
+  }
   const stepsPerDay=24/stepHours,steps=windowDays*stepsPerDay;
   const intervals=(searchDays-1+windowDays)*stepsPerDay;
   const matrix=[],all=[];
   for(const site of sites){
     if(!Number.isFinite(site.lat)||!Number.isFinite(site.lon)||site.lat < -90||site.lat>90)
       throw Error('Invalid coordinates for site '+(site.name||'unknown'));
+    const profile=terrainMode==='terrain'?terrainProfiles[site.id]:null;
     const samples=Array.from({length:intervals},(_,i)=>{
       const obs=ephemeris(new Date(epoch+i*stepHours*HOUR),site.lat,site.lon);
-      return {sun:obs.sun.visible,earth:obs.earth.visible,
-        dual:obs.sun.visible&&obs.earth.visible};
+      const sun=obs.sun.elevation>(profile?horizonAt(profile,obs.sun.azimuth):0);
+      const earth=obs.earth.elevation>(profile?horizonAt(profile,obs.earth.azimuth):0);
+      return {sun,earth,dual:sun&&earth};
     });
     const sun=[0],earth=[0],dual=[0];
     for(const item of samples){
@@ -80,7 +97,7 @@ export function findMissionWindows({
       item.score=finderScore(item,priority);
       return item;
     });
-    matrix.push({site,windows});
+    matrix.push({site,windows,terrain:profile?{source:profile.source,coveragePct:profile.coveragePct,resolutionM:profile.resolutionM,radiusKm:profile.radiusKm}:null});
     all.push(...windows);
   }
   all.sort((a,b)=>b.score-a.score || b.dualPct-a.dualPct ||
@@ -89,7 +106,7 @@ export function findMissionWindows({
   return {matrix,ranked:all,top:all.slice(0,10),bestBySite:matrix.map(m=>({
     site:m.site,best:[...m.windows].sort((a,b)=>b.score-a.score || b.dualPct-a.dualPct)[0]
   })).sort((a,b)=>b.best.score-a.best.score),
-  startDate,searchDays,windowDays,stepHours,priority,
+  startDate,searchDays,windowDays,stepHours,priority,terrainMode,
   scoring:priority==='balanced'?'70% simultaneous + 15% Sun + 15% Earth':priority==='sun'?'Solar access':'Earth geometric visibility',
-  model:'analytical-screening-v1, smooth horizon, UTC, 4-hour samples'};
+  model:terrainMode==='terrain'?'analytical-screening-v1 + loaded LOLA 20km local horizon, UTC, sampled intervals':'analytical-screening-v1, smooth horizon, UTC, sampled intervals'};
 }

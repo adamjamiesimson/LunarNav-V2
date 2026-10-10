@@ -97,20 +97,55 @@ function subsetWindow(image,site,radiusKm){
   const rows=[(siteXY.y-extra-originY)/resolutionY,(siteXY.y+extra-originY)/resolutionY];
   const left=clamp(Math.floor(Math.min(...cols)),0,image.getWidth()),right=clamp(Math.ceil(Math.max(...cols)),0,image.getWidth());
   const top=clamp(Math.floor(Math.min(...rows)),0,image.getHeight()),bottom=clamp(Math.ceil(Math.max(...rows)),0,image.getHeight());
+  const pixelSize=Math.max(Math.abs(resolutionX),Math.abs(resolutionY));
+  if(pixelSize<60||pixelSize>100)throw Error('Expected NASA 80 m/pixel DEM; found '+pixelSize.toFixed(1)+' m/pixel');
+  if(Math.abs(Math.abs(resolutionX)-Math.abs(resolutionY))>1)
+    throw Error('DEM pixels are not square; cannot use stereographic horizon assumptions');
   if(right-left<3||bottom-top<3)throw Error('Site outside the selected LOLA raster');
   if((right-left)*(bottom-top)>1600000)throw Error('DEM window too large for interactive terrain sampling');
   return {window:[left,top,right,bottom],
     originX:originX+left*resolutionX,originY:originY+top*resolutionY,
     resolutionX,resolutionY};
 }
+
+/** COGs require true 206 byte responses; reject proxies returning the entire 181 MB image. */
+export async function selectSafeLolaSource(){
+  const candidates=['/assets/lola-80m.tif',LOLA_COG];
+  const errors=[];
+  for(const url of candidates){
+    try{
+      const response=await fetch(url,{
+        headers:{Range:'bytes=0-63'},
+        signal:AbortSignal.timeout(10000),cache:'no-store'
+      });
+      // Immediately cancel even when the server responds 200 with a full file.
+      await response.body?.cancel();
+      if(response.status===206)return url;
+      errors.push(url+': HTTP '+response.status+' (requires 206 Partial Content)');
+    }catch(error){errors.push(url+': '+error.message);}
+  }
+  throw Error('NASA terrain byte-range access is unavailable. '+errors.join(' | ')+'. Use a local compatible 80m GeoTIFF.');
+}
+
 /** Explicit user-triggered loading. No invisible automatic network requests. */
 export async function loadLolaTerrain(site,{file=null,onProgress=()=>{}}={}){
   const g=await ensureGeoTIFF();
   onProgress('Opening NASA LOLA elevation metadata…');
   // fromUrl uses HTTP ranges for the cloud-optimized remote GeoTIFF.
   // Local .tif files remain an escape hatch when CORS or upstream access fails.
-  const tiff=file?await g.fromBlob(file):await g.fromUrl(LOLA_COG);
+  const remoteUrl=file?null:await selectSafeLolaSource();
+  if(remoteUrl)onProgress('Loading safe 206-byte-range NASA terrain source…');
+  const tiff=file?await g.fromBlob(file):await g.fromUrl(remoteUrl);
   const image=await tiff.getImage();
+  // Coordinate conventions are explicit: MOON_ME south-polar stereographic,
+  // metres and 80m/pixel. GeoTIFF projection metadata is often custom for
+  // planetary CRS, so we validate measurable bounds/resolution instead of
+  // quietly assuming an Earth EPSG identifier.
+  const box=image.getBoundingBox();
+  const center=polarXY(site.lat,site.lon);
+  if(box.length!==4 || !box.every(Number.isFinite) || center.x<box[0]||
+    center.x>box[2]||center.y<box[1]||center.y>box[3])
+    throw Error('Selected coordinates do not project inside this DEM; verify MOON_ME south-polar georeferencing');
   const radiusKm=20;
   const {window,...geo}=subsetWindow(image,site,radiusKm);
   onProgress('Reading a local 40 km DEM patch (may take a moment)…');
@@ -121,6 +156,9 @@ export async function loadLolaTerrain(site,{file=null,onProgress=()=>{}}={}){
     data,width:r.width,height:r.height,...geo,
     noData:typeof image.getGDALNoData==='function'?image.getGDALNoData():null
   },site,{radiusKm,azimuthBins:72,stepMeters:200});
-  result.loadedFrom=file?'Local NASA LOLA GeoTIFF':'NASA LOLA COG via byte-range reads';
+  result.loadedFrom=file?'Local GeoTIFF supplied by user':'NASA LOLA COG via byte-range reads';
+  result.provenance=file?'User-provided GeoTIFF: its origin is NOT independently verified':(remoteUrl.startsWith('/')?'Vercel same-origin NASA COG proxy':'NASA PGDA direct COG URL');
+  result.source=file?'User-supplied 80m GeoTIFF, asserted compatible with LOLA MOON_ME projection':'NASA GSFC PGDA LOLA 80m south-polar DEM';
+  result.verifiedSource=!file;
   return result;
 }

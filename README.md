@@ -137,3 +137,25 @@ Source: real [NASA/JPL Horizons API](https://ssd-api.jpl.nasa.gov/doc/horizons.h
 - [Initial November 2026 fixture](tests/fixtures/jpl-horizons-20261114.csv) — 10 UTC/site rows = 20 independently queried target angles.
 
 Automated regression checks ensure each of these **sampled reference cases** stays within a 1° tolerance. That tolerance is an engineering test threshold and **not** a blanket accuracy claim: worst-case angular error across all lunar dates/coordinates is not established. Predictions within approximately a degree of the apparent horizon are particularly sensitive to model error, sample interval, terrain, solar/Earth disc size and illumination/refraction conventions. JPL apparent positions and the current analytical geometry are not identical in their physical assumptions. We have not independently verified the LOLA DEM loader's absolute georegistration, all landing-site coordinates, or the power model against flight-grade software. A future kernel-based ephemeris should aim to reduce the remaining systematic angle differences.
+
+## Phase 4 — Coverage-aware NASA LOLA terrain comparison
+
+The Mission Window Finder now has an **explicit horizon-source selector**:
+- **Geometric baseline (default)** compares all five published study coordinates using the same smooth 0° horizon assumptions as before. This mode always works without NASA DEM downloads.
+- **Loaded terrain** compares **only** sites whose entire 20 km local-horizon profile was actually computed from compatible 80 m/pixel GeoTIFF elevations. **At least two** successfully loaded sites are required, and the Finder never mixes real terrain-corrected sites with unavailable/flat-horizon ones. Missing/stale/unvalidated horizon arrays produce an explicit error, not false zeros.
+- **Load NASA terrain for all sites** attempts a sequential download of the needed local COG windows via range requests; partial failures are displayed site by site. You can also load a compatible TIFF manually for individual sites in the planner, then return to Finder. Those imported files are **user-supplied and unverified**; the app never claims they came from NASA. Successfully loaded site profiles are cached within the browser session for comparisons, not persisted or uploaded.
+- The Finder's heatmap/CSV exports show which horizon model was used, and exports record the data provenance. The engineering panel still uses its loaded profile for the currently selected site.
+
+### NASA server and georeferencing limitations
+
+The exact [NASA GSFC PGDA 80m south polar COG](https://pgda.gsfc.nasa.gov/products/90) is `LDEM_80S_80MPP_ADJ.TIF`, hosted under `https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/`. NASA's site may temporarily return HTTP 503, fail CORS, or not support requests from Vercel/browser locations. Our built-in **best-effort availability probe** (`npm run check:lola`) checks the COG with a 256-byte HTTP range request and the pinned GeoTIFF.js browser library. **Even a successful probe does not prove that real browser decoding, projection and scientific horizon coordinates are correct.**
+
+The DEM loader checks that the user's coordinate projects within the data bounding box, that the georeferencing gives roughly square 80 m/pixel cells, and that at least 80% of sampled horizon pixels are valid. It uses a south-polar stereographic MOON_ME coordinate assumption with east-positive longitude. This is a *provisional* engineering implementation, not independently verified GIS registration. Far-field occlusion beyond 20 km, permanent shadow, local slopes, spacecraft height, solar/Earth limb and measurement uncertainty remain unaccounted for. Do not interpret Finder percentages or rankings as flight-qualified landing recommendations.
+
+Reference: Barker et al. (2023), [NASA PGDA](https://pgda.gsfc.nasa.gov/products/90), [data DOI 10.60903/gsfcpgda-lola-spole](https://doi.org/10.60903/gsfcpgda-lola-spole).
+
+### Same-origin terrain proxy and safety preflight
+
+The Vercel project now rewrites `/assets/lola-80m.tif` to NASA's public `LDEM_80S_80MPP_ADJ.TIF` URL, because NASA's raw Range response can omit browser CORS headers. Before opening a remote DEM, `selectSafeLolaSource()` sends a 64-byte Range request and **requires HTTP 206**; if Vercel does not preserve the Range response, it attempts NASA's direct URL only if CORS and partial bytes work. If neither endpoint provides safe partial access, the app refuses remote terrain loading rather than accidentally downloading the complete 181 MB dataset. The local file-import option remains available.
+
+The October 10 GitHub Actions external availability probe returned **HTTP 206** and a 256-byte response from NASA, while the GeoTIFF.js bundle returned 200. NASA's direct response omitted a visible Access-Control-Allow-Origin header in that check; this is **not** proof that the website's same-origin rewrite supports 206, or that in-browser raster decoding and the 20 km horizon work. Those still require browser testing.
