@@ -16,7 +16,7 @@
   <div id="app">
     <header class="topbar">
       <div class="brand" aria-label="LunarNav home"><span class="brand-icon"><span></span></span><div><strong>LUNAR<span>NAV</span></strong><small>MISSION INTELLIGENCE</small></div></div>
-      <nav class="main-nav" aria-label="Primary navigation"><button class="nav-link active" data-scroll="planner">Mission planner</button><button class="nav-link" data-scroll="compare">Site comparison</button><button class="nav-link" id="method-nav">Methodology</button></nav>
+      <nav class="main-nav" aria-label="Primary navigation"><button class="nav-link active" data-scroll="planner">Mission planner</button><button class="nav-link" data-scroll="finder">Window finder</button><button class="nav-link" data-scroll="compare">Site comparison</button><button class="nav-link" id="method-nav">Methodology</button></nav>
       <div class="top-actions"><span class="signal"><i></i> ANALYTICAL MODEL</span><button class="icon-button" id="share-btn" title="Copy shareable link" aria-label="Copy shareable link"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg></button><button class="top-primary" id="brief-btn">Mission briefing <span>↗</span></button></div>
     </header>
     <main>
@@ -98,7 +98,25 @@
           </div>
         </div>
       </section>
-      <section class="comparison-section" id="compare"><div class="section-title-row"><div><span class="section-n">07 / COMPARE</span><h2>Find your mission advantage<span class="accent-stop">.</span></h2><p>Compare candidate locations for the same UTC window, using the same screening model.</p></div><button class="outline-button" id="download-csv"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3"/></svg> Export CSV</button></div><div id="site-comparison" class="comparison-grid"></div><div class="comparison-note"><span>◇</span> Rankings are based on flat-horizon simultaneous visibility, not landing safety. The comparison is intentionally flat-horizon only; terrain and engineering assumptions apply to the selected site feasibility panel, not these rankings.</div></section>
+
+      <section class="finder-section" id="finder" aria-label="Find mission windows across sites and dates">
+        <div class="section-title-row finder-heading"><div><span class="section-n">07 / FIND THE WINDOW</span><h2>The right place. <em>The right time.</em></h2><p>Compare candidate lunar sites and start dates together. Discover when geometric sunlight and direct-to-Earth opportunities overlap.</p></div><span class="sim-tag">EXPLORATORY · FLAT-HORIZON ANALYTICAL MODEL</span></div>
+        <div class="panel finder-shell">
+          <div class="finder-toolbar">
+            <label>SCAN START · UTC<input type="date" id="finder-date" value="2026-11-14" min="2025-01-01" max="2036-12-31" /></label>
+            <label>SEARCH DATES<select id="finder-range" aria-label="Number of possible start dates"><option value="30" selected>30 days</option><option value="60">60 days</option></select></label>
+            <label>MISSION LENGTH<select id="finder-duration" aria-label="Mission duration for the finder"><option value="3">3 days</option><option value="7" selected>7 days</option><option value="14">14 days</option></select></label>
+            <label>PRIORITIZE<select id="finder-priority" aria-label="Window ranking priority"><option value="balanced" selected>Balanced access</option><option value="sun">Solar access</option><option value="earth">Earth visibility</option></select></label>
+            <button id="finder-run" class="top-primary finder-run" type="button">Find windows →</button>
+          </div>
+          <div class="finder-meta"><div><span class="finder-small-dot"></span><span id="finder-caption">Calculating candidate windows…</span></div><div class="finder-legend"><span><i class="finder-legend-low"></i> Less access</span><span><i class="finder-legend-high"></i> More access</span></div></div>
+          <div class="finder-heatmap-wrap" tabindex="0" aria-label="Horizontally scrollable site and date comparison calendar"><div id="finder-heatmap" class="finder-heatmap" aria-live="polite"></div></div>
+          <div class="finder-results-heading"><div><span class="section-n">RECOMMENDED WINDOWS</span><h3>Highest-ranked opportunities</h3></div><button id="finder-export" class="outline-button">↓ Export all windows</button></div>
+          <div id="finder-top" class="finder-recommendations" aria-live="polite"><p>Comparing mission windows…</p></div>
+          <div class="finder-notice"><strong>How to read this.</strong> Each square is one candidate UTC start date; brighter squares indicate a better match to the selected ranking goal. Select a square to open the full planner. Balanced score = 70% dual access + 15% sunlight + 15% Earth visibility. Values are sampled every four hours, use a smooth 0° horizon and have <strong>not yet been independently verified against JPL Horizons</strong>. Terrain-aware feasibility may differ and does not affect this ranking.</div>
+        </div>
+      </section>
+      <section class="comparison-section" id="compare"><div class="section-title-row"><div><span class="section-n">08 / COMPARE</span><h2>Find your mission advantage<span class="accent-stop">.</span></h2><p>Compare candidate locations for the same UTC window, using the same screening model.</p></div><button class="outline-button" id="download-csv"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3"/></svg> Export CSV</button></div><div id="site-comparison" class="comparison-grid"></div><div class="comparison-note"><span>◇</span> Rankings are based on flat-horizon simultaneous visibility, not landing safety. The comparison is intentionally flat-horizon only; terrain and engineering assumptions apply to the selected site feasibility panel, not these rankings.</div></section>
       <footer class="footer"><div class="brand footer-brand"><span class="brand-icon"><span></span></span><div><strong>LUNAR<span>NAV</span></strong><small>MISSION INTELLIGENCE</small></div></div><p>Made for NASA Space Apps Challenge 2026 · Team 1st LunarNav<br/>Independent experimental prototype. Not affiliated with or endorsed by NASA.</p><div><button id="footer-method">Data & methodology ↗</button><a href="https://www.spaceappschallenge.org/2026/find-a-team/1st-lunarnav/" target="_blank" rel="noopener noreferrer">Team page ↗</a></div></footer>
     </main>
   </div>
