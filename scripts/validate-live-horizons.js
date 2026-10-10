@@ -7,7 +7,13 @@
  */
 import {ephemeris} from '../src/astro.js';
 const endpoint='https://ssd.jpl.nasa.gov/api/horizons.api';
-const sites=[{name:'Mons Mouton',lat:-84.79,lon:29.2},{name:'Malapert Region',lat:-85.99,lon:357.07}];
+const sites=[{name:'Mons Mouton',lat:-84.79,lon:29.2},{name:'Malapert Region',lat:-85.99,lon:357.07},
+  {name:'Shackleton Rim (approx)',lat:-89.9,lon:180.0}];
+const periods=[
+  {start:'2026-11-14 12:00',stop:'2026-11-15 12:00'},
+  {start:'2027-03-14 12:00',stop:'2027-03-15 12:00'},
+  {start:'2027-07-14 12:00',stop:'2027-07-15 12:00'}
+];
 const targets=[{name:'sun',command:'10'},{name:'earth',command:'399'}];
 const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const angular=(a,b)=>Math.abs(((a-b+540)%360)-180);
@@ -35,12 +41,12 @@ function parse(text){
   if(out.length<3)throw Error('Horizons returned too few epochs');
   return out;
 }
-async function query(site,target){
+async function query(site,target,period){
   const params=new URLSearchParams({format:'json',COMMAND:q(target.command),MAKE_EPHEM:q('YES'),
     EPHEM_TYPE:q('OBSERVER'),OBJ_DATA:q('NO'),CENTER:q('coord@301'),
     COORD_TYPE:q('GEODETIC'),SITE_COORD:q([site.lon,site.lat,0].join(',')),
-    QUANTITIES:q('4'),CSV_FORMAT:q('YES'),START_TIME:q('2026-11-14 12:00'),
-    STOP_TIME:q('2026-11-15 12:00'),STEP_SIZE:q('6 h'),
+    QUANTITIES:q('4'),CSV_FORMAT:q('YES'),START_TIME:q(period.start),
+    STOP_TIME:q(period.stop),STEP_SIZE:q('6 h'),
     TIME_TYPE:q('UT'),APPARENT:q('AIRLESS')});
   const url=endpoint+'?'+params;
   const response=await fetch(url,{signal:AbortSignal.timeout(45000)});
@@ -51,9 +57,9 @@ async function query(site,target){
 }
 async function run(){
   const comparisons=[],queries=[];
-  for(const site of sites)for(const target of targets){
-    const {records,url}=await query(site,target);
-    queries.push({site:site.name,target:target.name,url});
+  for(const site of sites)for(const period of periods)for(const target of targets){
+    const {records,url}=await query(site,target,period);
+    queries.push({site:site.name,target:target.name,period:period.start,url});
     for(const row of records){
       const own=ephemeris(row.time,site.lat,site.lon)[target.name];
       comparisons.push({site:site.name,target:target.name,time:row.time,
