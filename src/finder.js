@@ -57,7 +57,9 @@ export function findMissionWindows({
       return !p||!Array.isArray(p.azimuthDeg)||!Array.isArray(p.elevationDeg)||
         p.azimuthDeg.length<8||p.elevationDeg.length!==p.azimuthDeg.length||
         Math.abs(p.lat-site.lat)>0.000001||Math.abs(p.lon-site.lon)>0.000001||
-        !p.source||!(p.coveragePct>=80);
+        !p.source||!(p.coveragePct>=80)||
+        !p.elevationDeg.every(v=>Number.isFinite(v)&&v>=0&&v<=90)||
+        !p.azimuthDeg.every((v,i)=>Number.isFinite(v)&&Math.abs(v-i*360/p.azimuthDeg.length)<0.001);
     });
     if(missing.length)throw Error('Cannot compare mixed terrain coverage. Missing valid NASA DEM: '+missing.map(s=>s.name).join(', '));
   }
