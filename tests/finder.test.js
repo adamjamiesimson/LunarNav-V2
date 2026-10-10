@@ -56,3 +56,36 @@ test('date scan crossing New Year uses UTC, not local timezone',()=>{
   const scan=findMissionWindows({...conf,startDate:'2026-12-29',searchDays:6,windowDays:3});
   assert.equal(scan.matrix[0].windows.at(-1).startDate,'2027-01-03');
 });
+
+
+test('terrain rankings require valid DEM coverage for every compared site',()=>{
+ const profiles={
+   mons:{azimuthDeg:[0,45,90,135,180,225,270,315],
+     elevationDeg:Array(8).fill(0),lat:-84.79,lon:29.2,coveragePct:100,
+     source:'User-provided 80m GeoTIFF'}
+ };
+ assert.throws(()=>findMissionWindows({...conf,terrainMode:'terrain'}),/NASA terrain data/);
+ assert.throws(()=>findMissionWindows({...conf,terrainMode:'terrain',terrainProfiles:profiles}),/Missing valid NASA DEM: Malapert/);
+ assert.throws(()=>findMissionWindows({...conf,terrainMode:'nonsense'}),/Unknown terrain mode/);
+});
+test('loaded local terrain changes selected-site solar exposure and ranking, never the geometric baseline',()=>{
+ const geo=findMissionWindows(conf);
+ const make=(s,h)=>({lat:s.lat,lon:s.lon,coveragePct:100,source:'Synthetic raster for unit test only',
+     resolutionM:80,radiusKm:20,azimuthDeg:[0,45,90,135,180,225,270,315],elevationDeg:Array(8).fill(h)});
+ const terrain=findMissionWindows({...conf,terrainMode:'terrain',
+    terrainProfiles:{mons:make(sites[0],90),malapert:make(sites[1],0)}});
+ assert.equal(terrain.matrix.length,2);
+ assert.equal(terrain.matrix[0].windows.every(w=>w.sunPct===0&&w.dualPct===0),true);
+ assert.ok(geo.matrix[0].windows.some(w=>w.sunPct>0));
+ assert.equal(geo.terrainMode,'flat');
+ assert.equal(terrain.terrainMode,'terrain');
+ assert.ok(terrain.matrix[1].windows.every((w,i)=>w.dualPct===geo.matrix[1].windows[i].dualPct));
+});
+test('terrain mode rejects unreferenced or stale site coordinates',()=>{
+ const make=s=>({lat:s.lat,lon:s.lon,coveragePct:100,source:'Synthetic test DEM',
+      azimuthDeg:[0,45,90,135,180,225,270,315],elevationDeg:Array(8).fill(4)});
+ const profiles={mons:make(sites[0]),malapert:make(sites[1])};
+ assert.equal(findMissionWindows({...conf,terrainMode:'terrain',terrainProfiles:profiles}).matrix.length,2);
+ profiles.malapert.lat=0;
+ assert.throws(()=>findMissionWindows({...conf,terrainMode:'terrain',terrainProfiles:profiles}),/Missing valid/);
+});
