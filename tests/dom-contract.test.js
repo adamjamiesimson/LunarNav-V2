@@ -29,7 +29,7 @@ test('terrain-aware finder mode advertises honest site coverage and exposes load
    assert.ok(html.includes('id="'+id+'"'),'Missing coverage UI: '+id);
    assert.ok(app.includes("'#"+id+"'"),'Missing coverage JS: '+id);
  }
- assert.match(html,/Unloaded sites are excluded/i);
+ assert.match(html,/No flat-horizon results are mixed in/i);
  assert.match(app,/getCachedTerrain/);
 });
 
