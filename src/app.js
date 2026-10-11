@@ -4,7 +4,7 @@ import {createMap} from './globe.js';
 import {simulateMission,DEFAULT_ENGINEERING} from './mission.js';
 import {loadLolaTerrain} from './terrain.js';
 import {findMissionWindows,compareFinderModels} from './finder.js';
-import {inspectSituation,buildSkyDiagram,fmtMargin} from './situation.js';
+import {inspectSituation,buildSkyDiagram,fmtMargin,findNextHorizonEvent} from './situation.js';
 import {loadBundledTerrain} from './terrain-cache.js';
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
@@ -414,6 +414,29 @@ $('#analyze-btn').addEventListener('click',()=>{stopPlay();updateAnalysis();toas
 $('#mission-date').addEventListener('change',()=>{stopPlay();updateAnalysis();});
 $('#mission-time').addEventListener('change',()=>{stopPlay();updateAnalysis();});
 $('#time-scrubber').addEventListener('input',e=>{stopPlay();setOffset(e.target.value);});
+$('#time-back').addEventListener('click',()=>{
+  stopPlay();setOffset(state.offset-6);
+  $('#time-event-note').textContent='Moved to '+new Date(state.base.getTime()+state.offset*3600000).toISOString().slice(0,16).replace('T',' ')+' UTC';
+});
+$('#time-next').addEventListener('click',()=>{
+  stopPlay();setOffset(state.offset+6);
+  $('#time-event-note').textContent='Moved to '+new Date(state.base.getTime()+state.offset*3600000).toISOString().slice(0,16).replace('T',' ')+' UTC';
+});
+$('#time-event').addEventListener('click',()=>{
+  stopPlay();
+  const upcoming=findNextHorizonEvent({
+    startUTC:state.base,site:state.site,durationHours:state.days*24,
+    offsetHours:state.offset,profile:state.terrain
+  });
+  if(!upcoming){
+    $('#time-event-note').textContent='No further sampled Sun/Earth horizon changes in this window.';
+    toast('No more modeled horizon events in this window');return;
+  }
+  setOffset(upcoming.offsetHours);
+  $('#time-event-note').textContent=upcoming.eventType+' crossing · '+
+    upcoming.eventUTC.slice(0,16).replace('T',' ')+' UTC · approximate (model + 30-min display)';
+  toast('Jumped to modeled '+upcoming.eventType+' horizon event');
+});
 $('#zoom-in').addEventListener('click',()=>$('#zoom-label').textContent=map.zoomBy(.2)+'%');
 $('#zoom-out').addEventListener('click',()=>$('#zoom-label').textContent=map.zoomBy(-.2)+'%');
 
