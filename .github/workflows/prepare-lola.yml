@@ -1,15 +1,13 @@
 name: Prepare NASA LOLA site profiles
 
 on:
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   export-profile:
-    if: github.head_ref == 'feature/portable-terrain-cache-and-deltas'
     runs-on: ubuntu-latest
     timeout-minutes: 4
     continue-on-error: true
