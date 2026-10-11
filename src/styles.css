@@ -489,3 +489,35 @@ main{padding:0 clamp(18px,3.5vw,62px);min-height:calc(100vh - 145px)}
 .context-bar a:hover{text-decoration:underline;text-underline-offset:4px}
 body[data-page="windows"] .top-actions #brief-btn{display:none}
 @media(max-width:650px){.context-bar{gap:8px;padding:13px}.context-bar strong{flex-basis:100%;order:1}.context-bar a{order:2;font-size:10px}}
+
+
+/* Final visual polish: accessible mobile navigation and optional data disclosure. */
+.terrain-details{margin:19px 0 15px;border:1px solid rgba(164,209,193,.19);
+ background:rgba(14,32,36,.38);border-radius:8px;padding:0 17px}
+.terrain-details>summary{display:flex;gap:16px;align-items:center;padding:15px 0;cursor:pointer;
+ list-style:none;min-height:51px;flex-wrap:wrap}
+.terrain-details>summary::-webkit-details-marker{display:none}
+.terrain-details>summary>span:first-child{font:10px 'DM Mono',monospace;letter-spacing:.08em;color:#89adb0}
+.terrain-details>summary strong{font:500 11px 'DM Sans',sans-serif;color:#d7eee2;flex:1}
+.terrain-details .terrain-detail-toggle{font:10px 'DM Sans',sans-serif;color:#a5c4bc;white-space:nowrap}
+.terrain-details[open] .terrain-detail-toggle{color:#d4e9d6}
+.terrain-details .finder-terrain-controls{padding:15px 0;margin:0;border-radius:0;border:0;
+ background:transparent;border-top:1px solid rgba(162,195,196,.14);gap:10px}
+.terrain-details .finder-data-status{padding:0 0 16px;margin:0}
+@media(max-width:650px){
+ .topbar{height:auto;min-height:100px;align-items:stretch;flex-wrap:wrap;gap:0;
+  padding:0 15px;position:sticky;top:0}
+ .topbar .brand{height:54px;flex:0 0 100%;max-width:100%;padding:5px 0}
+ .topbar .main-nav{height:46px;width:100%;max-width:100%;flex:0 0 100%;
+  display:flex;align-items:stretch;gap:23px;justify-content:flex-start;overflow-x:auto;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none;
+  border-top:1px solid rgba(162,203,207,.11)}
+ .topbar .main-nav::-webkit-scrollbar{display:none}
+ .topbar .main-nav .nav-link{height:46px;display:flex;align-items:center;flex:0 0 auto;
+  line-height:1;font-size:11px}
+ .terrain-details{padding:0 12px;margin:13px 0}
+ .terrain-details>summary{gap:8px;align-items:start}
+ .terrain-details>summary strong{flex:1}
+ .terrain-details .terrain-detail-toggle{flex:0 0 100%;margin-top:1px}
+ .terrain-details .finder-terrain-controls{padding:12px 0}
+}
