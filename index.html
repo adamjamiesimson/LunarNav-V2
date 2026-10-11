@@ -77,7 +77,7 @@
       <section class="engineering-section app-view" data-view="engineering" id="engineering" hidden aria-label="Lunar mission feasibility">
         <div class="context-bar"><span>ACTIVE MISSION</span><strong id="engineering-context">Selected lunar study site</strong><a data-route="explore" href="/explore">Change site & date in Explorer ↗</a></div>
         <div class="section-title-row engineering-heading">
-          <div><span class="section-n">06 / SIMULATE</span><h2>Design for survival<span class="accent-stop">.</span></h2><p>Translate celestial geometry into a first-order surface power and direct-to-Earth access estimate.</p></div>
+          <div><span class="section-n">03 / ENGINEERING</span><h2>Design for survival<span class="accent-stop">.</span></h2><p>Translate celestial geometry into a first-order surface power and direct-to-Earth access estimate.</p></div>
           <span class="sim-tag">EXPERIMENTAL · MODEL, NOT FLIGHT DATA</span>
         </div>
         <div class="engineering-grid">
@@ -122,7 +122,7 @@
       </section>
 
       <section class="finder-section app-view" data-view="windows" id="finder" hidden aria-label="Find mission windows across sites and dates">
-        <div class="section-title-row finder-heading"><div><span class="section-n">07 / FIND THE WINDOW</span><h2>The right place. <em>The right time.</em></h2><p>Compare candidate lunar sites and start dates together. Discover when geometric sunlight and direct-to-Earth opportunities overlap.</p></div><span class="sim-tag">EXPLORATORY · FLAT-HORIZON ANALYTICAL MODEL</span></div>
+        <div class="section-title-row finder-heading"><div><span class="section-n">02 / MISSION WINDOWS</span><h2>The right place. <em>The right time.</em></h2><p>Compare candidate lunar sites and start dates together. Discover when geometric sunlight and direct-to-Earth opportunities overlap.</p></div><span class="sim-tag" id="finder-model-badge">GEOMETRIC HORIZON · EXPERIMENTAL</span></div>
         <div class="panel finder-shell">
           <div class="finder-toolbar">
             <label>SCAN START · UTC<input type="date" id="finder-date" value="2026-11-14" min="2025-01-01" max="2036-12-31" /></label>
@@ -132,7 +132,7 @@
             <button id="finder-run" class="top-primary finder-run" type="button">Find windows →</button>
           </div>
           <details class="terrain-details">
-              <summary><span>TERRAIN DATA</span> <strong id="finder-terrain-count">0 of 5 sites have loaded terrain</strong><span class="terrain-detail-toggle">Data source and manual options ↗</span></summary>
+              <summary><span>TERRAIN DATA</span> <strong id="finder-terrain-count">0 of 5 terrain profiles ready</strong><span class="terrain-detail-toggle">Data source and manual options ↗</span></summary>
               <div class="finder-terrain-controls"><div><small>Loaded terrain mode compares only locations with valid NASA-derived horizon profiles. No flat-horizon results are mixed in.</small></div><button id="finder-load-all" class="outline-button" type="button">Refresh NASA terrain</button><button id="finder-open-terrain" class="outline-button" type="button">Import a local GeoTIFF ↗</button></div>
               <p class="finder-data-status" id="finder-data-status" role="status" aria-live="polite">Terrain loading is optional; the bundled five-site profiles work without downloading NASA files.</p>
             </details><div class="finder-meta"><div><span class="finder-small-dot"></span><span id="finder-caption">Calculating candidate windows…</span></div><div class="finder-legend"><span><i class="finder-legend-low"></i> Less access</span><span><i class="finder-legend-high"></i> More access</span></div></div>
@@ -147,7 +147,7 @@
         </div>
       </section>
       <section class="comparison-section app-view" data-view="compare" id="compare" hidden>
-        <div class="context-bar"><span>ACTIVE COMPARISON WINDOW</span><strong id="compare-context">Mission study interval</strong><a data-route="explore" href="/explore">Change comparison window ↗</a></div><div class="section-title-row"><div><span class="section-n">08 / COMPARE</span><h2>Find your mission advantage<span class="accent-stop">.</span></h2><p>Compare candidate locations for the same UTC window, using the same screening model.</p></div><button class="outline-button" id="download-csv"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3"/></svg> Export CSV</button></div><div id="site-comparison" class="comparison-grid"></div><div class="comparison-note"><span>◇</span> Rankings are based on flat-horizon simultaneous visibility, not landing safety. The comparison is intentionally flat-horizon only; terrain and engineering assumptions apply to the selected site feasibility panel, not these rankings.</div></section>
+        <div class="context-bar"><span>ACTIVE COMPARISON WINDOW</span><strong id="compare-context">Mission study interval</strong><a data-route="explore" href="/explore">Change comparison window ↗</a></div><div class="section-title-row"><div><span class="section-n">04 / COMPARE</span><h2>Find your mission advantage<span class="accent-stop">.</span></h2><p>Compare candidate locations for the same UTC window, using the same screening model.</p></div><button class="outline-button" id="download-csv"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3"/></svg> Export CSV</button></div><div id="site-comparison" class="comparison-grid"></div><div class="comparison-note"><span>◇</span> Rankings are based on flat-horizon simultaneous visibility, not landing safety. The comparison is intentionally flat-horizon only; terrain and engineering assumptions apply to the selected site feasibility panel, not these rankings.</div></section>
 
       <section class="science-page app-view" data-view="science" id="science-page" hidden>
         <div class="page-intro"><p class="editorial-overline">05 / MODEL TRANSPARENCY</p><h1>Know what the<br/><em>numbers mean.</em></h1><p>Useful analysis starts with transparent assumptions. Here's what powers our calculations—and what they cannot tell you.</p></div>
