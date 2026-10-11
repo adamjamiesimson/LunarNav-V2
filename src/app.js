@@ -4,6 +4,7 @@ import {createMap} from './globe.js';
 import {simulateMission,DEFAULT_ENGINEERING} from './mission.js';
 import {loadLolaTerrain} from './terrain.js';
 import {findMissionWindows,compareFinderModels} from './finder.js';
+import {inspectSituation,buildSkyDiagram,fmtMargin,findNextHorizonEvent} from './situation.js';
 import {loadBundledTerrain} from './terrain-cache.js';
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
@@ -42,8 +43,41 @@ function drawTimeline(){const list=state.samples.slice(0,-1),N=list.length;const
   svg+=`<line id="time-indicator" x1="${L}" x2="${L}" y1="4" y2="${Y+rowGap*2+rowH+3}" stroke="#e7f2e9" stroke-width="1.5"/><path id="indicator-triangle" d="M${L-4} 4 L${L+4} 4 L${L} 11 Z" fill="#e7f2e9"/><rect id="timeline-hit" x="${L}" y="4" width="${width}" height="100" fill="transparent" style="cursor:crosshair"/></svg>`;
   $('#timeline-graph').innerHTML=svg;const hit=$('#timeline-hit');hit.addEventListener('pointerdown',e=>{const b=hit.ownerSVGElement.getBoundingClientRect();const u=(e.clientX-b.left)/b.width;const fraction=(u*960-L)/width;setOffset(Math.round(Math.max(0,Math.min(1,fraction))*state.days*24));});updateIndicator();}
 function updateIndicator(){const p=Math.max(0,Math.min(1,state.offset/(state.days*24)));const x=112+(960-112-12)*p;const l=$('#time-indicator');const tri=$('#indicator-triangle');if(l){l.setAttribute('x1',x);l.setAttribute('x2',x);}if(tri)tri.setAttribute('d',`M${x-4} 4 L${x+4} 4 L${x} 11 Z`);}
-function skySvg(obs){const C=140,R=102;const sky=(body,fill,label)=>{let el=body.elevation,az=body.azimuth*Math.PI/180;let r=R*(90-Math.max(0,el))/90;let x=C+r*Math.sin(az),y=C-r*Math.cos(az);const below=el<=0;return `<circle cx="${x}" cy="${y}" r="${below?8:11}" fill="${fill}" fill-opacity="${below?.22:1}" stroke="${fill}" stroke-width="1.2" stroke-dasharray="${below?'3 3':'none'}"/><text x="${x+15}" y="${y+4}" fill="${below?'#8c99a7':'#dce9ed'}" font-family="DM Mono,monospace" font-size="10">${label}</text>`;};return `<svg viewBox="0 0 280 280" role="img" aria-label="Local sky polar plot"><defs><radialGradient id="sky-grad"><stop offset="0" stop-color="#222e3a"/><stop offset="1" stop-color="#111a23"/></radialGradient></defs><circle cx="${C}" cy="${C}" r="${R}" fill="url(#sky-grad)" stroke="#455361"/><circle cx="${C}" cy="${C}" r="${R*.66}" fill="none" stroke="#334453" stroke-dasharray="4 6"/><circle cx="${C}" cy="${C}" r="${R*.33}" fill="none" stroke="#334453" stroke-dasharray="4 6"/><path d="M140 36V244 M36 140H244" stroke="#384854" stroke-dasharray="3 8"/><text x="140" y="23" text-anchor="middle" fill="#a1b1b9" font-size="10" font-family="DM Mono">N</text><text x="140" y="264" text-anchor="middle" fill="#a1b1b9" font-size="10" font-family="DM Mono">S</text><text x="22" y="144" text-anchor="middle" fill="#a1b1b9" font-size="10" font-family="DM Mono">W</text><text x="258" y="144" text-anchor="middle" fill="#a1b1b9" font-size="10" font-family="DM Mono">E</text><text x="143" y="99" fill="#677e88" font-size="9">30°</text><text x="143" y="132" fill="#677e88" font-size="9">60°</text>${sky(obs.sun,'#d7a973','SUN')}${sky(obs.earth,'#90cbd1','EARTH')}<circle cx="140" cy="140" r="2.5" fill="#d7e5e8"/></svg>`;}
-function updateInspection(){const date=new Date(state.base.getTime()+state.offset*3600000);const obs=ephemeris(date,state.site.lat,state.site.lon);map.setSun?.(obs,state.site);$('#condition-date').textContent=longDate(date);$('#sun-elevation').textContent=fmtDeg(obs.sun.elevation);$('#earth-elevation').textContent=fmtDeg(obs.earth.elevation);const sun=$('#sun-state'),earth=$('#earth-state');sun.textContent=obs.sun.visible?'VISIBLE':'BELOW HORIZON';earth.textContent=obs.earth.visible?'IN VIEW':'BELOW HORIZON';sun.classList.toggle('muted',!obs.sun.visible);earth.classList.toggle('muted',!obs.earth.visible);$('#sky-plot').innerHTML=skySvg(obs);$('#scrub-time-label').textContent=`DAY ${String(Math.floor(state.offset/24)+1).padStart(2,'0')} · ${date.toISOString().slice(11,16)}`;$('#time-scrubber').value=String(state.offset);updateIndicator();}
+function updateInspection(){
+  const date=new Date(state.base.getTime()+state.offset*3600000);
+  const obs=ephemeris(date,state.site.lat,state.site.lon);
+  const view=inspectSituation(obs,state.terrain);
+  map.setSun?.(obs,state.site); // Geometric globe lighting, not DEM shadows.
+  $('#condition-date').textContent=longDate(date);
+  $('#sun-elevation').textContent=fmtDeg(obs.sun.elevation);
+  $('#earth-elevation').textContent=fmtDeg(obs.earth.elevation);
+  const sun=$('#sun-state'),earth=$('#earth-state');
+  sun.textContent=view.sunVisible?'CLEAR':'BELOW LOCAL HORIZON';
+  earth.textContent=view.earthVisible?'IN VIEW':'OBSTRUCTED';
+  sun.classList.toggle('muted',!view.sunVisible);
+  earth.classList.toggle('muted',!view.earthVisible);
+  $('#sky-plot').innerHTML=buildSkyDiagram(obs,state.terrain);
+  $('#horizon-label').textContent=view.source;
+  $('#sky-horizon-note').textContent=view.terrain?'Gold = local DEM-derived skyline':'Circle = 0° geometric horizon';
+  $('#mission-verdict').textContent=view.combined;
+  $('#mission-verdict').dataset.visibility=view.sunVisible&&view.earthVisible?'both':
+    view.sunVisible||view.earthVisible?'partial':'none';
+  $('#mission-source').textContent=view.source+' · '+state.site.name;
+  $('#mission-sun-margin').textContent=fmtMargin(view.sunMargin);
+  $('#mission-earth-margin').textContent=fmtMargin(view.earthMargin);
+  $('#mission-caution').textContent=view.nearBoundary
+    ?'Near a modeled horizon: small angular errors can change visibility. Experimental screening only.'
+    :'Margins are geometric angles, not radio link or mission safety assurances.';
+  $('#hud-clock').textContent=date.toISOString().slice(5,16).replace('T',' · ')+' UTC';
+  $('#hud-sun').textContent=fmtMargin(view.sunMargin);
+  $('#hud-earth').textContent=fmtMargin(view.earthMargin);
+  $('#hud-status').textContent=view.combined;
+  $('#hud-horizon').textContent=view.source+' · SITE LOS (NOT RADIO LINK BUDGET)';
+  $('#scrub-time-label').textContent='DAY '+String(Math.floor(state.offset/24)+1).padStart(2,'0')+
+    ' · '+date.toISOString().slice(11,16);
+  $('#time-scrubber').value=String(state.offset);
+  updateIndicator();
+}
 function setOffset(v){state.offset=Math.max(0,Math.min(state.days*24,Number(v)||0));updateInspection();}
 function drawComparison(){const entries=state.ranking;$('#site-comparison').innerHTML=entries.map((entry,i)=>{const {site,stats}=entry,active=site.id===state.site.id;return `<button type="button" class="compare-card ${active?'active':''}" data-site="${site.id}" aria-label="Inspect ${escapeHTML(site.name)}"><div class="compare-top"><span class="compare-rank">${String(i+1).padStart(2,'0')}</span><span class="compare-indicator" style="--site-color:${site.accent}"></span><span class="compare-type">${escapeHTML(site.tag.toUpperCase())}</span><span class="compare-arrow">↗</span></div><h3>${escapeHTML(site.name)}</h3><p>${escapeHTML(fmtCoord(site.lat,site.lon))}</p><div class="compare-score"><strong>${stats.dual.toFixed(1)}<span>%</span></strong><small>DUAL ACCESS</small></div><div class="compare-progress"><span style="width:${stats.dual}%"></span></div><div class="compare-meta"><span>Sun ${stats.sun.toFixed(0)}%</span><span>Earth ${stats.earth.toFixed(0)}%</span></div></button>`;}).join('');$$('.compare-card').forEach(b=>b.addEventListener('click',()=>{const s=SITES.find(x=>x.id===b.dataset.site);selectSite(s);document.querySelector('#planner').scrollIntoView({behavior:'smooth'});}));}
 function generateCSV(){const esc=v=>'"'+String(v).replaceAll('"','""')+'"';const csv=[['utc','site','latitude_deg','longitude_deg_east','sun_azimuth_deg','sun_elevation_deg','sun_visible_flat_horizon','earth_azimuth_deg','earth_elevation_deg','earth_visible_flat_horizon','both_visible'].join(',')];state.samples.forEach(r=>csv.push([r.time,state.site.name,state.site.lat,state.site.lon,r.sun.azimuth.toFixed(4),r.sun.elevation.toFixed(4),r.sun.visible,r.earth.azimuth.toFixed(4),r.earth.elevation.toFixed(4),r.earth.visible,r.dual].map(esc).join(',')));const blob=new Blob([csv.join('\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`lunarnav-${state.site.id}-${state.date}-${state.days}d.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);toast('Mission timeline CSV exported');}
@@ -124,6 +158,7 @@ async function requestTerrain(file=null){
     terrainProfiles.set(terrainKey(state.site),profile);
     state.terrain=profile;
     updateMissionPanels();
+    if(state.base)updateInspection();
     updateFinderCoverage();
     toast('Terrain loaded for '+state.site.name+' · '+profile.provenance);
   }catch(e){
@@ -207,7 +242,7 @@ async function hydrateBundledTerrain(){
     }
     if(accepted&&!state.terrain){
       state.terrain=getCachedTerrain(state.site);
-      if(state.terrain)updateMissionPanels();
+      if(state.terrain){updateMissionPanels();if(state.base)updateInspection();}
     }
     updateFinderCoverage();
     const total=coverageEntries().length;
@@ -379,9 +414,63 @@ $('#analyze-btn').addEventListener('click',()=>{stopPlay();updateAnalysis();toas
 $('#mission-date').addEventListener('change',()=>{stopPlay();updateAnalysis();});
 $('#mission-time').addEventListener('change',()=>{stopPlay();updateAnalysis();});
 $('#time-scrubber').addEventListener('input',e=>{stopPlay();setOffset(e.target.value);});
+$('#time-back').addEventListener('click',()=>{
+  stopPlay();setOffset(state.offset-6);
+  $('#time-event-note').textContent='Moved to '+new Date(state.base.getTime()+state.offset*3600000).toISOString().slice(0,16).replace('T',' ')+' UTC';
+});
+$('#time-next').addEventListener('click',()=>{
+  stopPlay();setOffset(state.offset+6);
+  $('#time-event-note').textContent='Moved to '+new Date(state.base.getTime()+state.offset*3600000).toISOString().slice(0,16).replace('T',' ')+' UTC';
+});
+$('#time-event').addEventListener('click',()=>{
+  stopPlay();
+  const upcoming=findNextHorizonEvent({
+    startUTC:state.base,site:state.site,durationHours:state.days*24,
+    offsetHours:state.offset,profile:state.terrain
+  });
+  if(!upcoming){
+    $('#time-event-note').textContent='No further sampled Sun/Earth horizon changes in this window.';
+    toast('No more modeled horizon events in this window');return;
+  }
+  setOffset(upcoming.offsetHours);
+  $('#time-event-note').textContent=upcoming.eventType+' crossing · '+
+    upcoming.eventUTC.slice(0,16).replace('T',' ')+' UTC · approximate (model + 30-min display)';
+  toast('Jumped to modeled '+upcoming.eventType+' horizon event');
+});
 $('#zoom-in').addEventListener('click',()=>$('#zoom-label').textContent=map.zoomBy(.2)+'%');
 $('#zoom-out').addEventListener('click',()=>$('#zoom-label').textContent=map.zoomBy(-.2)+'%');
-$('#reset-view')?.addEventListener('click',()=>$('#zoom-label').textContent=map.resetView?.()+'%');
+
+$('#focus-site').addEventListener('click',()=>{
+  const level=map.focusSite?.();
+  if(Number.isFinite(level))$('#zoom-label').textContent=level+'%';
+  $('#focus-site').setAttribute('aria-pressed','true');
+  $('#moon-map').focus({preventScroll:true});
+});
+$('#reset-view')?.addEventListener('click',()=>{
+  const level=map.resetView?.();
+  if(Number.isFinite(level))$('#zoom-label').textContent=level+'%';
+  $('#focus-site').setAttribute('aria-pressed','false');
+});
+function setImmersive(enabled){
+  document.body.classList.toggle('globe-immersive',enabled);
+  $('#expand-globe').setAttribute('aria-pressed',String(enabled));
+  $('#expand-globe').setAttribute('aria-label',enabled?'Exit immersive lunar globe':'Expand lunar globe');
+  $('#expand-globe').textContent=enabled?'✕':'⛶';
+  if(enabled)$('#moon-map').focus({preventScroll:true});
+  else $('#expand-globe').focus({preventScroll:true});
+}
+$('#expand-globe').addEventListener('click',()=>setImmersive(!document.body.classList.contains('globe-immersive')));
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&document.body.classList.contains('globe-immersive'))setImmersive(false);
+});
+$('#hero-explore').addEventListener('click',()=>{
+  $('#map-stage').scrollIntoView({behavior:'smooth',block:'center'});
+  const level=map.focusSite?.();
+  if(Number.isFinite(level))$('#zoom-label').textContent=level+'%';
+  $('#focus-site').setAttribute('aria-pressed','true');
+});
+$('#hero-find').addEventListener('click',()=>$('#finder').scrollIntoView({behavior:'smooth'}));
+
 $('#download-csv').addEventListener('click',generateCSV);
 $('#brief-btn').addEventListener('click',openBrief);
 $('#copy-brief').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(briefText());toast('Mission briefing copied');}catch{toast('Clipboard unavailable; use Print / save PDF');}});

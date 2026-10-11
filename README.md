@@ -189,3 +189,26 @@ The [Prepare NASA LOLA site profiles](.github/workflows/prepare-lola.yml) workfl
 ### Scientific qualifications
 
 The lunar geometrical solver's benchmark of 90 Sun/Earth observations against JPL Horizons establishes errors for those *particular samples*, not universal accuracy. The derived LOLA horizon itself has not been independently tested with separate planetary-GIS raytracing or full terrain shadows; 20 km local visibility, angle binning, and sample timing can cause meaningful uncertainty near the horizon. Use the tool as **experimental mission-site screening only**, never as proof of landing safety, continuous power or operational radio contact.
+
+
+## Phase 6 — Immersive Mission Control (visual experience + local visibility)
+
+The primary LunarNav interface now focuses on two immediate mission questions: **what is visible from this site at the selected UTC time, and when will the next modeled visibility transition occur?** The Moon remains an interactive 3D *visual* globe; it is not a topographic rendering of LOLA data.
+
+### Experience and interactions
+
+- A streamlined, high-contrast dark landing experience puts **Explore the Moon** and **Find the best window** first.
+- The previously hard-coded \`86.7°S\` mission-context card is replaced by **actual selected-site Sun/Earth local-horizon clearance angles** and a synchronized UTC mission HUD. Positive margins mean that body is above the currently selected local horizon; negative margins mean an obstruction under the approximate model. A warning appears when either margin is within 0.5° of the modeled horizon. This warning threshold is advisory, **not** a universal error guarantee.
+- The **local sky diagram** renders the azimuth-dependent horizon from the bundled NASA LOLA 80m-derived 20km horizon profiles as a gold boundary, with Sun/Earth markers showing whether each is above that horizon. When terrain isn't available, the diagram explicitly labels its fallback **0° geometric horizon**; manually uploaded, unverified DEM data is labeled as unverified rather than NASA.
+- The globe adds **Focus on site**, **Reset**, zoom, drag/keyboard orbit, and an immersive overlay with an **Esc** shortcut. When WebGL is unsupported, it keeps the schematic polar-map fallback. The image badge identifies whether NASA LROC imagery actually loaded; otherwise a procedural placeholder or schematic is shown.
+- The mission clock adds **-6 hours**, **+6 hours**, and **Next horizon event**. The next-event search examines modeled Sun/Earth horizon state at 30-minute intervals, brackets changes and refines the crossing within the bracket; navigation rounds to a 30-minute visual step. This does **not** prove physical crossing accuracy below 30 minutes, and it may miss shorter temporary transitions between samples.
+
+### Distinctions that matter
+
+The **main timeline, legacy site cards, and mission summary** continue to use 0° *geometric* horizon visibility. **Live site status, selected-site power screening and the terrain-mode Finder** can use actual loaded local horizon profiles. They are intentionally labeled as different model views; do not compare percentages as if those data sources were identical. Globe illumination remains an artistic/geometric rendering based on a Sun vector, not terrain-cast lunar shadows.
+
+There is **no quantitative antenna link budget, slope or landing-hazard certification, or mission-readiness guarantee**. The site catalog contains representative study coordinates, not validated safe landing spots.
+
+### Automated browser verification
+
+PRs include \`.github/workflows/browser-smoke.yml\`, which builds the standalone app and uses headless Chromium at desktop and mobile viewports. It verifies rendering without external network access, focus/full-screen/Esc, UTC clock stepping, terrain Finder and geometric-vs-terrain differences, and the absence of uncaught script errors. The workflow saves screenshots as a short-lived artifact. Source tests and production builds run separately via \`.github/workflows/ci.yml\`. A browser smoke pass proves these representative flows, **not** all Vercel devices, NASA image access, WebGL drivers or accuracy of terrain physics.

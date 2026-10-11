@@ -82,10 +82,10 @@ export function createMap(canvas,{onPick,onHover}){
  let gl;
  try{gl=background.getContext('webgl',{alpha:false,antialias:true,depth:false});}
  catch(error){console.warn('3D globe unavailable',error);}
- if(!gl){background.remove();return createPolarMap(canvas,{onPick,onHover});}
+ if(!gl){background.remove();const status=document.querySelector('#map-image-status');if(status)status.textContent='2D POLAR SCHEMATIC';return createPolarMap(canvas,{onPick,onHover});}
 
  let p;
- try{p=program(gl);}catch(error){console.warn(error);background.remove();return createPolarMap(canvas,{onPick,onHover});}
+ try{p=program(gl);}catch(error){console.warn(error);background.remove();const status=document.querySelector('#map-image-status');if(status)status.textContent='2D POLAR SCHEMATIC';return createPolarMap(canvas,{onPick,onHover});}
  gl.useProgram(p);
  const loc=name=>gl.getUniformLocation(p,name);
  const u={resolution:loc('resolution'),forward:loc('forward'),right:loc('right'),up:loc('up'),sun:loc('sun'),zoom:loc('zoom'),hasTexture:loc('hasTexture'),moon:loc('moon')};
@@ -102,7 +102,7 @@ export function createMap(canvas,{onPick,onHover}){
  gl.generateMipmap(gl.TEXTURE_2D);
  gl.uniform1i(u.moon,0);
 
- let loaded=false,site=SITES[0],zoom=1,lat=-73,lon=25;
+ let loaded=false,site=SITES[0],zoom=1,lat=-73,lon=25,viewMode='overview';
  let sunlight=norm([0.5,0.32,-0.75]),w=0,h=0,dpr=1,frame=0;
  let origin=null,dragging=false,moved=false;
  const ctx=canvas.getContext('2d');
@@ -199,7 +199,7 @@ export function createMap(canvas,{onPick,onHover}){
    if(dragging&&origin){
      const dx=e.clientX-origin.x,dy=e.clientY-origin.y;
      if(Math.hypot(dx,dy)>4)moved=true;
-     if(moved){lon=wrap(origin.lon-dx*0.3/zoom);lat=clamp(origin.lat+dy*0.24/zoom,-89,60);request();}
+     if(moved){viewMode='manual';lon=wrap(origin.lon-dx*0.3/zoom);lat=clamp(origin.lat+dy*0.24/zoom,-89,60);request();}
      onHover(null,e);
    }else{
      const near=nearest(point.x,point.y);canvas.style.cursor=near?'pointer':worldAt(point.x,point.y)?'grab':'default';onHover(near,e);
@@ -238,22 +238,30 @@ export function createMap(canvas,{onPick,onHover}){
      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);
      gl.generateMipmap(gl.TEXTURE_2D);
-     loaded=true;request();
+     loaded=true;const status=document.querySelector('#map-image-status');if(status)status.textContent='NASA LROC IMAGERY · LOADED';request();
    }catch(e){console.warn('LROC map not available; using procedural texture.',e);}
  };
  let triedDirect=false;
  img.onerror=()=>{
    if(!triedDirect){triedDirect=true;img.src='https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg';}
-   else console.warn('NASA globe imagery could not load; procedural visual fallback is active.');
+   else{console.warn('NASA globe imagery could not load; procedural visual fallback is active.');const status=document.querySelector('#map-image-status');if(status)status.textContent='PROCEDURAL MOON · IMAGE UNAVAILABLE';}
  };
  img.src='/assets/lroc-color.jpg';
  if(typeof ResizeObserver!=='undefined')new ResizeObserver(size).observe(stage);
  else window.addEventListener('resize',size);
  size();
  return {
-   render(newSite=site){site=newSite;if(!newSite.custom)lon=wrap(newSite.lon);request();},
+   render(newSite=site){
+     site=newSite;
+     if(!newSite.custom){
+       lon=wrap(newSite.lon);
+       lat=viewMode==='focus'?clamp(newSite.lat,-89,50):-73;
+     }
+     request();
+   },
+   focusSite(){viewMode='focus';lat=clamp(site.lat,-89,50);lon=wrap(site.lon);zoom=1.35;request();return Math.round(zoom*100);},
    zoomBy(delta){zoom=clamp(zoom+delta,0.8,2.1);request();return Math.round(zoom*100);},
-   resetView(){lat=-73;lon=wrap(site.lon);zoom=1;request();return 100;},
+   resetView(){viewMode='overview';lat=-73;lon=wrap(site.lon);zoom=1;request();return 100;},
    setSun(obs,focus=site){
      const az=obs.sun.azimuth*D,el=obs.sun.elevation*D,phi=focus.lat*D,theta=focus.lon*D;
      const east=[-Math.sin(theta),Math.cos(theta),0];
