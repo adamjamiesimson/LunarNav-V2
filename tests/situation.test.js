@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {SITES} from '../src/sites.js';
 import {ephemeris} from '../src/astro.js';
-import {inspectSituation,buildSkyDiagram,fmtMargin} from '../src/situation.js';
+import {inspectSituation,buildSkyDiagram,fmtMargin,findNextHorizonEvent} from '../src/situation.js';
 
 const fixtures=JSON.parse(readFileSync(new URL('../data/lola-horizons.json',import.meta.url),'utf-8'));
 const site=SITES.find(s=>s.id==='mons-mouton');
@@ -76,4 +76,26 @@ test('unverified user-supplied terrain is never labeled as NASA LOLA',()=>{
   const chart=buildSkyDiagram(obs,userProfile);
   assert.match(chart,/UNVERIFIED DEM HORIZON/);
   assert.doesNotMatch(chart,/NASA-derived local terrain horizon/);
+});
+
+test('next modeled horizon event finder validates time and returns bounded 30min UTC offsets',()=>{
+  assert.throws(()=>findNextHorizonEvent({startUTC:'invalid',site,durationHours:24}),/Invalid mission/);
+  const event=findNextHorizonEvent({
+    startUTC:'2026-11-14T12:00:00Z',site,durationHours:28*24,
+    offsetHours:0,profile,stepMinutes:30
+  });
+  if(event){
+    assert.ok(event.offsetHours>0&&event.offsetHours<=28*24);
+    assert.equal(event.offsetHours*2,Math.round(event.offsetHours*2));
+    assert.ok(['SUN','EARTH','SUN + EARTH'].includes(event.eventType));
+    assert.match(event.eventUTC,/^20\\d\\d-/);
+    assert.match(event.warning,/Modeled horizon crossing/);
+  }
+});
+test('next event never reports an event after the mission end',()=>{
+  const event=findNextHorizonEvent({
+    startUTC:'2026-11-14T12:00:00Z',site,
+    durationHours:28*24,offsetHours:28*24,profile
+  });
+  assert.equal(event,null);
 });
