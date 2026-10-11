@@ -4,6 +4,7 @@
  * loaded LOLA data. No surface-lighting or antenna link budget is implied.
  */
 import {horizonAt} from './mission.js';
+import {ephemeris} from './astro.js';
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 export const fmtMargin=x=>(x>=0?'+':'')+x.toFixed(2)+'°';
 
@@ -63,4 +64,49 @@ export function buildSkyDiagram(obs,profile=null){
     trace(obs.sun,'#f1c58b','SUN',situation.sunVisible,situation.sunBarrier)+
     trace(obs.earth,'#94d9e5','EARTH',situation.earthVisible,situation.earthBarrier)+
     '<circle cx="140" cy="140" r="3" fill="#d8f0f2"/></svg>';
+}
+
+/** Find the next sampled transition of local Sun or Earth horizon visibility.
+ * 30-minute bracket sampling, refined to approximately one minute. This is
+ * screening precision, NOT physical or ephemeris accuracy, and it deliberately
+ * does not estimate remote RF communication link viability.
+ */
+export function findNextHorizonEvent({startUTC,site,durationHours,offsetHours=0,profile=null,
+  stepMinutes=30}={}){
+  const origin=new Date(startUTC).getTime();
+  if(!Number.isFinite(origin)||!site||!Number.isFinite(site.lat)||!Number.isFinite(site.lon)||
+     !(durationHours>0&&durationHours<=24*60)||!(offsetHours>=0&&offsetHours<=durationHours)||
+     !(stepMinutes>=5&&stepMinutes<=120))throw Error('Invalid mission horizon search parameters');
+  const stateAt=minute=>inspectSituation(
+    ephemeris(new Date(origin+minute*60000),site.lat,site.lon),profile);
+  const maximum=durationHours*60;
+  let prevMinute=offsetHours*60;
+  let prior=stateAt(prevMinute);
+  const different=(a,b)=>a.sunVisible!==b.sunVisible||a.earthVisible!==b.earthVisible;
+  for(let nextMinute=prevMinute+stepMinutes;nextMinute<=maximum+stepMinutes;nextMinute+=stepMinutes){
+    const right=Math.min(maximum,nextMinute);
+    if(right<=prevMinute)break;
+    const current=stateAt(right);
+    if(different(current,prior)){
+      let low=prevMinute,high=right;
+      const baseline=prior;
+      // Binary search first changed side of a bracket; no false subminute claim.
+      for(let i=0;i<10;i++){
+        const mid=(low+high)/2;
+        if(different(stateAt(mid),baseline))high=mid;else low=mid;
+      }
+      const targetMinute=Math.min(maximum,Math.ceil(high/30)*30);
+      const after=stateAt(targetMinute);
+      const type=after.sunVisible!==baseline.sunVisible && after.earthVisible!==baseline.earthVisible?
+        'SUN + EARTH':after.sunVisible!==baseline.sunVisible?'SUN':'EARTH';
+      return {offsetHours:targetMinute/60,eventType:type,
+        eventUTC:new Date(origin+targetMinute*60000).toISOString(),
+        visibleAfter:{sun:after.sunVisible,earth:after.earthVisible},
+        sampleResolutionMinutes:stepMinutes,
+        warning:'Modeled horizon crossing; angular and terrain uncertainties not included'};
+    }
+    prior=current;prevMinute=right;
+    if(right===maximum)break;
+  }
+  return null;
 }
