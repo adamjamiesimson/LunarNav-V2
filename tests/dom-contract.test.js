@@ -32,3 +32,15 @@ test('terrain-aware finder mode advertises honest site coverage and exposes load
  assert.match(html,/Unloaded sites are excluded/i);
  assert.match(app,/getCachedTerrain/);
 });
+
+test('Phase 5 terrain comparison UI and source-backed catalog are wired into production',()=>{
+  for(const id of ['finder-impact','finder-impact-items']){
+    assert.ok(html.includes('id="'+id+'"'),'Missing comparison panel '+id);
+    assert.ok(app.includes("'#"+id+"'"),'Missing comparison integration for '+id);
+  }
+  assert.match(app,/loadBundledTerrain/);
+  assert.match(app,/compareFinderModels/);
+  assert.match(build,/src\/terrain-cache\.js/);
+  assert.match(build,/data\/lola-horizons\.json/);
+  assert.match(app,/delta_dual_pp/);
+});

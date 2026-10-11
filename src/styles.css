@@ -130,3 +130,27 @@
 .finder-site-label small{overflow:hidden;text-overflow:ellipsis}
 @media(max-width:650px){.finder-terrain-controls{align-items:stretch;flex-direction:column}
 .finder-terrain-controls .outline-button{width:100%}}
+
+
+/* Phase 5: matched-window terrain effect. Dark, readable and responsive. */
+.finder-impact{margin-top:24px;padding:22px;border:1px solid rgba(192,228,205,.25);border-radius:8px;
+ background:radial-gradient(ellipse at 12% 0,rgba(37,71,68,.3),transparent 64%),#0a141b}
+.finder-impact[hidden]{display:none}
+.finder-impact-head{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap}
+.finder-impact-head h3{font:600 clamp(17px,2.1vw,23px) 'Space Grotesk',sans-serif;margin:8px 0 0;color:#e7f5ef}
+.finder-impact>p{margin:15px 0 18px;color:#a3bbc1;font:11px/1.7 'DM Sans',sans-serif;max-width:920px}
+.finder-impact>p strong{color:#deeee6}
+.finder-impact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.finder-impact-card{border:1px solid rgba(149,192,197,.18);border-radius:6px;
+ padding:15px;background:rgba(3,15,24,.5);display:grid;grid-template-columns:1.3fr repeat(3,1fr);
+ align-items:center;column-gap:10px;row-gap:12px;min-width:0}
+.finder-impact-label{min-width:0}.finder-impact-label strong{display:block;color:#e8f4ef;
+ font:600 14px 'Space Grotesk',sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.finder-impact-label small{display:block;font:9px 'DM Mono',monospace;margin-top:7px;color:#9eb7b8}
+.finder-impact-card>div:not(.finder-impact-label) small{display:block;color:#8fa8b3;font:9px/1.5 'DM Mono',monospace}
+.finder-impact-card>div:not(.finder-impact-label) strong{display:block;color:#e8efed;
+ font:600 13px 'Space Grotesk',sans-serif;margin-top:7px;white-space:nowrap}
+.finder-impact-delta{display:block;color:#e1ba8d;font:10px 'DM Mono',monospace;margin-top:5px}
+@media(max-width:1330px){.finder-impact-grid{grid-template-columns:1fr}}
+@media(max-width:660px){.finder-impact{padding:15px}.finder-impact-card{grid-template-columns:1fr 1fr;gap:17px}
+.finder-impact-label{grid-column:1/-1}.finder-impact-card>div:not(.finder-impact-label) strong{font-size:14px}}

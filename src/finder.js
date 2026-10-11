@@ -110,3 +110,29 @@ export function findMissionWindows({
   scoring:priority==='balanced'?'70% simultaneous + 15% Sun + 15% Earth':priority==='sun'?'Solar access':'Earth geometric visibility',
   model:terrainMode==='terrain'?'analytical-screening-v1 + loaded LOLA 20km local horizon, UTC, sampled intervals':'analytical-screening-v1, smooth horizon, UTC, sampled intervals'};
 }
+
+/** Compare matched site/date/duration windows only, never cross-site rankings.
+ * Deltas are percentage points, not probabilities or validated accuracy bounds.
+ */
+export function compareFinderModels(geometric,terrain){
+  if(!geometric||!terrain||geometric.terrainMode!=='flat'||terrain.terrainMode!=='terrain'||
+      geometric.startDate!==terrain.startDate ||
+      geometric.windowDays!==terrain.windowDays||
+      geometric.stepHours!==terrain.stepHours||
+      geometric.priority!==terrain.priority)
+    throw Error('Comparison requires same UTC date, duration, step size and priority');
+  const baseline=new Map(geometric.ranked.map(w=>[w.siteId+'|'+w.startDate,w]));
+  const rows=[];
+  for(const t of terrain.ranked){
+    const b=baseline.get(t.siteId+'|'+t.startDate);
+    if(!b)throw Error('Missing geometric comparison for '+t.siteId+' '+t.startDate);
+    rows.push({
+      siteId:t.siteId,siteName:t.siteName,startDate:t.startDate,windowDays:t.windowDays,
+      flatSunPct:b.sunPct,terrainSunPct:t.sunPct,deltaSunPp:t.sunPct-b.sunPct,
+      flatEarthPct:b.earthPct,terrainEarthPct:t.earthPct,deltaEarthPp:t.earthPct-b.earthPct,
+      flatDualPct:b.dualPct,terrainDualPct:t.dualPct,deltaDualPp:t.dualPct-b.dualPct,
+      flatScore:b.score,terrainScore:t.score,deltaScore:t.score-b.score
+    });
+  }
+  return rows.sort((a,b)=>a.startDate.localeCompare(b.startDate)||a.siteName.localeCompare(b.siteName));
+}
