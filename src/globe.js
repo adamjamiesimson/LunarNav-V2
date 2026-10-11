@@ -102,7 +102,7 @@ export function createMap(canvas,{onPick,onHover}){
  gl.generateMipmap(gl.TEXTURE_2D);
  gl.uniform1i(u.moon,0);
 
- let loaded=false,site=SITES[0],zoom=1,lat=-73,lon=25;
+ let loaded=false,site=SITES[0],zoom=1,lat=-73,lon=25,viewMode='overview';
  let sunlight=norm([0.5,0.32,-0.75]),w=0,h=0,dpr=1,frame=0;
  let origin=null,dragging=false,moved=false;
  const ctx=canvas.getContext('2d');
@@ -199,7 +199,7 @@ export function createMap(canvas,{onPick,onHover}){
    if(dragging&&origin){
      const dx=e.clientX-origin.x,dy=e.clientY-origin.y;
      if(Math.hypot(dx,dy)>4)moved=true;
-     if(moved){lon=wrap(origin.lon-dx*0.3/zoom);lat=clamp(origin.lat+dy*0.24/zoom,-89,60);request();}
+     if(moved){viewMode='manual';lon=wrap(origin.lon-dx*0.3/zoom);lat=clamp(origin.lat+dy*0.24/zoom,-89,60);request();}
      onHover(null,e);
    }else{
      const near=nearest(point.x,point.y);canvas.style.cursor=near?'pointer':worldAt(point.x,point.y)?'grab':'default';onHover(near,e);
@@ -251,9 +251,17 @@ export function createMap(canvas,{onPick,onHover}){
  else window.addEventListener('resize',size);
  size();
  return {
-   render(newSite=site){site=newSite;if(!newSite.custom)lon=wrap(newSite.lon);request();},
+   render(newSite=site){
+     site=newSite;
+     if(!newSite.custom){
+       lon=wrap(newSite.lon);
+       lat=viewMode==='focus'?clamp(newSite.lat,-89,50):-73;
+     }
+     request();
+   },
+   focusSite(){viewMode='focus';lat=clamp(site.lat,-89,50);lon=wrap(site.lon);zoom=1.35;request();return Math.round(zoom*100);},
    zoomBy(delta){zoom=clamp(zoom+delta,0.8,2.1);request();return Math.round(zoom*100);},
-   resetView(){lat=-73;lon=wrap(site.lon);zoom=1;request();return 100;},
+   resetView(){viewMode='overview';lat=-73;lon=wrap(site.lon);zoom=1;request();return 100;},
    setSun(obs,focus=site){
      const az=obs.sun.azimuth*D,el=obs.sun.elevation*D,phi=focus.lat*D,theta=focus.lon*D;
      const east=[-Math.sin(theta),Math.cos(theta),0];
