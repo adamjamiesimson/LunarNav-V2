@@ -239,8 +239,7 @@ function coverageEntries(){
 }
 function updateFinderCoverage(){
   const available=coverageEntries();
-  $('#finder-terrain-count').textContent=available.length+' of '+SITES.length+' sites have loaded terrain ('+
-    available.filter(entry=>entry.terrain.verifiedSource).length+' from NASA URL)';
+  $('#finder-terrain-count').textContent=available.length+' of '+SITES.length+' terrain profiles ready';
   if($('#finder-mode').value==='terrain' && available.length<2){
     $('#finder-data-status').textContent='Terrain comparison needs at least two valid loaded DEM profiles. Load NASA data or import a compatible GeoTIFF for two sites in the planner.';
   }
@@ -364,6 +363,7 @@ function finderPreview(result){
   html+='</div>';
   $('#finder-heatmap').innerHTML=html;
   $('#finder-caption').textContent=matrix.length+' '+(result.terrainMode==='terrain'?'terrain-covered':'geometric')+' sites × '+searchDays+' UTC start dates · '+windowDays+'-day missions · '+stepHours+'-hour sampling';
+  $('#finder-model-badge').textContent=result.terrainMode==='terrain'?'NASA LOLA HORIZON · EXPERIMENTAL':'GEOMETRIC HORIZON · EXPERIMENTAL';
   const chosen=[],used={};
   for(const w of result.ranked){
     if(chosen.length===6)break;
