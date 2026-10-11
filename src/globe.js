@@ -82,10 +82,10 @@ export function createMap(canvas,{onPick,onHover}){
  let gl;
  try{gl=background.getContext('webgl',{alpha:false,antialias:true,depth:false});}
  catch(error){console.warn('3D globe unavailable',error);}
- if(!gl){background.remove();return createPolarMap(canvas,{onPick,onHover});}
+ if(!gl){background.remove();const status=document.querySelector('#map-image-status');if(status)status.textContent='2D POLAR SCHEMATIC';return createPolarMap(canvas,{onPick,onHover});}
 
  let p;
- try{p=program(gl);}catch(error){console.warn(error);background.remove();return createPolarMap(canvas,{onPick,onHover});}
+ try{p=program(gl);}catch(error){console.warn(error);background.remove();const status=document.querySelector('#map-image-status');if(status)status.textContent='2D POLAR SCHEMATIC';return createPolarMap(canvas,{onPick,onHover});}
  gl.useProgram(p);
  const loc=name=>gl.getUniformLocation(p,name);
  const u={resolution:loc('resolution'),forward:loc('forward'),right:loc('right'),up:loc('up'),sun:loc('sun'),zoom:loc('zoom'),hasTexture:loc('hasTexture'),moon:loc('moon')};
@@ -238,13 +238,13 @@ export function createMap(canvas,{onPick,onHover}){
      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);
      gl.generateMipmap(gl.TEXTURE_2D);
-     loaded=true;request();
+     loaded=true;const status=document.querySelector('#map-image-status');if(status)status.textContent='NASA LROC IMAGERY · LOADED';request();
    }catch(e){console.warn('LROC map not available; using procedural texture.',e);}
  };
  let triedDirect=false;
  img.onerror=()=>{
    if(!triedDirect){triedDirect=true;img.src='https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg';}
-   else console.warn('NASA globe imagery could not load; procedural visual fallback is active.');
+   else{console.warn('NASA globe imagery could not load; procedural visual fallback is active.');const status=document.querySelector('#map-image-status');if(status)status.textContent='PROCEDURAL MOON · IMAGE UNAVAILABLE';}
  };
  img.src='/assets/lroc-color.jpg';
  if(typeof ResizeObserver!=='undefined')new ResizeObserver(size).observe(stage);
