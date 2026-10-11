@@ -1,0 +1,8 @@
+{
+  "algorithm": "lola-local-horizon-v1",
+  "generatedUtc": null,
+  "datasetUrl": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_80MPP_ADJ.TIF",
+  "method": "80m LOLA stereographic, 20km local horizon, 72 azimuth bins at 5deg, 200m radial; experimental",
+  "note": "Source-backed derived profiles only. Empty until independent NASA byte-range extraction succeeds; no synthetic data.",
+  "profiles": {}
+}
