@@ -11,16 +11,17 @@ export const PAGE_TITLES=Object.freeze({
 });
 export function routeFromURL(pathname='/',hash=''){
  const path=pathname.replace(/\/+$/,'')||'/';
- for(const [name,href] of Object.entries(PAGE_ROUTES))if(path===href)return name;
- if(path==='/planner')return 'explore';
- if(path==='/finder')return 'windows';
- if(path==='/methodology'||path==='/method')return 'science';
+ // Resolve old deep links BEFORE considering the default '/' overview route.
  if(path==='/'||path==='/index.html'){
    if(hash==='#planner')return 'explore';
    if(hash==='#finder')return 'windows';
    if(hash==='#compare')return 'compare';
    if(hash==='#engineering')return 'engineering';
  }
+ for(const [name,href] of Object.entries(PAGE_ROUTES))if(path===href)return name;
+ if(path==='/planner')return 'explore';
+ if(path==='/finder')return 'windows';
+ if(path==='/methodology'||path==='/method')return 'science';
  return 'home';
 }
 export function buildPageURL(page,query=''){
