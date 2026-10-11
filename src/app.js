@@ -7,6 +7,7 @@ import {findMissionWindows,compareFinderModels} from './finder.js';
 import {inspectSituation,buildSkyDiagram,fmtMargin,findNextHorizonEvent} from './situation.js';
 import {loadBundledTerrain} from './terrain-cache.js';
 import {PAGE_ROUTES,PAGE_TITLES,routeFromURL,buildPageURL} from './router.js';
+import {initOnboarding} from './onboarding.js';
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
 const fmtPct=n=>`${n.toFixed(1)}%`;
@@ -574,3 +575,8 @@ updateAnalysis();
 updateFinderCoverage();
 runFinder();
 hydrateBundledTerrain();
+initOnboarding({
+  navigateView:page=>showPage(page,{scroll:true}),
+  getPage:()=>currentPage
+});
+

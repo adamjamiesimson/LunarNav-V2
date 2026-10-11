@@ -241,3 +241,14 @@ npm test                            # model, DOM and routing tests
 The Chromium smoke workflow checks homepage links, focused page isolation, direct URL refresh, History API back/forward, Finder-to-Explorer handoff, engineering and comparison tools, and responsive desktop/mobile layouts. The public Vercel deployment still requires a visual check: source/build/Chromium CI is not proof of browser appearance on every device.
 
 All scientific caveats continue to apply: terrain is an experimental 20 km derived NASA LOLA local horizon, the JPL benchmark covers sampled reference cases only, visual globe lighting isn't a true DEM shadow model, and no outputs are mission- or flight-qualified.
+
+
+## Branded welcome and first-visit tutorial
+
+LunarNav features a skippable **six-second branded lunar intro** once per browser tab session. It is a cinematic welcome animation (not a claim that NASA data is downloading), with a CSS progress track, orbital visuals, and an immediately accessible **Skip intro** button. Reopening another page within that tab, or refreshing it, does not repeat the splash. A 9.5-second emergency CSS fallback removes the screen if the main application fails to start.
+
+On a **new visitor's first visit**, the intro is followed by a guided ten-step tour that highlights real interface elements across the six pages: overview, lunar globe, mission parameters, Sun/Earth visibility and local terrain, timeline, mission window discovery, terrain-aware Finder mode, engineering lab, site comparison, and scientific sources. The steps preview different pages **without replacing the current URL or modifying the selected site/date**. They display contextual explanations, step progress, Next/Back/Skip buttons, keyboard Left/Right navigation and Escape, a focus-contained dialog, a dimmed spotlight, and a mobile-specific layout.
+
+The tutorial completion/skip state is kept in browser **localStorage**. Users who completed or skipped the tour do not see it again automatically on the same browser profile; they can launch it again using the header **?** button or footer **Take a tour** action. The loading screen uses **sessionStorage** so it appears only once in each tab session. When browser storage is denied, the experience remains skippable and does not crash. No login, personal information upload or tracking is required.
+
+Automated tests cover all ten steps, storage failures, the first six-second intro, persistence, reload, replay, mobile skip and a full browser navigation pass. The splash and tour can be skipped without losing access to the underlying analytical model.
