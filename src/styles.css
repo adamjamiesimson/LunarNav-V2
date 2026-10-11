@@ -521,3 +521,115 @@ body[data-page="windows"] .top-actions #brief-btn{display:none}
  .terrain-details .terrain-detail-toggle{flex:0 0 100%;margin-top:1px}
  .terrain-details .finder-terrain-controls{padding:12px 0}
 }
+
+
+/* ================================================================
+   Onboarding — six-second lunar intro + keyboard-accessible tour
+   The loader is opt-in for a new browser session; returning page
+   navigations and reloads never repeat it within the session.
+   ================================================================ */
+#intro-loader{position:fixed;inset:0;z-index:9999;visibility:hidden;opacity:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 43%,#132432 0%,#09121d 48%,#060a10 100%);
+  color:#eff7f3;display:grid;place-items:center;overflow:hidden;isolation:isolate;
+  transition:opacity .34s ease,visibility .34s ease}
+html[data-intro-loading] #intro-loader{opacity:1;visibility:visible;pointer-events:auto}
+.intro-sky{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+.intro-orbit{position:absolute;border:1px solid rgba(193,221,214,.12);border-radius:50%;
+  width:min(66vw,680px);aspect-ratio:1;animation:intro-orbit 20s linear infinite}
+.intro-orbit-two{width:min(51vw,540px);border-color:rgba(198,235,228,.08);
+  animation-direction:reverse;animation-duration:28s}
+.intro-orbit-one:after{content:'';position:absolute;left:7.2%;top:18%;width:7px;height:7px;
+  border-radius:50%;background:#bce9d0;box-shadow:0 0 20px #c2eddf9c}
+.intro-moon{width:min(38vw,330px);aspect-ratio:1;transform:translateY(-15%);
+  border-radius:50%;background:radial-gradient(circle at 31% 28%,#adbdb8 0,#7f999a 16%,#4b646e 38%,#172734 67%,#060d16 95%);
+  box-shadow:inset -47px -24px 77px #02080fd9,inset 16px 7px 38px #efffff22,0 0 95px #9ed6cc1e;
+  animation:intro-moon-in 1.35s ease-out both}
+.intro-moon:after{content:'';position:absolute;inset:13%;border-radius:50%;
+ background:radial-gradient(ellipse at 20% 24%,#10252d7e,transparent 18%),
+ radial-gradient(ellipse at 71% 40%,#142d3580,transparent 15%),
+ radial-gradient(ellipse at 43% 70%,#1b364277,transparent 22%);opacity:.65}
+.intro-content{position:relative;z-index:1;align-self:end;text-align:center;padding:0 24px 12vh;
+ width:min(470px,100%);text-shadow:0 3px 18px #050a10cc}
+.intro-eyebrow{color:#a6c5bc;letter-spacing:.19em;font:10px 'DM Mono',monospace;
+ display:flex;gap:10px;justify-content:center;align-items:center}
+.intro-dot{width:6px;height:6px;border-radius:50%;background:#d1eac6;box-shadow:0 0 12px #d5eace77}
+.intro-wordmark{margin:12px 0 4px;font:600 clamp(41px,7vw,73px)/1.1 'Space Grotesk',sans-serif;
+ letter-spacing:.1em;color:#f0f6f2}
+.intro-wordmark span{color:#cbe4d5}
+.intro-wordmark i{font-style:normal;color:#d5ebdb}
+.intro-content h2{font:500 17px/1.4 'Space Grotesk',sans-serif;letter-spacing:-.025em;margin:9px 0;color:#e1eee6}
+.intro-content p{font:11px/1.5 'DM Mono',monospace;color:#9cb7bd;letter-spacing:.03em;margin:12px 0 26px}
+.intro-progress-track{height:2px;width:100%;background:rgba(179,210,207,.2);overflow:hidden;border-radius:3px}
+.intro-progress{display:block;width:100%;height:100%;transform:scaleX(0);transform-origin:left;
+ background:linear-gradient(90deg,#8bafba,#d5ead7);box-shadow:0 0 12px #d2f5d7;
+ animation:intro-fill 6s linear forwards}
+.intro-foot{display:flex;justify-content:space-between;margin-top:12px;
+ font:9px 'DM Mono',monospace;letter-spacing:.13em;color:#90aab0}
+.intro-skip{margin-top:26px;background:rgba(19,35,45,.67);border:1px solid rgba(177,212,205,.22);
+ color:#c7e0d8;padding:10px 17px;border-radius:5px;font:11px 'DM Sans',sans-serif}
+.intro-skip:hover{background:#233c47;color:#fff}
+@keyframes intro-fill{to{transform:scaleX(1)}}
+@keyframes intro-orbit{to{transform:rotate(360deg)}}
+@keyframes intro-moon-in{from{opacity:.05;transform:translateY(-8%) scale(.9)}
+ to{opacity:1;transform:translateY(-15%) scale(1)}}
+
+#tour-root[hidden]{display:none!important}
+#tour-root{position:fixed;inset:0;z-index:4000;pointer-events:none}
+#tour-backdrop{position:fixed;inset:0;background:rgba(4,10,16,.28);pointer-events:auto}
+#tour-spotlight{position:fixed;border:2px solid #d4eedb;border-radius:12px;
+ box-shadow:0 0 0 9999px rgba(3,9,15,.7),0 0 0 5px rgba(174,224,194,.18),
+ 0 0 28px rgba(174,224,194,.3);
+ z-index:1;pointer-events:none;transition:top .24s ease,left .24s ease,width .24s ease,height .24s ease}
+#tour-dialog{position:fixed;z-index:2;width:min(398px,calc(100vw - 36px));max-height:calc(100dvh - 28px);
+ overflow-y:auto;pointer-events:auto;border:1px solid rgba(190,223,210,.34);
+ border-radius:13px;background:linear-gradient(145deg,#172a34 0%,#0c1721 100%);
+ color:#edf6f1;padding:25px;box-shadow:0 25px 85px rgba(0,0,0,.55)}
+.tour-topline{display:flex;justify-content:space-between;align-items:center;gap:15px}
+.tour-topline-label{display:flex;gap:9px;align-items:center;white-space:nowrap;font:9px 'DM Mono',monospace;letter-spacing:.075em;color:#a5c9bd}
+.tour-topline-label i{width:7px;height:7px;border-radius:50%;background:#c8ebd6;box-shadow:0 0 8px #bfebd688}
+#tour-skip{border:0;background:transparent;color:#a7b8bf;padding:4px;
+ font:10px 'DM Sans',sans-serif;white-space:nowrap}
+#tour-skip:hover{color:#eff6f1}
+#tour-skip span{margin-left:4px;font-size:16px}
+.tour-counter{margin-top:28px;color:#d2e7d8;letter-spacing:.14em;font:11px 'DM Mono',monospace}
+#tour-title{font:600 clamp(22px,2.6vw,30px)/1.17 'Space Grotesk',sans-serif;
+ letter-spacing:-.05em;margin:11px 0 14px;color:#f1f8f4}
+#tour-description{margin:0;color:#afc4c6;line-height:1.77;font:13px 'DM Sans',sans-serif}
+.tour-progress{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:5px;margin-top:25px}
+.tour-progress span{height:3px;background:#394f56;border-radius:3px}
+.tour-progress span.is-active{background:#c8e4d3}
+.tour-actions{display:flex;gap:10px;margin-top:25px}
+.tour-actions button{min-height:43px;border-radius:6px;padding:11px 15px;font:600 12px 'DM Sans',sans-serif}
+#tour-back{background:transparent;border:1px solid rgba(181,208,214,.23);color:#d0e0e1;min-width:81px}
+#tour-back[disabled]{opacity:.3;cursor:default}
+#tour-next{border:1px solid #d5eddb;background:#d5eddb;color:#12261f;flex:1;text-align:left;
+ display:flex;justify-content:space-between;align-items:center;gap:6px}
+#tour-next:hover{background:#effff0}
+.tour-hint{font:9px 'DM Mono',monospace;color:#8aa4aa;margin-top:16px;text-align:center}
+body.tour-is-active{overscroll-behavior:none}
+.intro-replay-btn{font:600 15px 'Space Grotesk',sans-serif;color:#cee8dc}
+@media(max-width:760px){
+ .intro-moon{width:min(58vw,270px)}
+ .intro-orbit{width:88vw}
+ .intro-orbit-two{width:67vw}
+ .intro-content{padding-bottom:11vh}
+ .intro-wordmark{font-size:43px}
+ #tour-dialog{padding:20px 19px;border-radius:11px;max-height:min(73dvh,590px)}
+ #tour-spotlight{transition:none}
+ #tour-title{font-size:24px}
+ #tour-description{font-size:12px}
+}
+@media(max-height:600px){
+ .intro-moon{width:155px}
+ .intro-content{padding-bottom:3vh}
+ .intro-content p{margin:4px 0 9px}
+ #tour-dialog{padding:14px 18px}
+ .tour-counter{margin-top:12px}
+ .tour-progress{margin-top:12px}
+ .tour-actions{margin-top:13px}
+}
+@media(prefers-reduced-motion:reduce){
+ .intro-orbit,.intro-moon,.intro-progress{animation:none!important}
+ .intro-progress{transform:scaleX(1)}
+ #intro-loader,#tour-spotlight{transition:none}
+}
