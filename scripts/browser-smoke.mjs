@@ -61,7 +61,6 @@ try{
   assert((await page.locator('#time-event-note').textContent()).length>10,'next-event feedback missing');
   await page.locator('#finder-mode').selectOption('terrain');
   await page.waitForFunction(()=>document.querySelector('#finder-impact')?.hidden===false,{timeout:20000});
-  assert((await page.locator('#finder-window-card').count())===0||true,'');
   assert((await page.locator('.finder-window-card').count())>0,'no terrain-ranked mission windows');
   assert((await page.locator('.finder-impact-card').count())>0,'no terrain-vs-geometric comparison');
   await page.locator('#finder-mode').selectOption('flat');
