@@ -45,10 +45,13 @@ export function tourNeeded(storage){
 }
 
 export function initOnboarding({
-  navigateView,getPage,session=window.sessionStorage,persistent=window.localStorage,
+  navigateView,getPage,session=null,persistent=null,
   doc=document,clock=window,initialDelayMs=INTRO_DURATION_MS
 }={}){
   if(typeof navigateView!=='function'||typeof getPage!=='function')throw Error('Onboarding needs navigation callbacks');
+  if(session===null){try{session=clock.sessionStorage;}catch{session=undefined;}}
+  if(persistent===null){try{persistent=clock.localStorage;}catch{persistent=undefined;}}
+
   const root=doc.getElementById('tour-root');
   const panel=doc.getElementById('tour-dialog');
   const spotlight=doc.getElementById('tour-spotlight');
@@ -59,7 +62,7 @@ export function initOnboarding({
   let stepIndex=0,originalPage='home',originalScroll=0,returnFocus=null;
   let active=false,paintHandle=null,loadingTimer=null;
 
-  const later=callback=>(clock.requestAnimationFrame||requestAnimationFrame)(callback);
+  const later=callback=>clock.requestAnimationFrame(callback);
   const focusable='button:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])';
   const viewport=()=>({w:doc.documentElement.clientWidth,h:doc.documentElement.clientHeight});
 
