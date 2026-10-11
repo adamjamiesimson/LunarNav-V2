@@ -1,6 +1,6 @@
 {
   "algorithm": "lola-local-horizon-v1",
-  "generatedUtc": "2026-10-11T00:00:00.000Z",
+  "generatedUtc": "2026-10-11T04:55:40.000Z",
   "datasetUrl": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_80MPP_ADJ.TIF",
   "method": "NASA 80m south polar DEM, 20km sampling radius, azimuth every 5°, radial samples 200m; coarse experimental lunar curvature correction",
   "sourceRunUrl": "https://github.com/adamjamiesimson/LunarNav-V2/actions/runs/38113102807",
