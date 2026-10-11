@@ -9,19 +9,39 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./src/styles.css" />
-  <script type="module" src="./src/app.js"></script>
+  <link rel="stylesheet" href="/src/styles.css" />
+  <script type="module" src="/src/app.js"></script>
 </head>
 <body>
   <div id="app">
     <header class="topbar">
-      <div class="brand" aria-label="LunarNav home"><span class="brand-icon"><span></span></span><div><strong>LUNAR<span>NAV</span></strong><small>MISSION INTELLIGENCE</small></div></div>
-      <nav class="main-nav" aria-label="Primary navigation"><button class="nav-link active" data-scroll="planner">Mission planner</button><button class="nav-link" data-scroll="finder">Window finder</button><button class="nav-link" data-scroll="compare">Site comparison</button><button class="nav-link" id="method-nav">Methodology</button></nav>
+      <a class="brand" aria-label="LunarNav home" href="/" data-route="home"><span class="brand-icon"><span></span></span><div><strong>LUNAR<span>NAV</span></strong><small>MISSION INTELLIGENCE</small></div></a>
+      <nav class="main-nav" aria-label="Primary navigation"><a class="nav-link" data-route="home" href="/">Overview</a><a class="nav-link" data-route="explore" href="/explore">Explore</a><a class="nav-link" data-route="windows" href="/windows">Mission windows</a><a class="nav-link" data-route="engineering" href="/engineering">Engineering</a><a class="nav-link" data-route="compare" href="/compare">Compare sites</a><a class="nav-link" data-route="science" href="/science">Science</a></nav>
       <div class="top-actions"><span class="signal"><i></i> ANALYTICAL MODEL</span><button class="icon-button" id="share-btn" title="Copy shareable link" aria-label="Copy shareable link"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg></button><button class="top-primary" id="brief-btn">Mission briefing <span>↗</span></button></div>
     </header>
-    <main>
+    <main id="main-content" tabindex="-1">
+      
+      <section class="home-page app-view" data-view="home" aria-label="LunarNav overview">
+        <div class="home-intro"><div class="home-editorial">
+          <p class="editorial-overline"><i></i> LUNAR NAVIGATION STUDIO / SOUTH POLE</p>
+          <h1>Explore beyond<br/><em>the horizon.</em></h1>
+          <p class="home-lead">A clearer way to explore the Moon, compare landing-site opportunities, and understand the Sun, Earth, and terrain constraints shaping a mission.</p>
+          <div class="home-actions"><a href="/explore" data-route="explore" class="home-action-primary">Launch lunar explorer <span>↗</span></a><a href="/windows" data-route="windows" class="home-action-secondary">Find a mission window <span>→</span></a></div>
+          <p class="home-caveat">Independent experimental prototype · Not for flight operations</p>
+        </div><div class="home-visual" aria-hidden="true"><div class="home-orbit-ring ring-one"></div><div class="home-orbit-ring ring-two"></div><div class="home-moon"><i></i><i></i><i></i><i></i></div><span class="home-visual-label">MOON / SOUTH POLAR REGION<br/>ILLUSTRATIVE VISUAL</span></div></div>
+        <div class="home-stats"><div><span>STUDY LOCATIONS</span><strong>05</strong><small>Representative south-polar coordinates</small></div><div><span>TERRAIN SOURCE</span><strong>80 m</strong><small>NASA LOLA grid resolution</small></div><div><span>JPL REFERENCE SAMPLES</span><strong>90</strong><small>Three sites across three seasons</small></div><div><span>MISSION LENGTH</span><strong>3–28 d</strong><small>UTC mission planning</small></div></div>
+        <div class="home-section-head"><div><span class="editorial-overline">THE WORKSPACE</span><h2>Everything in its place.</h2></div><p>Focus on one mission question at a time. All the original tools remain available.</p></div>
+        <div class="home-tool-grid">
+          <a href="/explore" data-route="explore" class="home-tool-card"><span class="tool-index">01 / EXPLORE</span><span class="tool-icon">◉</span><h3>Lunar explorer</h3><p>Orbit the Moon, inspect a site, and watch local Sun/Earth geometry over time.</p><span class="tool-cta">Open explorer ↗</span></a>
+          <a href="/windows" data-route="windows" class="home-tool-card"><span class="tool-index">02 / DISCOVER</span><span class="tool-icon">▦</span><h3>Mission Window Finder</h3><p>Compare sites and dates with terrain-aware screening and clear trade-offs.</p><span class="tool-cta">Discover windows ↗</span></a>
+          <a href="/engineering" data-route="engineering" class="home-tool-card"><span class="tool-index">03 / SIMULATE</span><span class="tool-icon">↗</span><h3>Engineering lab</h3><p>Estimate solar energy, battery endurance, and local terrain horizons.</p><span class="tool-cta">Open lab ↗</span></a>
+          <a href="/compare" data-route="compare" class="home-tool-card"><span class="tool-index">04 / COMPARE</span><span class="tool-icon">◇</span><h3>Site comparison</h3><p>Review candidates under a consistent UTC window and export the results.</p><span class="tool-cta">Compare sites ↗</span></a>
+        </div>
+        <div class="home-science-strip"><div><span class="editorial-overline">OPEN PLANETARY DATA</span><p>NASA LOLA elevation data · Independent JPL Horizons comparisons · Documented limitations</p></div><a href="/science" data-route="science">Explore the science ↗</a></div>
+      </section>
+      <div class="app-view explore-page" data-view="explore" hidden>
       <section class="hero" id="planner">
-        <div class="hero-copy"><div class="eyebrow"><span class="line"></span> NASA SPACE APPS 2026 <span class="eyebrow-divider">/</span> LUNAR SOUTH POLE OPERATIONS</div><h1>Mission control.<br/><em>On the Moon.</em></h1><p>Where should we land, and when? Explore the lunar south pole, follow Sun and Earth visibility, then compare mission windows with real elevation-derived horizon estimates.</p><div class="hero-ctas"><button type="button" id="hero-explore" class="hero-cta-primary">Explore the Moon <span>↗</span></button><button type="button" id="hero-find" class="hero-cta-secondary">Find the best window <span>→</span></button></div></div>
+        <div class="hero-copy"><div class="eyebrow"><span class="line"></span> NASA SPACE APPS 2026 <span class="eyebrow-divider">/</span> LUNAR SOUTH POLE OPERATIONS</div><h1>Mission control. <em>On the Moon.</em></h1><p>Where should we land, and when? Explore the lunar south pole, follow Sun and Earth visibility, then compare mission windows with real elevation-derived horizon estimates.</p><div class="hero-ctas"><button type="button" id="hero-explore" class="hero-cta-primary">Explore the Moon <span>↗</span></button><button type="button" id="hero-find" class="hero-cta-secondary">Find the best window <span>→</span></button></div></div>
         <div class="hero-meta"><span class="orbit-icon">◉</span><div><span>OPERATIONS AREA</span><strong>South polar region</strong><small>84°S — 90°S <span>•</span> Moon</small></div></div>
       </section>
       <div class="notice" role="note"><span class="notice-mark">i</span><p><strong>Exploratory screening tool.</strong> Timeline and main site cards use a geometric 0° horizon. Live site inspection and terrain-mode Window Finder can additionally use bundled NASA-derived local horizons; hazards, terrain shadows outside the sampled horizon and radio link budgets remain uncertain. Never use these estimates for flight operations.</p><button id="notice-method">How it works <span>↗</span></button></div>
@@ -53,9 +73,11 @@
         </aside>
       </section>
 
-      <section class="engineering-section" id="engineering" aria-label="Lunar mission feasibility">
+      </div>
+      <section class="engineering-section app-view" data-view="engineering" id="engineering" hidden aria-label="Lunar mission feasibility">
+        <div class="context-bar"><span>ACTIVE MISSION</span><strong id="engineering-context">Selected lunar study site</strong><a data-route="explore" href="/explore">Change site & date in Explorer ↗</a></div>
         <div class="section-title-row engineering-heading">
-          <div><span class="section-n">06 / SIMULATE</span><h2>Design for survival<span class="accent-stop">.</span></h2><p>Translate celestial geometry into a first-order surface power and direct-to-Earth access estimate.</p></div>
+          <div><span class="section-n">03 / ENGINEERING</span><h2>Design for survival<span class="accent-stop">.</span></h2><p>Translate celestial geometry into a first-order surface power and direct-to-Earth access estimate.</p></div>
           <span class="sim-tag">EXPERIMENTAL · MODEL, NOT FLIGHT DATA</span>
         </div>
         <div class="engineering-grid">
@@ -99,8 +121,8 @@
         </div>
       </section>
 
-      <section class="finder-section" id="finder" aria-label="Find mission windows across sites and dates">
-        <div class="section-title-row finder-heading"><div><span class="section-n">07 / FIND THE WINDOW</span><h2>The right place. <em>The right time.</em></h2><p>Compare candidate lunar sites and start dates together. Discover when geometric sunlight and direct-to-Earth opportunities overlap.</p></div><span class="sim-tag">EXPLORATORY · FLAT-HORIZON ANALYTICAL MODEL</span></div>
+      <section class="finder-section app-view" data-view="windows" id="finder" hidden aria-label="Find mission windows across sites and dates">
+        <div class="section-title-row finder-heading"><div><span class="section-n">02 / MISSION WINDOWS</span><h2>The right place. <em>The right time.</em></h2><p>Compare candidate lunar sites and start dates together. Discover when geometric sunlight and direct-to-Earth opportunities overlap.</p></div><span class="sim-tag" id="finder-model-badge">GEOMETRIC HORIZON · EXPERIMENTAL</span></div>
         <div class="panel finder-shell">
           <div class="finder-toolbar">
             <label>SCAN START · UTC<input type="date" id="finder-date" value="2026-11-14" min="2025-01-01" max="2036-12-31" /></label>
@@ -109,7 +131,11 @@
             <label>PRIORITIZE<select id="finder-priority" aria-label="Window ranking priority"><option value="balanced" selected>Balanced access</option><option value="sun">Solar access</option><option value="earth">Earth visibility</option></select></label><label>HORIZON SOURCE<select id="finder-mode" aria-label="Mission window horizon source"><option value="flat" selected>Geometric baseline</option><option value="terrain">Loaded LOLA terrain (2+ sites)</option></select></label>
             <button id="finder-run" class="top-primary finder-run" type="button">Find windows →</button>
           </div>
-          <div class="finder-terrain-controls"><div><strong id="finder-terrain-count">0 of 5 sites have loaded terrain</strong><small>To enable terrain comparisons, load NASA DEMs for at least two sites. Unloaded sites are excluded; never mixed with flat-horizon scores.</small></div><button id="finder-load-all" class="outline-button" type="button">Try NASA terrain for all sites</button><button id="finder-open-terrain" class="outline-button" type="button">Load manually in planner ↗</button></div><p class="finder-data-status" id="finder-data-status" role="status" aria-live="polite">Terrain loading is optional. NASA data may be unavailable; geometric screening remains usable.</p><div class="finder-meta"><div><span class="finder-small-dot"></span><span id="finder-caption">Calculating candidate windows…</span></div><div class="finder-legend"><span><i class="finder-legend-low"></i> Less access</span><span><i class="finder-legend-high"></i> More access</span></div></div>
+          <details class="terrain-details">
+              <summary><span>TERRAIN DATA</span> <strong id="finder-terrain-count">0 of 5 terrain profiles ready</strong><span class="terrain-detail-toggle">Data source and manual options ↗</span></summary>
+              <div class="finder-terrain-controls"><div><small>Loaded terrain mode compares only locations with valid NASA-derived horizon profiles. No flat-horizon results are mixed in.</small></div><button id="finder-load-all" class="outline-button" type="button">Refresh NASA terrain</button><button id="finder-open-terrain" class="outline-button" type="button">Import a local GeoTIFF ↗</button></div>
+              <p class="finder-data-status" id="finder-data-status" role="status" aria-live="polite">Terrain loading is optional; the bundled five-site profiles work without downloading NASA files.</p>
+            </details><div class="finder-meta"><div><span class="finder-small-dot"></span><span id="finder-caption">Calculating candidate windows…</span></div><div class="finder-legend"><span><i class="finder-legend-low"></i> Less access</span><span><i class="finder-legend-high"></i> More access</span></div></div>
           <div class="finder-heatmap-wrap" tabindex="0" aria-label="Horizontally scrollable site and date comparison calendar"><div id="finder-heatmap" class="finder-heatmap" aria-live="polite"></div></div>
           <div class="finder-results-heading"><div><span class="section-n">RECOMMENDED WINDOWS</span><h3>Highest-ranked opportunities</h3></div><button id="finder-export" class="outline-button">↓ Export all windows</button></div>
           <div id="finder-top" class="finder-recommendations" aria-live="polite"><p>Comparing mission windows…</p></div>
@@ -120,7 +146,19 @@
 </div><div class="finder-score-note" id="finder-shell-status" aria-live="polite">Balanced score = 70% dual + 15% sunlight + 15% Earth visibility.</div><div class="finder-notice"><strong>How to read this.</strong> Each square is one candidate UTC start date; brighter squares indicate a better match to the selected ranking goal. Select a square to open the full planner. Balanced score = 70% dual access + 15% sunlight + 15% Earth visibility. Values are sampled every four hours, use a smooth 0° horizon and were <strong>benchmarked against 90 NASA JPL Horizons observations</strong> (max sampled errors 0.480° azimuth and 0.285° elevation across three sites/seasons). These are <strong>not universal error bounds</strong>. Terrain-mode rankings use **only sites with successfully loaded local horizons** and label the source; geometric-mode rankings retain the original 0° flat-horizon comparison.</div>
         </div>
       </section>
-      <section class="comparison-section" id="compare"><div class="section-title-row"><div><span class="section-n">08 / COMPARE</span><h2>Find your mission advantage<span class="accent-stop">.</span></h2><p>Compare candidate locations for the same UTC window, using the same screening model.</p></div><button class="outline-button" id="download-csv"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3"/></svg> Export CSV</button></div><div id="site-comparison" class="comparison-grid"></div><div class="comparison-note"><span>◇</span> Rankings are based on flat-horizon simultaneous visibility, not landing safety. The comparison is intentionally flat-horizon only; terrain and engineering assumptions apply to the selected site feasibility panel, not these rankings.</div></section>
+      <section class="comparison-section app-view" data-view="compare" id="compare" hidden>
+        <div class="context-bar"><span>ACTIVE COMPARISON WINDOW</span><strong id="compare-context">Mission study interval</strong><a data-route="explore" href="/explore">Change comparison window ↗</a></div><div class="section-title-row"><div><span class="section-n">04 / COMPARE</span><h2>Find your mission advantage<span class="accent-stop">.</span></h2><p>Compare candidate locations for the same UTC window, using the same screening model.</p></div><button class="outline-button" id="download-csv"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3"/></svg> Export CSV</button></div><div id="site-comparison" class="comparison-grid"></div><div class="comparison-note"><span>◇</span> Rankings are based on flat-horizon simultaneous visibility, not landing safety. The comparison is intentionally flat-horizon only; terrain and engineering assumptions apply to the selected site feasibility panel, not these rankings.</div></section>
+
+      <section class="science-page app-view" data-view="science" id="science-page" hidden>
+        <div class="page-intro"><p class="editorial-overline">05 / MODEL TRANSPARENCY</p><h1>Know what the<br/><em>numbers mean.</em></h1><p>Useful analysis starts with transparent assumptions. Here's what powers our calculations—and what they cannot tell you.</p></div>
+        <div class="science-feature"><div><span class="editorial-overline">INDEPENDENT VALIDATION</span><h2>90 reference observations.</h2><p>The analytical Sun/Earth geometry was compared with NASA JPL Horizons results for three lunar sites across three different seasonal windows. Maximum sampled errors were approximately 0.480° azimuth and 0.285° elevation. These are sample-specific results, not universal precision guarantees.</p><a href="https://github.com/adamjamiesimson/LunarNav-V2/tree/main/tests/fixtures" target="_blank" rel="noopener noreferrer">Archived JPL reference data ↗</a></div><div class="science-metric"><span>BENCHMARK</span><strong>90<small> comparisons</small></strong><div><span>MAX AZIMUTH ERROR</span><b>0.480°</b></div><div><span>MAX ELEVATION ERROR</span><b>0.285°</b></div><small>Not independently flight-qualified</small></div></div>
+        <div class="science-grid">
+          <article class="science-card"><span class="tool-index">01 / GEOMETRY</span><h3>Sun and Earth positions</h3><p>A lunar analytical model estimates local azimuth and elevation in UTC. Small errors near the horizon can change a visible/hidden decision.</p><a href="https://ssd.jpl.nasa.gov/horizons/" target="_blank" rel="noopener noreferrer">JPL Horizons ↗</a></article>
+          <article class="science-card"><span class="tool-index">02 / ELEVATION</span><h3>NASA LOLA terrain</h3><p>Derived 80 m/pixel profiles reach 20 km around five illustrative sites. They do not assess slopes, small hazards, or independently validated terrain shadows.</p><a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener noreferrer">NASA elevation source ↗</a></article>
+          <article class="science-card"><span class="tool-index">03 / DECISIONS</span><h3>Mission-window rankings</h3><p>The balanced heuristic weights simultaneous access 70%, sunlight 15%, and Earth visibility 15%. It isn't an operational site-safety score.</p><a href="/windows" data-route="windows">View the Finder ↗</a></article>
+          <article class="science-card"><span class="tool-index">04 / SYSTEMS</span><h3>Engineering estimates</h3><p>Power calculations assume a simplified fixed solar array, constant load, and idealized battery storage. Earth visibility is not an RF link budget.</p><a href="/engineering" data-route="engineering">Open engineering ↗</a></article>
+        </div><div class="science-disclaimer"><span>EXPERIMENTAL PROJECT</span><p>LunarNav doesn't certify landing safety, continuous power, or communications. The tool is not affiliated with or endorsed by NASA.</p><button type="button" class="outline-button" id="science-detail">Full technical methodology ↗</button></div>
+      </section>
       <footer class="footer"><div class="brand footer-brand"><span class="brand-icon"><span></span></span><div><strong>LUNAR<span>NAV</span></strong><small>MISSION INTELLIGENCE</small></div></div><p>Made for NASA Space Apps Challenge 2026 · Team 1st LunarNav<br/>Independent experimental prototype. Not affiliated with or endorsed by NASA.</p><div><button id="footer-method">Data & methodology ↗</button><a href="https://www.spaceappschallenge.org/2026/find-a-team/1st-lunarnav/" target="_blank" rel="noopener noreferrer">Team page ↗</a></div></footer>
     </main>
   </div>
