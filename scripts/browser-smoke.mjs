@@ -40,6 +40,10 @@ try{
   browser=await chromium.launch({headless:true,args:['--use-gl=angle','--use-angle=swiftshader']});
   const page=await browser.newPage({viewport:{width:1440,height:900},reducedMotion:'reduce'});
   page.on('pageerror',err=>errors.push('desktop '+err.message));
+  await page.addInitScript(()=>{
+    sessionStorage.setItem('lunarnav:intro:session:v1','1');
+    localStorage.setItem('lunarnav:onboarding:complete:v1','1');
+  });
   await offNetwork(page);
   await page.goto(host+'/',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>document.body.dataset.page==='home');
@@ -99,6 +103,10 @@ try{
 
   const mobile=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'});
   mobile.on('pageerror',err=>errors.push('mobile '+err.message));
+  await mobile.addInitScript(()=>{
+    sessionStorage.setItem('lunarnav:intro:session:v1','1');
+    localStorage.setItem('lunarnav:onboarding:complete:v1','1');
+  });
   await offNetwork(mobile);
   await mobile.goto(host+'/explore?site=nobile&date=2026-11-14&days=7',{waitUntil:'domcontentloaded'});
   await mobile.waitForFunction(()=>document.querySelector('#mission-verdict')?.textContent!=='COMPUTING…');
@@ -117,6 +125,61 @@ try{
   assert(await mobile.locator('.main-nav').isVisible(),'overview lost mobile page navigation');
   const homeOverflow=await mobile.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
   assert(homeOverflow<=8,'mobile overview overflows by '+homeOverflow+'px');
+
+  // Isolated fresh visitor: observe the full six-second branded intro,
+  // then walk across the ten feature highlights and verify persistence.
+  const visitor=await browser.newPage({viewport:{width:1280,height:800},reducedMotion:'reduce'});
+  visitor.on('pageerror',err=>errors.push('first-visit '+err.message));
+  await offNetwork(visitor);
+  const start=Date.now();
+  await visitor.goto(host+'/',{waitUntil:'domcontentloaded'});
+  assert(await visitor.locator('html').evaluate(el=>el.hasAttribute('data-intro-loading')),
+    'first-visit loading screen did not appear');
+  assert(await visitor.locator('#intro-loader').isVisible(),'intro artwork not visible');
+  await visitor.screenshot({path:'smoke-artifacts/intro.png',fullPage:false});
+  await visitor.waitForFunction(()=>!document.documentElement.hasAttribute('data-intro-loading'),{timeout:11000});
+  const duration=Date.now()-start;
+  assert(duration>=5500&&duration<=11000,'intro timing outside expected six-second range: '+duration+'ms');
+  await visitor.locator('#tour-root').waitFor({state:'visible',timeout:4000});
+  assert(await visitor.locator('#tour-title').textContent()==='Welcome to mission control.',
+    'welcome tutorial step missing');
+  await visitor.screenshot({path:'smoke-artifacts/tutorial.png',fullPage:false});
+  const expectedPages=['home','explore','explore','explore','explore','windows','windows','engineering','compare','science'];
+  for(let i=0;i<expectedPages.length;i++){
+    assert((await visitor.locator('body').getAttribute('data-page'))===expectedPages[i],
+      'tour step '+(i+1)+' failed to highlight '+expectedPages[i]);
+    assert((await visitor.locator('#tour-counter').textContent())?.includes(String(i+1).padStart(2,'0')),
+      'tour step counter incorrect at '+(i+1));
+    if(i!==expectedPages.length-1)await visitor.locator('#tour-next').click();
+  }
+  await visitor.locator('#tour-next').click();
+  assert(await visitor.locator('#tour-root').isHidden(),'complete tour failed to close');
+  assert(await visitor.locator('body').getAttribute('data-page')==='home',
+    'tour completion did not restore original overview');
+  assert(await visitor.evaluate(()=>localStorage.getItem('lunarnav:onboarding:complete:v1'))==='1',
+    'tutorial completion not persisted');
+  await visitor.reload({waitUntil:'domcontentloaded'});
+  assert(await visitor.locator('#tour-root').isHidden(),'tour unexpectedly restarted on reload');
+  assert(!await visitor.locator('html').evaluate(el=>el.hasAttribute('data-intro-loading')),
+    'intro replayed on same-session refresh');
+  await visitor.locator('#restart-tour').click();
+  assert(await visitor.locator('#tour-root').isVisible(),'replay tutorial control did not work');
+  await visitor.keyboard.press('Escape');
+  assert(await visitor.locator('#tour-root').isHidden(),'Escape failed to close replayed tour');
+
+  // Mobile first visit can bypass animation without losing the guided tour.
+  const mobileVisitor=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'});
+  mobileVisitor.on('pageerror',err=>errors.push('mobile first-visit '+err.message));
+  await offNetwork(mobileVisitor);
+  await mobileVisitor.goto(host+'/',{waitUntil:'domcontentloaded'});
+  await mobileVisitor.locator('#intro-skip').click();
+  await mobileVisitor.locator('#tour-root').waitFor({state:'visible',timeout:3500});
+  await mobileVisitor.screenshot({path:'smoke-artifacts/mobile-tutorial.png',fullPage:false});
+  const card=await mobileVisitor.locator('#tour-dialog').boundingBox();
+  assert(card&&card.x>=0&&card.x+card.width<=392,'tour card overflows mobile viewport');
+  await mobileVisitor.locator('#tour-skip').click();
+  assert(await mobileVisitor.locator('#tour-root').isHidden(),'mobile tutorial Skip did not close');
+
   assert(errors.length===0,'uncaught JavaScript errors: '+errors.join(' | '));
   console.log('Browser smoke PASS: six pages, direct URLs, back/forward, desktop/mobile, science refresh, globe, terrain Finder and exports.');
 }catch(error){
