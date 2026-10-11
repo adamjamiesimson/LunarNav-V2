@@ -7,7 +7,7 @@ import {inspectSituation,buildSkyDiagram,fmtMargin} from '../src/situation.js';
 
 const fixtures=JSON.parse(readFileSync(new URL('../data/lola-horizons.json',import.meta.url),'utf-8'));
 const site=SITES.find(s=>s.id==='mons-mouton');
-const profile=fixtures.profiles[site.id];
+const profile={...fixtures.profiles[site.id],verifiedSource:true};
 const obs=ephemeris(new Date('2026-11-14T12:00:00Z'),site.lat,site.lon);
 test('live situation tracks actual site terrain azimuth horizon and geometric fallback',()=>{
   const flat=inspectSituation(obs);
@@ -66,4 +66,14 @@ test('mission control does not read terrain from globe visual texture',()=>{
   assert.match(fallback,/focusSite\(\)/);
   assert.match(build,/src\/situation\.js/);
   assert.match(html,/GLOBE LIGHTING/);
+});
+
+test('unverified user-supplied terrain is never labeled as NASA LOLA',()=>{
+  const userProfile={...profile,verifiedSource:false,source:'Local GeoTIFF'};
+  const result=inspectSituation(obs,userProfile);
+  assert.match(result.source,/UNVERIFIED/);
+  assert.doesNotMatch(result.source,/LOLA/);
+  const chart=buildSkyDiagram(obs,userProfile);
+  assert.match(chart,/UNVERIFIED DEM HORIZON/);
+  assert.doesNotMatch(chart,/NASA-derived local terrain horizon/);
 });
