@@ -16,7 +16,8 @@ export function inspectSituation(obs,profile=null){
   const terrain=Boolean(profile);
   const combined=sunVisible&&earthVisible?'DUAL VISIBILITY':
     sunVisible?'SUN ONLY':earthVisible?'EARTH ONLY':'BOTH OBSTRUCTED';
-  return {terrain,source:terrain?'20 KM LOLA HORIZON':'0° GEOMETRIC HORIZON',
+  const source=terrain?(profile.verifiedSource===true?'20 KM LOLA HORIZON':'USER-SUPPLIED / UNVERIFIED DEM'):'0° GEOMETRIC HORIZON';
+  return {terrain,source,
     sunBarrier,earthBarrier,sunMargin,earthMargin,sunVisible,earthVisible,combined,
     nearBoundary:Math.min(Math.abs(sunMargin),Math.abs(earthMargin))<0.5};
 }
@@ -45,7 +46,8 @@ export function buildSkyDiagram(obs,profile=null){
       return point.x.toFixed(2)+','+point.y.toFixed(2);
     }).join(' ');
     skyline='<polygon points="'+points+'" fill="rgba(213,168,116,.07)" stroke="#d7ae7f" stroke-width="2" stroke-linejoin="round"/>'+
-      '<text x="140" y="285" text-anchor="middle" fill="#d9b386" font-family="DM Mono,monospace" font-size="8">GOLD = LOCAL LOLA HORIZON</text>';
+      '<text x="140" y="285" text-anchor="middle" fill="#d9b386" font-family="DM Mono,monospace" font-size="8">'+
+      (profile.verifiedSource===true?'GOLD = LOCAL LOLA HORIZON':'GOLD = UNVERIFIED DEM HORIZON')+'</text>';
   }
   const grid='<defs><radialGradient id="mission-sky-bg"><stop offset="0" stop-color="#203342"/><stop offset="1" stop-color="#0d1824"/></radialGradient></defs>'+
     '<circle cx="140" cy="140" r="102" fill="url(#mission-sky-bg)" stroke="#526874"/>'+
@@ -57,7 +59,7 @@ export function buildSkyDiagram(obs,profile=null){
     '<text x="24" y="143" text-anchor="middle" fill="#b6c7cf" font-size="10">W</text>'+
     '<text x="256" y="143" text-anchor="middle" fill="#b6c7cf" font-size="10">E</text>';
   return '<svg viewBox="0 0 280 290" role="img" aria-label="Local sky visibility, with Sun and Earth positions'+
-    (profile?' and NASA-derived local terrain horizon':' and geometric horizon')+'">'+grid+skyline+
+    (profile?(profile.verifiedSource===true?' and NASA-derived local terrain horizon':' and user-supplied unverified terrain horizon'):' and geometric horizon')+'">'+grid+skyline+
     trace(obs.sun,'#f1c58b','SUN',situation.sunVisible,situation.sunBarrier)+
     trace(obs.earth,'#94d9e5','EARTH',situation.earthVisible,situation.earthBarrier)+
     '<circle cx="140" cy="140" r="3" fill="#d8f0f2"/></svg>';
