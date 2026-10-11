@@ -212,3 +212,32 @@ There is **no quantitative antenna link budget, slope or landing-hazard certific
 ### Automated browser verification
 
 PRs include \`.github/workflows/browser-smoke.yml\`, which builds the standalone app and uses headless Chromium at desktop and mobile viewports. It verifies rendering without external network access, focus/full-screen/Esc, UTC clock stepping, terrain Finder and geometric-vs-terrain differences, and the absence of uncaught script errors. The workflow saves screenshots as a short-lived artifact. Source tests and production builds run separately via \`.github/workflows/ci.yml\`. A browser smoke pass proves these representative flows, **not** all Vercel devices, NASA image access, WebGL drivers or accuracy of terrain physics.
+
+
+## Phase 7 — Focused multi-page LunarNav
+
+The previously crowded single-screen dashboard is now a six-page mission-control workspace:
+
+| Route | Purpose |
+| --- | --- |
+| `/` | Minimal overview and quick entries to the key tools |
+| `/explore` | Full lunar globe, site selection, live Sun/Earth margins, local sky, time controls and visibility timeline |
+| `/windows` | Site/date heatmap, ranked mission windows, NASA-derived terrain mode, exact-date comparisons and CSV |
+| `/engineering` | Solar/battery assumptions, engineering time series, Earth elevation mask, optional DEM loading and export |
+| `/compare` | All five site cards under the same UTC assumptions, with links to inspect sites in Explorer |
+| `/science` | Independent JPL benchmark, NASA elevation source, model assumptions and links to technical details |
+
+A lightweight client router uses **real URL paths and browser History API**, preserves selected site/date/duration across tools and supports browser Back/Forward. Existing `#planner`, `#finder`, `#compare`, `/planner`, and `/finder` links resolve to the appropriate new page. Vercel `rewrites` serve `index.html` on direct navigation and refresh; JS and CSS use root-relative asset paths. There is a single shared instance of the existing scientific engine and all existing DOM controls remain mounted, but only the requested tool's page is shown. Browser layout and navigation are intentionally separate from any claim of scientific accuracy.
+
+### Run and verify
+
+```sh
+npm run dev                         # route-aware dev preview at http://127.0.0.1:4173/
+npm run build
+npm run preview                     # route-aware production preview
+npm test                            # model, DOM and routing tests
+```
+
+The Chromium smoke workflow checks homepage links, focused page isolation, direct URL refresh, History API back/forward, Finder-to-Explorer handoff, engineering and comparison tools, and responsive desktop/mobile layouts. The public Vercel deployment still requires a visual check: source/build/Chromium CI is not proof of browser appearance on every device.
+
+All scientific caveats continue to apply: terrain is an experimental 20 km derived NASA LOLA local horizon, the JPL benchmark covers sampled reference cases only, visual globe lighting isn't a true DEM shadow model, and no outputs are mission- or flight-qualified.
