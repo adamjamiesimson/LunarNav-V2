@@ -344,20 +344,32 @@ function runFinder(){
 }
 function exportFinderCSV(){
   if(!state.finder)return toast('Run the window finder first');
-  const header=['site','start_utc','duration_days','sun_pct','earth_pct','dual_pct','max_dark_hours','max_earth_gap_hours','longest_dual_hours','rank_score','priority','sampling_hours','horizon','data_source'];
-  const lines=state.finder.ranked.map(w=>[
-    w.siteName,w.startDate,w.windowDays,w.sunPct.toFixed(2),w.earthPct.toFixed(2),
-    w.dualPct.toFixed(2),w.longestDarknessHours,w.longestEarthBlackoutHours,
-    w.longestDualHours,w.score.toFixed(2),state.finder.priority,state.finder.stepHours,
-    state.finder.terrainMode==='terrain'?'loaded DEM 20km azimuth horizon for this site':'smooth spherical 0 deg, no terrain',
-    state.finder.terrainMode==='terrain'?(getCachedTerrain(SITES.find(x=>x.id===w.siteId))?.provenance||'source unavailable'):'analytical-screening-v1'
-  ].map(value=>'"'+String(value).replaceAll('"','""')+'"').join(','));
+  const header=['site','start_utc','duration_days','sun_pct','earth_pct','dual_pct','max_dark_hours',
+    'max_earth_gap_hours','longest_dual_hours','rank_score','priority','sampling_hours',
+    'horizon','data_source','baseline_sun_pct','baseline_earth_pct','baseline_dual_pct',
+    'delta_sun_pp','delta_earth_pp','delta_dual_pp'];
+  const differences=state.finderBaseline
+    ?new Map(compareFinderModels(state.finderBaseline,state.finder).map(e=>[e.siteId+'|'+e.startDate,e]))
+    :new Map();
+  const lines=state.finder.ranked.map(w=>{
+    const diff=differences.get(w.siteId+'|'+w.startDate);
+    const site=SITES.find(s=>s.id===w.siteId),profile=site?getCachedTerrain(site):null;
+    return [
+      w.siteName,w.startDate,w.windowDays,w.sunPct.toFixed(2),w.earthPct.toFixed(2),
+      w.dualPct.toFixed(2),w.longestDarknessHours,w.longestEarthBlackoutHours,
+      w.longestDualHours,w.score.toFixed(2),state.finder.priority,state.finder.stepHours,
+      state.finder.terrainMode==='terrain'?'experimental NASA LOLA 20km local horizon':'spherical 0deg geometric horizon',
+      state.finder.terrainMode==='terrain'?(profile?.provenance||'missing source'):'analytical-screening-v1',
+      diff?.flatSunPct.toFixed(2)??'',diff?.flatEarthPct.toFixed(2)??'',diff?.flatDualPct.toFixed(2)??'',
+      diff?.deltaSunPp.toFixed(2)??'',diff?.deltaEarthPp.toFixed(2)??'',diff?.deltaDualPp.toFixed(2)??''
+    ].map(value=>'"'+String(value).replaceAll('"','""')+'"').join(',');
+  });
   const csv=[header.join(','),...lines].join('\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download='lunarnav-windows-'+state.finder.startDate+'-'+state.finder.searchDays+'d.csv';
   document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
-  toast('All candidate mission windows exported');
+  toast('All windows exported, with matched terrain differences where available');
 }
 
 // Events
