@@ -6,6 +6,7 @@ import {loadLolaTerrain} from './terrain.js';
 import {findMissionWindows,compareFinderModels} from './finder.js';
 import {inspectSituation,buildSkyDiagram,fmtMargin,findNextHorizonEvent} from './situation.js';
 import {loadBundledTerrain} from './terrain-cache.js';
+import {PAGE_ROUTES,PAGE_TITLES,routeFromURL,buildPageURL} from './router.js';
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
 const fmtPct=n=>`${n.toFixed(1)}%`;
@@ -18,6 +19,7 @@ const startSite=SITES.find(x=>x.id===params.get('site'))||SITES[0];
 const startDays=[3,7,14,28].includes(Number(params.get('days')))?Number(params.get('days')):7;
 const startDate=/^\d{4}-\d{2}-\d{2}$/.test(params.get('date')||'')?params.get('date'):'2026-11-14';
 const state={site:startSite,date:startDate,time:'12:00',days:startDays,offset:0,base:null,samples:[],ranking:[],playing:false,terrain:null,engineering:{...DEFAULT_ENGINEERING},simulation:null};
+let currentPage=routeFromURL(location.pathname,location.hash);
 const terrainProfiles=new Map();
 const terrainKey=site=>site.id+'|'+site.lat.toFixed(6)+'|'+site.lon.toFixed(6);
 const getCachedTerrain=site=>terrainProfiles.get(terrainKey(site))||null;
@@ -29,8 +31,46 @@ siteSelect.value=state.site.id;
 $('#mission-date').value=state.date;
 $$('#duration button').forEach(b=>b.classList.toggle('selected',Number(b.dataset.days)===state.days));
 
+
+/** Keep current-site settings shareable across distinct page URLs. */
+function selectionQuery(){
+  const p=new URLSearchParams();
+  if(!state.site.custom)p.set('site',state.site.id);
+  p.set('date',state.date);p.set('days',String(state.days));
+  return p.toString();
+}
+function showPage(page,{scroll=true}={}){
+  currentPage=PAGE_ROUTES[page]?page:'home';
+  for(const element of $('[data-view]')){
+    const active=element.dataset.view===currentPage;
+    element.hidden=!active;
+    element.setAttribute('aria-hidden',String(!active));
+  }
+  for(const element of $('[data-route]')){
+    const active=element.dataset.route===currentPage;
+    if(element.classList.contains('nav-link'))element.classList.toggle('active',active);
+    if(active && element.classList.contains('nav-link'))element.setAttribute('aria-current','page');
+    else element.removeAttribute('aria-current');
+  }
+  document.body.dataset.page=currentPage;
+  document.title=(currentPage==='home'?'LunarNav — Lunar Mission Control':PAGE_TITLES[currentPage]+' — LunarNav');
+  if(scroll)window.scrollTo(0,0);
+  // Repaint the globe after its container becomes visible again.
+  if(currentPage==='explore'&&state.base){
+    requestAnimationFrame(()=>{map.render(state.site);drawTimeline();updateInspection();});
+  }
+}
+function navigatePage(page,{replace=false}={}){
+  if(!PAGE_ROUTES[page])return;
+  if(currentPage!==page)stopPlay();
+  const path=buildPageURL(page,page==='home'?'':selectionQuery());
+  if(replace)history.replaceState({page},'',path);
+  else if(location.pathname+location.search!==path)history.pushState({page},'',path);
+  showPage(page);
+}
+
 function toast(message){const el=$('#toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2800);}
-function updateURL(){if(state.site.custom)return;const p=new URLSearchParams();p.set('site',state.site.id);p.set('date',state.date);p.set('days',String(state.days));history.replaceState({},'',`${location.pathname}?${p}#planner`);}
+function updateURL(){if(state.site.custom||currentPage==='home')return;history.replaceState({page:currentPage},'',buildPageURL(currentPage,selectionQuery()));}
 const map=createMap($('#moon-map'),{onPick:selectSite,onHover:(site,e)=>{const tip=$('#map-tooltip');if(!site){tip.hidden=true;return;}tip.hidden=false;tip.textContent=`${site.name} · ${fmtCoord(site.lat,site.lon)}`;const rect=$('#map-stage').getBoundingClientRect();tip.style.left=`${Math.min(rect.width-235,Math.max(12,e.clientX-rect.left+16))}px`;tip.style.top=`${Math.max(12,e.clientY-rect.top-20)}px`;}});
 function selectSite(site){stopPlay();state.site=site;if(site.custom&&!siteSelect.querySelector('[value="custom"]'))siteSelect.add(new Option('Custom waypoint  ·  Map-selected','custom'));siteSelect.value=site.id;updateAnalysis();toast(`${site.name} selected`);}
 function updateSelected(){const site=state.site;$('#selected-name').textContent=site.name;$('#selected-tag').textContent=site.tag;$('#selected-coord').textContent=fmtCoord(site.lat,site.lon);$('#selected-type').textContent=site.kind;$('#site-source').href=site.source||'https://science.nasa.gov/moon/';$('#site-source').style.display=site.custom?'none':'';$('#map-site-name').textContent=site.name.toUpperCase();$('#map-coordinate').textContent=fmtCoord(site.lat,site.lon);$('.site-dot').style.background=site.accent;map.render(site);}
@@ -289,7 +329,7 @@ function finderOpen(siteId,iso,days){
   $('#duration button').forEach(b=>b.classList.toggle('selected',Number(b.dataset.days)===days));
   siteSelect.value=site.id;
   updateAnalysis();
-  $('#planner').scrollIntoView({behavior:'smooth',block:'start'});
+  navigatePage('explore');
   toast('Opened '+site.name+' · '+iso+' · '+days+' days (12:00 UTC)');
 }
 function finderPreview(result){
@@ -469,17 +509,37 @@ $('#hero-explore').addEventListener('click',()=>{
   if(Number.isFinite(level))$('#zoom-label').textContent=level+'%';
   $('#focus-site').setAttribute('aria-pressed','true');
 });
-$('#hero-find').addEventListener('click',()=>$('#finder').scrollIntoView({behavior:'smooth'}));
+$('#hero-find').addEventListener('click',()=>navigatePage('windows'));
 
 $('#download-csv').addEventListener('click',generateCSV);
 $('#brief-btn').addEventListener('click',openBrief);
 $('#copy-brief').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(briefText());toast('Mission briefing copied');}catch{toast('Clipboard unavailable; use Print / save PDF');}});
 $('#print-brief').addEventListener('click',()=>window.print());
 $('#share-btn').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(location.href);toast('Shareable mission link copied');}catch{toast('Copy this page URL to share');}});
-for(const id of ['method-nav','notice-method','footer-method'])$('#'+id).addEventListener('click',()=>$('#method-dialog').showModal());
+$('#notice-method').addEventListener('click',()=>navigatePage('science'));
+$('#footer-method').addEventListener('click',()=>navigatePage('science'));
+$('#science-detail').addEventListener('click',()=>$('#method-dialog').showModal());
 $$('[data-close]').forEach(x=>x.addEventListener('click',()=>$('#'+x.dataset.close).close()));
 $$('dialog').forEach(d=>d.addEventListener('click',e=>{if(e.target===d)d.close();}));
-$$('[data-scroll]').forEach(b=>b.addEventListener('click',()=>{$$('[data-scroll]').forEach(x=>x.classList.toggle('active',x===b));$('#'+b.dataset.scroll).scrollIntoView({behavior:'smooth'});}));
+document.addEventListener('click',event=>{
+  const anchor=event.target.closest?.('a[data-route]');
+  if(!anchor||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+  event.preventDefault();
+  navigatePage(anchor.dataset.route);
+});
+window.addEventListener('popstate',()=>{
+  const params=new URLSearchParams(location.search);
+  const site=SITES.find(s=>s.id===params.get('site'));
+  const days=Number(params.get('days'));
+  let changed=false;
+  if(site&&site.id!==state.site.id){state.site=site;siteSelect.value=site.id;changed=true;}
+  if([3,7,14,28].includes(days)&&days!==state.days){state.days=days;$('#duration button').forEach(b=>b.classList.toggle('selected',Number(b.dataset.days)===days));changed=true;}
+  const date=params.get('date');
+  if(date&&/^\d{4}-\d{2}-\d{2}$/.test(date)&&date!==state.date){$('#mission-date').value=date;changed=true;}
+  const page=routeFromURL(location.pathname,location.hash);
+  showPage(page);
+  if(changed)updateAnalysis();
+});
 $('#timeline-graph').insertAdjacentHTML('beforebegin','<button class="replay-button" id="replay-btn" type="button">▶ Replay window</button>');
 $('#replay-btn').addEventListener('click',togglePlay);
 
@@ -500,10 +560,11 @@ $('#finder-run').addEventListener('click',runFinder);
 $('#finder-mode').addEventListener('change',()=>{updateFinderCoverage();runFinder();});
 $('#finder-load-all').addEventListener('click',tryLoadAllTerrain);
 $('#finder-open-terrain').addEventListener('click',()=>{
-  $('#engineering').scrollIntoView({behavior:'smooth',block:'start'});
+  navigatePage('engineering');
   toast('Select a site above, then load NASA terrain or import its 80m GeoTIFF.');
 });
 $('#finder-export').addEventListener('click',exportFinderCSV);
+showPage(currentPage,{scroll:false});
 updateAnalysis();
 updateFinderCoverage();
 runFinder();
