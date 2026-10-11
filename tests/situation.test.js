@@ -88,7 +88,7 @@ test('next modeled horizon event finder validates time and returns bounded 30min
     assert.ok(event.offsetHours>0&&event.offsetHours<=28*24);
     assert.equal(event.offsetHours*2,Math.round(event.offsetHours*2));
     assert.ok(['SUN','EARTH','SUN + EARTH'].includes(event.eventType));
-    assert.match(event.eventUTC,/^20\\d\\d-/);
+    assert.match(event.eventUTC,/^20[0-9]{2}-/);
     assert.match(event.warning,/Modeled horizon crossing/);
   }
 });
