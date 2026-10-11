@@ -149,7 +149,7 @@ function updateMissionPanels(){
     $('#eng-earth').textContent=sim.earthAccessPct.toFixed(1)+'%';
     $('#eng-energy').textContent=(sim.generatedWh/1000).toFixed(1)+' kWh';
     $('#eng-ending').textContent=sim.endingSocPct.toFixed(1)+'% END';
-    $('#model-horizon-tag').textContent=sim.terrainApplied?'LOLA TERRAIN MODEL':'FLAT HORIZON';
+    $('#model-horizon-tag').textContent=sim.terrainApplied?(state.terrain?.verifiedSource===true?'NASA-DERIVED HORIZON':'USER DEM · UNVERIFIED'):'FLAT HORIZON';
     const width=920,height=90,points=sim.timeline.map((t,i)=>{
       const x=20+i*(width-40)/Math.max(1,sim.timeline.length-1);
       const y=height-10-(height-23)*t.socPct/100;
@@ -363,7 +363,7 @@ function finderPreview(result){
   html+='</div>';
   $('#finder-heatmap').innerHTML=html;
   $('#finder-caption').textContent=matrix.length+' '+(result.terrainMode==='terrain'?'terrain-covered':'geometric')+' sites × '+searchDays+' UTC start dates · '+windowDays+'-day missions · '+stepHours+'-hour sampling';
-  $('#finder-model-badge').textContent=result.terrainMode==='terrain'?'NASA LOLA HORIZON · EXPERIMENTAL':'GEOMETRIC HORIZON · EXPERIMENTAL';
+  $('#finder-model-badge').textContent=result.terrainMode==='terrain'?'LOADED LOCAL HORIZONS · EXPERIMENTAL':'GEOMETRIC HORIZON · EXPERIMENTAL';
   const chosen=[],used={};
   for(const w of result.ranked){
     if(chosen.length===6)break;
