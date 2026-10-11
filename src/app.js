@@ -3,7 +3,8 @@ import {SITES,fmtCoord} from './sites.js';
 import {createMap} from './globe.js';
 import {simulateMission,DEFAULT_ENGINEERING} from './mission.js';
 import {loadLolaTerrain} from './terrain.js';
-import {findMissionWindows} from './finder.js';
+import {findMissionWindows,compareFinderModels} from './finder.js';
+import {loadBundledTerrain} from './terrain-cache.js';
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
 const fmtPct=n=>`${n.toFixed(1)}%`;
@@ -194,6 +195,52 @@ async function tryLoadAllTerrain(){
   }finally{terrainBatchLoading=false;$('#finder-load-all').disabled=false;}
 }
 
+
+async function hydrateBundledTerrain(){
+  try{
+    const entries=await loadBundledTerrain(SITES);
+    let accepted=0;
+    for(const {site,profile} of entries){
+      if(getCachedTerrain(site))continue; // User-loaded profiles take precedence.
+      terrainProfiles.set(terrainKey(site),profile);
+      accepted++;
+    }
+    if(accepted&&!state.terrain){
+      state.terrain=getCachedTerrain(state.site);
+      if(state.terrain)updateMissionPanels();
+    }
+    updateFinderCoverage();
+    const total=coverageEntries().length;
+    $('#finder-data-status').textContent=accepted
+      ?'Ready: '+total+' terrain-covered sites; '+accepted+' restored from NASA-derived bundled data (20 km experimental local horizons).'
+      :'No bundled terrain profiles yet. The geometric Finder works; NASA terrain remains optional.';
+    if($('#finder-mode').value==='terrain'&&total>=2)runFinder();
+  }catch(error){
+    $('#finder-data-status').textContent='Bundled terrain unavailable: '+error.message+'. Geometric results remain usable.';
+    updateFinderCoverage();
+  }
+}
+function renderFinderImpact(result,baseline){
+  const section=$('#finder-impact'),items=$('#finder-impact-items');
+  if(result.terrainMode!=='terrain'||!baseline){
+    section.hidden=true;items.replaceChildren();return;
+  }
+  const effects=compareFinderModels(baseline,result);
+  const best=result.bestBySite.map(({site,best})=>
+    effects.find(e=>e.siteId===site.id&&e.startDate===best.startDate)).filter(Boolean);
+  section.hidden=false;
+  const fmt=n=>(n>0?'+':'')+n.toFixed(1)+' pp';
+  items.innerHTML=best.map(e=>
+    '<div class="finder-impact-card"><div class="finder-impact-label"><strong>'+escapeHTML(e.siteName)+
+    '</strong><small>'+e.startDate+' · '+e.windowDays+' DAYS</small></div>'+
+    '<div><small>SIMULTANEOUS ACCESS</small><strong>'+e.flatDualPct.toFixed(1)+'% → '+e.terrainDualPct.toFixed(1)+'%</strong>'+
+    '<span class="finder-impact-delta">'+fmt(e.deltaDualPp)+'</span></div>'+
+    '<div><small>SUNLIGHT</small><strong>'+e.flatSunPct.toFixed(1)+'% → '+e.terrainSunPct.toFixed(1)+'%</strong>'+
+    '<span class="finder-impact-delta">'+fmt(e.deltaSunPp)+'</span></div>'+
+    '<div><small>EARTH VISIBLE</small><strong>'+e.flatEarthPct.toFixed(1)+'% → '+e.terrainEarthPct.toFixed(1)+'%</strong>'+
+    '<span class="finder-impact-delta">'+fmt(e.deltaEarthPp)+'</span></div></div>').join('');
+}
+
 let finderRequest=0;
 function finderOpen(siteId,iso,days){
   const site=SITES.find(s=>s.id===siteId);
@@ -255,6 +302,7 @@ function finderPreview(result){
       '</strong><small>'+scoreLabel+'</small></div><span aria-hidden="true" class="finder-window-arrow">↗</span></button>';
   }).join('');
   $('#finder-shell-status').textContent='Ranking: '+result.scoring+'; '+(result.terrainMode==='terrain'?'loaded DEM azimuth horizons for all displayed sites':'geometric flat 0° horizon')+'; UTC noon starts. No landing safety or RF link budgets.';
+  renderFinderImpact(result,state.finderBaseline||null);
   for(const element of document.querySelectorAll('[data-date][data-site]')){
     element.addEventListener('click',()=>finderOpen(element.dataset.site,element.dataset.date,windowDays));
   }
@@ -281,12 +329,16 @@ function runFinder(){
         terrainMode,terrainProfiles:terrainMode==='terrain'?terrainById:null
       });
       state.finder=result;
+      state.finderBaseline=terrainMode==='terrain'?findMissionWindows({
+        sites,startDate,searchDays,windowDays,stepHours:4,priority,terrainMode:'flat'
+      }):null;
       finderPreview(result);
     }catch(error){
       $('#finder-caption').textContent=error.message||'Finder could not calculate windows.';
       $('#finder-heatmap').textContent='';
       $('#finder-top').textContent='';
-      state.finder=null;
+      state.finder=null;state.finderBaseline=null;
+      $('#finder-impact').hidden=true;
     }finally{$('#finder-run').disabled=false;}
   });
 }
@@ -354,3 +406,4 @@ $('#finder-export').addEventListener('click',exportFinderCSV);
 updateAnalysis();
 updateFinderCoverage();
 runFinder();
+hydrateBundledTerrain();
