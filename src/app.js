@@ -29,7 +29,7 @@ const siteSelect=$('#site-select');
 SITES.forEach(site=>siteSelect.add(new Option(`${site.name}  ·  ${site.tag}`,site.id)));
 siteSelect.value=state.site.id;
 $('#mission-date').value=state.date;
-$$('#duration button').forEach(b=>b.classList.toggle('selected',Number(b.dataset.days)===state.days));
+$document.querySelectorAll('#duration button').forEach(b=>b.classList.toggle('selected',Number(b.dataset.days)===state.days));
 
 
 /** Keep current-site settings shareable across distinct page URLs. */
@@ -41,12 +41,12 @@ function selectionQuery(){
 }
 function showPage(page,{scroll=true}={}){
   currentPage=PAGE_ROUTES[page]?page:'home';
-  for(const element of $('[data-view]')){
+  for(const element of document.querySelectorAll('[data-view]')){
     const active=element.dataset.view===currentPage;
     element.hidden=!active;
     element.setAttribute('aria-hidden',String(!active));
   }
-  for(const element of $('[data-route]')){
+  for(const element of document.querySelectorAll('[data-route]')){
     const active=element.dataset.route===currentPage;
     if(element.classList.contains('nav-link'))element.classList.toggle('active',active);
     if(active && element.classList.contains('nav-link'))element.setAttribute('aria-current','page');
@@ -331,7 +331,7 @@ function finderOpen(siteId,iso,days){
   $('#mission-date').value=iso;
   // Respect the mission time chosen by the user (finder scans at 12:00 UTC).
   $('#mission-time').value='12:00';
-  $('#duration button').forEach(b=>b.classList.toggle('selected',Number(b.dataset.days)===days));
+  document.querySelectorAll('#duration button').forEach(b=>b.classList.toggle('selected',Number(b.dataset.days)===days));
   siteSelect.value=site.id;
   updateAnalysis();
   navigatePage('explore');
@@ -454,7 +454,7 @@ function exportFinderCSV(){
 
 // Events
 siteSelect.addEventListener('change',()=>{const s=SITES.find(x=>x.id===siteSelect.value);if(s)selectSite(s);});
-$$('#duration button').forEach(b=>b.addEventListener('click',()=>{state.days=Number(b.dataset.days);$$('#duration button').forEach(x=>x.classList.toggle('selected',x===b));stopPlay();updateAnalysis();}));
+$document.querySelectorAll('#duration button').forEach(b=>b.addEventListener('click',()=>{state.days=Number(b.dataset.days);$document.querySelectorAll('#duration button').forEach(x=>x.classList.toggle('selected',x===b));stopPlay();updateAnalysis();}));
 $('#analyze-btn').addEventListener('click',()=>{stopPlay();updateAnalysis();toast('Mission window recalculated');});
 $('#mission-date').addEventListener('change',()=>{stopPlay();updateAnalysis();});
 $('#mission-time').addEventListener('change',()=>{stopPlay();updateAnalysis();});
@@ -538,7 +538,7 @@ window.addEventListener('popstate',()=>{
   const days=Number(params.get('days'));
   let changed=false;
   if(site&&site.id!==state.site.id){state.site=site;siteSelect.value=site.id;changed=true;}
-  if([3,7,14,28].includes(days)&&days!==state.days){state.days=days;$('#duration button').forEach(b=>b.classList.toggle('selected',Number(b.dataset.days)===days));changed=true;}
+  if([3,7,14,28].includes(days)&&days!==state.days){state.days=days;document.querySelectorAll('#duration button').forEach(b=>b.classList.toggle('selected',Number(b.dataset.days)===days));changed=true;}
   const date=params.get('date');
   if(date&&/^\d{4}-\d{2}-\d{2}$/.test(date)&&date!==state.date){$('#mission-date').value=date;changed=true;}
   const page=routeFromURL(location.pathname,location.hash);
