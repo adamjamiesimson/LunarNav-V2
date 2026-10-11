@@ -10,14 +10,54 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/src/styles.css" />
+  <script>
+    // Set splash visibility before the page paints. A safeguard prevents
+    // a permanent splash if browser storage or application startup fails.
+    try {
+      if (!sessionStorage.getItem('lunarnav:intro:session:v1')) {
+        document.documentElement.setAttribute('data-intro-loading', '');
+        window.setTimeout(function () {
+          document.documentElement.removeAttribute('data-intro-loading');
+        }, 9500);
+      }
+    } catch (error) {
+      document.documentElement.setAttribute('data-intro-loading', '');
+      window.setTimeout(function () {
+        document.documentElement.removeAttribute('data-intro-loading');
+      }, 9500);
+    }
+  </script>
   <script type="module" src="/src/app.js"></script>
 </head>
 <body>
+  <div id="intro-loader" aria-label="Welcome to LunarNav mission control" role="status" aria-live="polite">
+    <div class="intro-sky" aria-hidden="true"><div class="intro-orbit intro-orbit-one"></div><div class="intro-orbit intro-orbit-two"></div><div class="intro-moon"></div><div class="intro-satellite"></div></div>
+    <div class="intro-content"><div class="intro-eyebrow"><span class="intro-dot"></span> LUNAR OPERATIONS / 2026</div>
+      <div class="intro-wordmark">LUNAR<span>NAV</span><i>.</i></div>
+      <h2>Explore beyond the horizon.</h2>
+      <p>Preparing your lunar mission workspace</p>
+      <div class="intro-progress-track"><span class="intro-progress"></span></div>
+      <div class="intro-foot"><span>EARTH → MOON</span><span>MISSION CONTROL</span></div>
+      <button id="intro-skip" type="button" class="intro-skip">Skip intro ↗</button>
+    </div>
+  </div>
+  <div id="tour-root" hidden>
+    <div id="tour-backdrop" aria-hidden="true"></div><div id="tour-spotlight" aria-hidden="true"></div>
+    <div id="tour-dialog" role="dialog" aria-modal="true" aria-labelledby="tour-title" aria-describedby="tour-description" tabindex="-1">
+      <div class="tour-topline"><span class="tour-topline-label"><i></i> MISSION ORIENTATION</span><button id="tour-skip" type="button">Skip tutorial <span aria-hidden="true">×</span></button></div>
+      <div class="tour-counter" id="tour-counter">01 / 10</div>
+      <h2 id="tour-title">Welcome to LunarNav.</h2>
+      <p id="tour-description">Explore mission tools at your own pace.</p>
+      <div class="tour-progress" id="tour-progress" aria-hidden="true"></div>
+      <div class="tour-actions"><button id="tour-back" type="button">← Back</button><button id="tour-next" type="button">Next feature <span>→</span></button></div>
+      <div class="tour-hint">Use ← / → to navigate, Esc to skip</div>
+    </div>
+  </div>
   <div id="app">
     <header class="topbar">
       <a class="brand" aria-label="LunarNav home" href="/" data-route="home"><span class="brand-icon"><span></span></span><div><strong>LUNAR<span>NAV</span></strong><small>MISSION INTELLIGENCE</small></div></a>
       <nav class="main-nav" aria-label="Primary navigation"><a class="nav-link" data-route="home" href="/">Overview</a><a class="nav-link" data-route="explore" href="/explore">Explore</a><a class="nav-link" data-route="windows" href="/windows">Mission windows</a><a class="nav-link" data-route="engineering" href="/engineering">Engineering</a><a class="nav-link" data-route="compare" href="/compare">Compare sites</a><a class="nav-link" data-route="science" href="/science">Science</a></nav>
-      <div class="top-actions"><span class="signal"><i></i> ANALYTICAL MODEL</span><button class="icon-button" id="share-btn" title="Copy shareable link" aria-label="Copy shareable link"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg></button><button class="top-primary" id="brief-btn">Mission briefing <span>↗</span></button></div>
+      <div class="top-actions"><span class="signal"><i></i> ANALYTICAL MODEL</span><button class="icon-button intro-replay-btn" id="tour-help" type="button" title="Take the guided tour" aria-label="Replay LunarNav tutorial">?</button><button class="icon-button" id="share-btn" title="Copy shareable link" aria-label="Copy shareable link"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg></button><button class="top-primary" id="brief-btn">Mission briefing <span>↗</span></button></div>
     </header>
     <main id="main-content" tabindex="-1">
       
@@ -159,7 +199,7 @@
           <article class="science-card"><span class="tool-index">04 / SYSTEMS</span><h3>Engineering estimates</h3><p>Power calculations assume a simplified fixed solar array, constant load, and idealized battery storage. Earth visibility is not an RF link budget.</p><a href="/engineering" data-route="engineering">Open engineering ↗</a></article>
         </div><div class="science-disclaimer"><span>EXPERIMENTAL PROJECT</span><p>LunarNav doesn't certify landing safety, continuous power, or communications. The tool is not affiliated with or endorsed by NASA.</p><button type="button" class="outline-button" id="science-detail">Full technical methodology ↗</button></div>
       </section>
-      <footer class="footer"><div class="brand footer-brand"><span class="brand-icon"><span></span></span><div><strong>LUNAR<span>NAV</span></strong><small>MISSION INTELLIGENCE</small></div></div><p>Made for NASA Space Apps Challenge 2026 · Team 1st LunarNav<br/>Independent experimental prototype. Not affiliated with or endorsed by NASA.</p><div><button id="footer-method">Data & methodology ↗</button><a href="https://www.spaceappschallenge.org/2026/find-a-team/1st-lunarnav/" target="_blank" rel="noopener noreferrer">Team page ↗</a></div></footer>
+      <footer class="footer"><div class="brand footer-brand"><span class="brand-icon"><span></span></span><div><strong>LUNAR<span>NAV</span></strong><small>MISSION INTELLIGENCE</small></div></div><p>Made for NASA Space Apps Challenge 2026 · Team 1st LunarNav<br/>Independent experimental prototype. Not affiliated with or endorsed by NASA.</p><div><button type="button" id="restart-tour">Take a tour ↗</button><button id="footer-method">Data & methodology ↗</button><a href="https://www.spaceappschallenge.org/2026/find-a-team/1st-lunarnav/" target="_blank" rel="noopener noreferrer">Team page ↗</a></div></footer>
     </main>
   </div>
   <dialog id="method-dialog" class="dialog"><div class="dialog-head"><div><span class="section-n">MODEL TRANSPARENCY</span><h2>How these estimates work</h2></div><button class="dialog-close" data-close="method-dialog" aria-label="Close">×</button></div><div class="dialog-body"><p><strong>LunarNav V2</strong> computes Sun and Earth azimuth and elevation for user-selected lunar coordinates and UTC dates using an analytical model.</p><div class="method-line"><span>01</span><div><h3>Celestial geometry</h3><p>Truncated analytical lunar and solar orbital series (Meeus/NOAA style) are transformed into a Moon-fixed frame using the IAU lunar rotation model. Celestial direction is converted to local azimuth/elevation.</p></div></div><div class="method-line"><span>02</span><div><h3>Visibility decision</h3><p>A body is counted as visible when its <em>center</em> is above the 0° geometric horizon. Sun and Earth percentages are hourly-window approximations sampled every two hours; simultaneous availability requires both conditions at once.</p></div></div><div class="method-line"><span>03</span><div><h3>What is deliberately missing</h3><p>Optional coarse NASA LOLA elevation pixels can produce a local 20 km horizon profile; by default calculations remain flat-horizon. The first-order energy and antenna screening model does not include exact surface properties, detailed charging physics, link margin, antenna pattern, terrain below DEM resolution, disk corrections or eclipses. The 3D globe is visual context and not the DEM.</p></div></div><div class="method-line"><span>04</span><div><h3>Independent JPL benchmark</h3><p>The analytical Sun/Earth geometry was compared with 90 independently returned JPL Horizons azimuth/elevation measurements across Mons Mouton, Malapert and an approximate Shackleton Rim coordinate in November 2026, March 2027 and July 2027. Maximum sampled errors were 0.480° azimuth and 0.285° elevation. These are <em>not</em> worst-case error guarantees, especially around the horizon where a small error can change a visible/hidden decision. Reference measurements are archived in GitHub.</p></div></div><div class="method-line"><span>05</span><div><h3>Further validation</h3><p>Increase the independent JPL/NAIF SPICE benchmark coverage, use shorter adaptive time steps at rise/set transitions, validate LOLA horizon projections, and add documented engineering uncertainty before representing these outputs as operational estimates.</p></div></div><div class="reference-links"><a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener noreferrer">NASA LOLA 80 m DEM ↗</a><a href="https://github.com/adamjamiesimson/LunarNav-V2/tree/main/tests/fixtures" target="_blank" rel="noopener noreferrer">Archived JPL observations ↗</a><a href="https://ssd.jpl.nasa.gov/horizons/manual.html" target="_blank" rel="noopener noreferrer">JPL Horizons ↗</a><a href="https://naif.jpl.nasa.gov/naif/" target="_blank" rel="noopener noreferrer">NAIF SPICE ↗</a><a href="https://science.nasa.gov/resource/illumination-map-of-the-moons-south-pole/" target="_blank" rel="noopener noreferrer">NASA south-pole illumination ↗</a><a href="https://www.spaceappschallenge.org/2026/find-a-team/1st-lunarnav/" target="_blank" rel="noopener noreferrer">Challenge brief ↗</a></div></div></dialog>
