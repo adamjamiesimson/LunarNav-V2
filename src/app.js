@@ -29,7 +29,7 @@ const siteSelect=$('#site-select');
 SITES.forEach(site=>siteSelect.add(new Option(`${site.name}  ·  ${site.tag}`,site.id)));
 siteSelect.value=state.site.id;
 $('#mission-date').value=state.date;
-$document.querySelectorAll('#duration button').forEach(b=>b.classList.toggle('selected',Number(b.dataset.days)===state.days));
+document.querySelectorAll('#duration button').forEach(b=>b.classList.toggle('selected',Number(b.dataset.days)===state.days));
 
 
 /** Keep current-site settings shareable across distinct page URLs. */
@@ -454,7 +454,7 @@ function exportFinderCSV(){
 
 // Events
 siteSelect.addEventListener('change',()=>{const s=SITES.find(x=>x.id===siteSelect.value);if(s)selectSite(s);});
-$document.querySelectorAll('#duration button').forEach(b=>b.addEventListener('click',()=>{state.days=Number(b.dataset.days);$document.querySelectorAll('#duration button').forEach(x=>x.classList.toggle('selected',x===b));stopPlay();updateAnalysis();}));
+document.querySelectorAll('#duration button').forEach(b=>b.addEventListener('click',()=>{state.days=Number(b.dataset.days);document.querySelectorAll('#duration button').forEach(x=>x.classList.toggle('selected',x===b));stopPlay();updateAnalysis();}));
 $('#analyze-btn').addEventListener('click',()=>{stopPlay();updateAnalysis();toast('Mission window recalculated');});
 $('#mission-date').addEventListener('change',()=>{stopPlay();updateAnalysis();});
 $('#mission-time').addEventListener('change',()=>{stopPlay();updateAnalysis();});
