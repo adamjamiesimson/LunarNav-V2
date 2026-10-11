@@ -57,8 +57,8 @@ function updateInspection(){
   sun.classList.toggle('muted',!view.sunVisible);
   earth.classList.toggle('muted',!view.earthVisible);
   $('#sky-plot').innerHTML=buildSkyDiagram(obs,state.terrain);
-  $('#horizon-label').textContent=view.terrain?'LOLA LOCAL HORIZON':'GEOMETRIC 0°';
-  $('#sky-horizon-note').textContent=view.terrain?'Gold = 20 km LOLA-derived skyline':'Circle = 0° geometric horizon';
+  $('#horizon-label').textContent=view.source;
+  $('#sky-horizon-note').textContent=view.terrain?'Gold = local DEM-derived skyline':'Circle = 0° geometric horizon';
   $('#mission-verdict').textContent=view.combined;
   $('#mission-verdict').dataset.visibility=view.sunVisible&&view.earthVisible?'both':
     view.sunVisible||view.earthVisible?'partial':'none';
