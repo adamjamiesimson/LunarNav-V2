@@ -27,5 +27,10 @@ export function createMap(canvas,{onPick,onHover}){const ctx=canvas.getContext('
   canvas.addEventListener('pointermove',e=>{const p=getPoint(e),near=nearest(p);hovered=near;canvas.style.cursor=near||Math.hypot(p.x-center.x,p.y-center.y)<=radius?'crosshair':'default';onHover(near,e);});canvas.addEventListener('pointerleave',()=>onHover(null));
   canvas.addEventListener('click',e=>{const p=getPoint(e);if(Math.hypot(p.x-center.x,p.y-center.y)>radius)return;let site=nearest(p);if(!site){let dx=p.x-center.x,dy=center.y-p.y;let lat=-90+9.8*Math.hypot(dx,dy)/(radius*zoom);let lon=(Math.atan2(dx,dy)/rad+360)%360;site={id:'custom',name:'Custom waypoint',region:'User-selected coordinate',lat:Math.min(-80,lat),lon,tag:'Custom study',kind:'Illustrative point',accent:'#d6eecc',custom:true,detail:'Coordinates selected interactively on a schematic map. No underlying topography.'};}onPick(site);});
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>render()).observe(stage);else window.addEventListener('resize',()=>render());
-  return {render,zoomBy(delta){zoom=clamp(Math.round((zoom+delta)*10)/10,1,2.3);render();return Math.round(zoom*100);}};
+  return {
+    render,
+    zoomBy(delta){zoom=clamp(Math.round((zoom+delta)*10)/10,1,2.3);render();return Math.round(zoom*100);},
+    focusSite(){zoom=1.55;render();return Math.round(zoom*100);},
+    resetView(){zoom=1;render();return 100;}
+  };
 }
