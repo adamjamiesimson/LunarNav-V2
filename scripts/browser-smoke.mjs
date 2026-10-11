@@ -102,6 +102,10 @@ try{
   await offNetwork(mobile);
   await mobile.goto(host+'/explore?site=nobile&date=2026-11-14&days=7',{waitUntil:'domcontentloaded'});
   await mobile.waitForFunction(()=>document.querySelector('#mission-verdict')?.textContent!=='COMPUTING…');
+  const mobileNav=await mobile.locator('.main-nav').boundingBox();
+  assert(mobileNav&&mobileNav.height>=40,'mobile navigation is not visible/tappable');
+  const mobileLinks=await mobile.locator('.main-nav a.nav-link:visible').count();
+  assert(mobileLinks>=4,'mobile header hides primary page navigation');
   const overflow=await mobile.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
   assert(overflow<=8,'mobile page overflows horizontally by '+overflow+'px');
   await mobile.locator('#hero-find').click();
@@ -110,6 +114,7 @@ try{
   await mobile.screenshot({path:'smoke-artifacts/mobile.png',fullPage:false});
   await mobile.goto(host+'/',{waitUntil:'domcontentloaded'});
   assert(await mobile.locator('.home-page').isVisible(),'overview not visible on mobile');
+  assert(await mobile.locator('.main-nav').isVisible(),'overview lost mobile page navigation');
   const homeOverflow=await mobile.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
   assert(homeOverflow<=8,'mobile overview overflows by '+homeOverflow+'px');
   assert(errors.length===0,'uncaught JavaScript errors: '+errors.join(' | '));
