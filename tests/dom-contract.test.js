@@ -16,7 +16,7 @@ test('mission finder controls exist and map onto JS event listeners',()=>{
 test('new analytics dependency included in deployable static build',()=>{
  assert.match(app,/from '\.\/finder\.js'/);
  assert.match(build,/src\/finder\.js/);
- assert.match(html,/data-scroll="finder"/);
+ assert.match(html,/data-route="windows"/);
 });
 test('navigation uses deliberate screening language rather than unqualified accuracy claims',()=>{
  assert.match(html,/flat-horizon/i);
@@ -43,4 +43,17 @@ test('Phase 5 terrain comparison UI and source-backed catalog are wired into pro
   assert.match(build,/src\/terrain-cache\.js/);
   assert.match(build,/data\/lola-horizons\.json/);
   assert.match(app,/delta_dual_pp/);
+});
+
+test('Multipage workspace keeps all live tool DOM nodes while showing one view at a time',()=>{
+ const views=['home','explore','windows','engineering','compare','science'];
+ for(const view of views)assert.ok(html.includes('data-view="'+view+'"'),'Missing view '+view);
+ for(const route of views)assert.ok(html.includes('data-route="'+route+'"'),'Missing nav route '+route);
+ assert.match(html,/src="\/src\/app\.js"/);
+ assert.match(html,/href="\/src\/styles\.css"/);
+ assert.match(app,/history\.pushState/);
+ assert.match(app,/popstate/);
+ assert.match(build,/src\/router\.js/);
+ assert.match(app,/navigatePage\('explore'\)/);
+ assert.match(app,/navigatePage\('engineering'\)/);
 });
