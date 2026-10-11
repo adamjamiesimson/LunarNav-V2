@@ -159,3 +159,33 @@ Reference: Barker et al. (2023), [NASA PGDA](https://pgda.gsfc.nasa.gov/products
 The Vercel project now rewrites `/assets/lola-80m.tif` to NASA's public `LDEM_80S_80MPP_ADJ.TIF` URL, because NASA's raw Range response can omit browser CORS headers. Before opening a remote DEM, `selectSafeLolaSource()` sends a 64-byte Range request and **requires HTTP 206**; if Vercel does not preserve the Range response, it attempts NASA's direct URL only if CORS and partial bytes work. If neither endpoint provides safe partial access, the app refuses remote terrain loading rather than accidentally downloading the complete 181 MB dataset. The local file-import option remains available.
 
 The October 10 GitHub Actions external availability probe returned **HTTP 206** and a 256-byte response from NASA, while the GeoTIFF.js bundle returned 200. NASA's direct response omitted a visible Access-Control-Allow-Origin header in that check; this is **not** proof that the website's same-origin rewrite supports 206, or that in-browser raster decoding and the 20 km horizon work. Those still require browser testing.
+
+
+## Phase 5 — Offline NASA-derived lunar horizons + matched-date terrain effects
+
+**The repository now ships small, source-backed derived horizon profiles for all five built-in lunar study coordinates.** All five profiles were extracted from the [NASA GSFC PGDA LOLA 80 m/pixel south-polar COG](https://pgda.gsfc.nasa.gov/products/90) by five separate [GitHub Actions jobs](https://github.com/adamjamiesimson/LunarNav-V2/actions/runs/38113102807). Each of the jobs actually read source elevation tiles and emitted 72 horizon elevation samples (5° azimuth bins, 20 km radius, 200 m ray steps). No made-up or synthetic data was substituted. The compact archive is [data/lola-horizons.json](data/lola-horizons.json), with 360 total derived horizon angles; raw 181 MB elevation rasters are **not** packaged.
+
+| Built-in coordinate | Peak computed 20 km local horizon |
+| --- | ---: |
+| Mons Mouton | 4.018° |
+| Malapert Region | 14.715° |
+| Shackleton Rim (approximate candidate point) | 37.723° |
+| Faustini Rim (illustrative point) | 9.032° |
+| Nobile Region (illustrative point) | 12.775° |
+
+The peak values are **model outputs at specific representative points**, not regional statistics or independently geospatially certified truth. Small obstacles, beyond-20-km obstructions, DEM uncertainty, limb visibility, surface slopes, local coordinate errors and flight-readiness are not covered.
+
+### Behavior
+
+- The site-specific terrain catalog is loaded **locally from the deployed site**, without downloading a NASA GeoTIFF at runtime. The app matches every profile against the site ID, exact coordinates, NASA dataset URL, sampling parameters, 72 azimuths, valid coverage, and range of elevations. Invalid data is refused, not silently replaced.
+- Switch the Finder from **Geometric baseline** to **Loaded LOLA terrain** to see terrain-corrected candidate windows. When using terrain mode, it displays a new **Terrain Effect** section comparing the *exact same site/start date/duration* against the flat-horizon baseline. Deltas are in **percentage points**, and the CSV includes both models and matched differences. The built-in study sites are not certified landing locations.
+- The original smoother baseline remains available, and the on-demand NASA or local GeoTIFF loader remains optional for user-selected coordinates and updated profiles. A user-supplied TIFF is not independently verified to come from NASA. Successfully loaded custom profiles take precedence for their exact site in that browsing session.
+- NASA URL availability and GeoTIFF decoding no longer affect the normal five-site terrain Finder, as it uses the bundled derived profiles. The app does not pretend the profile is a true surface mesh. The globe's image texture is **not** a height map.
+
+### Regenerate the catalog
+
+The [Prepare NASA LOLA site profiles](.github/workflows/prepare-lola.yml) workflow can be started **manually** from GitHub Actions. It independently requests each site as a matrix job and logs \`LOLA_PROFILE_JSON:\` with a compact output from \`scripts/export-lola-site.js\`. A failed NASA request produces **no invented output**. Changes to the actual bundled catalog must be reviewed and committed after source-coordinate and integrity checks; regeneration does **not** silently overwrite the production data. The original official NASA COG extraction run is recorded as provenance in the catalog.
+
+### Scientific qualifications
+
+The lunar geometrical solver's benchmark of 90 Sun/Earth observations against JPL Horizons establishes errors for those *particular samples*, not universal accuracy. The derived LOLA horizon itself has not been independently tested with separate planetary-GIS raytracing or full terrain shadows; 20 km local visibility, angle binning, and sample timing can cause meaningful uncertainty near the horizon. Use the tool as **experimental mission-site screening only**, never as proof of landing safety, continuous power or operational radio contact.
