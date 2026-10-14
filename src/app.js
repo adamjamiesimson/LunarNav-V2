@@ -134,7 +134,9 @@ function generateCSV(){const esc=v=>'"'+String(v).replaceAll('"','""')+'"';const
 function briefText(){const {site,date,time,days}=state;const q=summarize(state.samples);const best=longestDualWindow(state.samples);return `LUNARNAV V2 — LUNAR MISSION SCREENING BRIEF\nGenerated: ${new Date().toISOString()}\nSite: ${site.name} (${site.kind})\nCoordinates: ${fmtCoord(site.lat,site.lon)}\nPeriod: ${date} ${time} UTC + ${days} days\n\nSun visible: ${fmtPct(q.sun)}\nEarth visible: ${fmtPct(q.earth)}\nSun + Earth together: ${fmtPct(q.dual)}\nLongest sampled Earth blackout: ${q.longestBlackoutHours.toFixed(0)} hours\nLongest continuous dual-access period: ${best.hours.toFixed(0)} hours (${best.start||'none'} to ${best.end||'none'})\n\nMETHOD: analytical ephemeris; spherical geometric horizon; two-hour samples. No terrain occlusion, link-budget analysis, solar power calculation, or landing hazard validation. For research screening only — not for flight operations.\nSource reference: ${site.source||'User-selected coordinates'}\n`;} 
 function openBrief(){const q=summarize(state.samples);const best=longestDualWindow(state.samples);$('#brief-content').innerHTML=`<div class="report-kicker">LUNAR SOUTH POLE / PLANNING REPORT</div><h3>${escapeHTML(state.site.name)}</h3><p class="report-coordinates">${escapeHTML(fmtCoord(state.site.lat,state.site.lon))}</p><div class="report-grid"><div><small>MISSION WINDOW</small><strong>${state.days} days</strong></div><div><small>START TIME (UTC)</small><strong>${escapeHTML(state.date)} ${escapeHTML(state.time)}</strong></div><div><small>SUN VISIBILITY</small><strong>${fmtPct(q.sun)}</strong></div><div><small>EARTH VISIBILITY</small><strong>${fmtPct(q.earth)}</strong></div><div><small>DUAL ACCESS</small><strong>${fmtPct(q.dual)}</strong></div><div><small>MAX EARTH BLACKOUT</small><strong>${q.longestBlackoutHours.toFixed(0)} h</strong></div><div><small>BEST CONTINUOUS OVERLAP</small><strong>${best.hours.toFixed(0)} h</strong></div></div><p class="report-warning">SCIENTIFIC LIMITATIONS — Analytical geometry with a 0° spherical horizon. Does not account for lunar terrain shadows, spacecraft communications link margin, solar power budget, landing hazards or flight validation. Values are screening estimates only.</p>`;$('#brief-dialog').showModal();}
 function stopPlay(){
-  state.playing=false;clearInterval(playTimer);
+  state.playing=false;
+  if(playTimer!==undefined)cancelAnimationFrame(playTimer);
+  playTimer=undefined;
   const b=$('#replay-btn');if(b)b.textContent='▶ Replay window';
   const celestial=$('#celestial-play');if(celestial){celestial.textContent='▶ Simulate';celestial.setAttribute('aria-pressed','false');}
 }
@@ -144,12 +146,20 @@ function togglePlay(){
   const replay=$('#replay-btn');if(replay)replay.textContent='Ⅱ Pause replay';
   const celestial=$('#celestial-play');celestial.textContent='Ⅱ Pause';celestial.setAttribute('aria-pressed','true');
   let last=performance.now();
-  playTimer=setInterval(()=>{
-    const now=performance.now(),seconds=Math.min(0.35,Math.max(0,(now-last)/1000));last=now;
-    const speed=Number($('#celestial-speed').value)||24; // Simulated hours per real second
-    const next=state.offset+seconds*speed;
-    setOffset(next>state.days*24?next%(state.days*24):next);
-  },100);
+  let simulationOffset=state.offset;
+  const tick=now=>{
+    if(!state.playing)return;
+    // Animation-frame pacing replaces the old 100 ms positional jumps.
+    // Clamp resumed/background tabs to avoid skipping large mission intervals.
+    const seconds=Math.min(0.08,Math.max(0,(now-last)/1000));
+    last=now;
+    const speed=Number($('#celestial-speed').value)||24; // Simulated hours per second
+    const maximum=state.days*24;
+    simulationOffset=(simulationOffset+seconds*speed)%maximum;
+    setOffset(simulationOffset);
+    playTimer=requestAnimationFrame(tick);
+  };
+  playTimer=requestAnimationFrame(tick);
 }
 
 
