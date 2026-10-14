@@ -161,7 +161,6 @@ void main(){
  vec3 result=rock*shade*vec3(0.97,1.01,1.06);
  result+=vec3(0.18,0.28,0.32)*rim*0.19;
  gl_FragColor=vec4(result,1.0);
-}
 }`;
 
 function program(gl){
