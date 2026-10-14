@@ -58,13 +58,18 @@ test('Multipage workspace keeps all live tool DOM nodes while showing one view a
  assert.match(app,/navigatePage\('engineering'\)/);
 });
 
-test('3D celestial overview exposes Sun, Earth, Moon without modifying analytic horizon calculations',()=>{
-  const globe=readFileSync(new URL('../src/globe.js',import.meta.url),'utf8');
-  for(const id of ['celestial-view','map-stage'])assert.ok(html.includes('id="'+id+'"'));
-  for(const body of ['celestial-sun','celestial-earth','celestial-moon'])assert.ok(html.includes(body));
-  assert.match(globe,/systemView>0\.5/);
-  assert.match(globe,/setSystemView\(enabled\)/);
-  assert.match(globe,/moonAlbedo/);
-  assert.match(app,/map\.setSystemView\?\.\(requested\)/);
-  assert.match(html,/SIZES \/ DISTANCES NOT TO SCALE/);
+test('Earth and Sun are part of the existing Moon globe, not a separate 3D scene',()=>{
+ const globe=readFileSync(new URL('../src/globe.js',import.meta.url),'utf8');
+ for(const id of ['celestial-view','celestial-scrubber','celestial-play','celestial-speed','celestial-clock','celestial-reset']){
+   assert.ok(html.includes('id="'+id+'"'),'missing control '+id);
+   assert.ok(app.includes("'#"+id+"'"),'missing control handler '+id);
+ }
+ assert.match(globe,/skyBodies\(a,sunlight,earthlight/);
+ assert.match(globe,/horizontalToLunarVector\(obs.earth/);
+ assert.match(globe,/setCelestialVisible\(enabled\)/);
+ assert.match(globe,/showSkyBodies>0\.5/);
+ assert.match(globe,/celestialDrag/);
+ assert.match(build,/src\/celestial\.js/);
+ assert.match(html,/SPHERES ENLARGED FOR VISIBILITY/);
+ assert.ok(!app.includes('setSystemView('),'old separate-system toggle still wired');
 });
