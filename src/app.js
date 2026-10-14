@@ -483,6 +483,20 @@ $('#time-event').addEventListener('click',()=>{
     upcoming.eventUTC.slice(0,16).replace('T',' ')+' UTC · approximate (model + 30-min display)';
   toast('Jumped to modeled '+upcoming.eventType+' horizon event');
 });
+const celestialViewBtn=$('#celestial-view');
+if(!map.setSystemView)celestialViewBtn.disabled=true; // 2D fallback has no celestial shader.
+celestialViewBtn.addEventListener('click',()=>{
+  const requested=celestialViewBtn.getAttribute('aria-pressed')!=='true';
+  const enabled=map.setSystemView?.(requested);
+  if(enabled===undefined){toast('3D celestial view requires WebGL');return;}
+  celestialViewBtn.setAttribute('aria-pressed',String(enabled));
+  celestialViewBtn.setAttribute('aria-label',enabled?'Return to interactive lunar globe':'Show Sun, Moon and Earth in a 3D scene');
+  celestialViewBtn.title=enabled?'Return to interactive lunar globe':'Show Sun, Moon and Earth as 3D spheres';
+  celestialViewBtn.querySelector('span').textContent=enabled?'Moon view':'System view';
+  for(const id of ['focus-site','reset-view','zoom-out','zoom-in'])$('#'+id).disabled=enabled;
+  $('#zoom-label').hidden=enabled;
+  if(enabled){$('#focus-site').setAttribute('aria-pressed','false');$('#map-tooltip').hidden=true;}
+});
 $('#zoom-in').addEventListener('click',()=>$('#zoom-label').textContent=map.zoomBy(.2)+'%');
 $('#zoom-out').addEventListener('click',()=>$('#zoom-label').textContent=map.zoomBy(-.2)+'%');
 
@@ -510,6 +524,7 @@ document.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&document.body.classList.contains('globe-immersive'))setImmersive(false);
 });
 $('#hero-explore').addEventListener('click',()=>{
+  if(celestialViewBtn.getAttribute('aria-pressed')==='true')celestialViewBtn.click();
   $('#map-stage').scrollIntoView({behavior:'smooth',block:'center'});
   const level=map.focusSite?.();
   if(Number.isFinite(level))$('#zoom-label').textContent=level+'%';

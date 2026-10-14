@@ -66,6 +66,17 @@ try{
   assert(await page.locator('body').evaluate(el=>el.classList.contains('globe-immersive')),'globe did not expand');
   await page.keyboard.press('Escape');
   assert(!await page.locator('body').evaluate(el=>el.classList.contains('globe-immersive')),'Escape did not close immersive mode');
+  await page.locator('#celestial-view').click();
+  assert((await page.locator('#celestial-view').getAttribute('aria-pressed'))==='true','celestial switch did not activate');
+  assert(await page.locator('#map-stage').evaluate(el=>el.classList.contains('is-system-view')),'celestial view did not reach WebGL scene');
+  assert(await page.locator('.celestial-sun').isVisible(),'Sun label missing');
+  assert(await page.locator('.celestial-earth').isVisible(),'Earth label missing');
+  assert(await page.locator('.celestial-moon').isVisible(),'Moon label missing');
+  assert(!await page.locator('#zoom-in').isEnabled(),'Moon zoom remains available in celestial overview');
+  await page.screenshot({path:'smoke-artifacts/celestial.png',fullPage:false});
+  await page.locator('#celestial-view').click();
+  assert((await page.locator('#celestial-view').getAttribute('aria-pressed'))==='false','Moon explorer did not restore');
+  assert(await page.locator('#zoom-in').isEnabled(),'Moon zoom was not restored');
   await page.locator('#time-next').click();
   const clock=await page.locator('#hud-clock').textContent();
   assert(clock.includes('18:00'),'six hour UTC advance did not update mission HUD');
