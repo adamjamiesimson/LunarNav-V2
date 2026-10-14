@@ -57,3 +57,14 @@ test('Multipage workspace keeps all live tool DOM nodes while showing one view a
  assert.match(app,/navigatePage\('explore'\)/);
  assert.match(app,/navigatePage\('engineering'\)/);
 });
+
+test('3D celestial overview exposes Sun, Earth, Moon without modifying analytic horizon calculations',()=>{
+  const globe=readFileSync(new URL('../src/globe.js',import.meta.url),'utf8');
+  for(const id of ['celestial-view','map-stage'])assert.ok(html.includes('id="'+id+'"'));
+  for(const body of ['celestial-sun','celestial-earth','celestial-moon'])assert.ok(html.includes(body));
+  assert.match(globe,/systemView>0\.5/);
+  assert.match(globe,/setSystemView\(enabled\)/);
+  assert.match(globe,/moonAlbedo/);
+  assert.match(app,/map\.setSystemView\?\.\(requested\)/);
+  assert.match(html,/SIZES \/ DISTANCES NOT TO SCALE/);
+});
