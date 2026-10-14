@@ -23,7 +23,7 @@ const fragment=String.raw`precision highp float;
 uniform vec2 resolution;
 uniform vec3 forward, right, up, sun;
 uniform float zoom, hasTexture, showSkyBodies, hasEarthTexture, elapsedDays;
-uniform vec3 sunSphere, earthSphere, moonSphere, spinYaw, spinPitch;
+uniform vec3 sunSphere, earthSphere, spinYaw, spinPitch;
 uniform sampler2D moon, earthImage;
 float hash(vec2 x){return fract(sin(dot(x,vec2(127.1,311.7)))*43758.5453);}
 float noise(vec2 p){
@@ -32,8 +32,8 @@ float noise(vec2 p){
              mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);
 }
 
-/* All three bodies are shaded spheres, rendered in the existing WebGL canvas.
-   Layout is deliberately illustrative, never a scaled orbital simulation. */
+/* All celestial spheres are rendered in the Moon's WebGL view, with Moon occlusion.
+   Angular directions follow the ephemeris; marker sizes are illustrative. */
 float fbm(vec2 p){
  return 0.52*noise(p)+0.30*noise(p*2.07+11.3)+0.18*noise(p*4.13-3.7);
 }
@@ -170,7 +170,7 @@ export function createMap(canvas,{onPick,onHover}){
  try{p=program(gl);}catch(error){console.warn(error);background.remove();const status=document.querySelector('#map-image-status');if(status)status.textContent='2D POLAR SCHEMATIC';return createPolarMap(canvas,{onPick,onHover});}
  gl.useProgram(p);
  const loc=name=>gl.getUniformLocation(p,name);
- const u={resolution:loc('resolution'),forward:loc('forward'),right:loc('right'),up:loc('up'),sun:loc('sun'),zoom:loc('zoom'),hasTexture:loc('hasTexture'),showSkyBodies:loc('showSkyBodies'),hasEarthTexture:loc('hasEarthTexture'),elapsedDays:loc('elapsedDays'),sunSphere:loc('sunSphere'),earthSphere:loc('earthSphere'),moonSphere:loc('moonSphere'),spinYaw:loc('spinYaw'),spinPitch:loc('spinPitch'),moon:loc('moon'),earthImage:loc('earthImage')};
+ const u={resolution:loc('resolution'),forward:loc('forward'),right:loc('right'),up:loc('up'),sun:loc('sun'),zoom:loc('zoom'),hasTexture:loc('hasTexture'),showSkyBodies:loc('showSkyBodies'),hasEarthTexture:loc('hasEarthTexture'),elapsedDays:loc('elapsedDays'),sunSphere:loc('sunSphere'),earthSphere:loc('earthSphere'),spinYaw:loc('spinYaw'),spinPitch:loc('spinPitch'),moon:loc('moon'),earthImage:loc('earthImage')};
  const quad=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,quad);
  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
  const position=gl.getAttribLocation(p,'position');gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
@@ -187,6 +187,7 @@ export function createMap(canvas,{onPick,onHover}){
  let loaded=false,earthLoaded=false,site=SITES[0],zoom=1,lat=-73,lon=25,viewMode='overview',showSkyBodies=true;
  let simulatedUTC=Date.parse('2026-11-14T12:00:00Z'),layout=null,activeBody='moon',celestialDrag=null;
  const manualSpin={sun:{yaw:0,pitch:0},earth:{yaw:0,pitch:0},moon:{yaw:0,pitch:0}};
+ stage.classList.add('show-celestial-bodies');
  let imageStatus='GLOBE VISUALIZATION';
  const setImageStatus=text=>{imageStatus=text;const el=document.querySelector('#map-image-status');if(el)el.textContent=imageStatus;};
  let sunlight=norm([0.5,0.32,-0.75]),earthlight=norm([0.22,0.18,0.95]),w=0,h=0,dpr=1,frame=0;
@@ -430,7 +431,7 @@ export function createMap(canvas,{onPick,onHover}){
      else{manualSpin[name].yaw+=yaw;manualSpin[name].pitch=clamp(manualSpin[name].pitch+pitch,-1.35,1.35);}
      request();
    },
-   resetBodies(){for(const name of ['sun','earth','moon'])manualSpin[name]={yaw:0,pitch:0};request();},
+   resetBodies(){for(const name of ['sun','earth'])manualSpin[name]={yaw:0,pitch:0};request();},
    render(newSite=site){
      site=newSite;
      if(!newSite.custom){
