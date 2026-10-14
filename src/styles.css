@@ -633,3 +633,26 @@ body.tour-is-active{overscroll-behavior:none}
  .intro-progress{transform:scaleX(1)}
  #intro-loader,#tour-spotlight{transition:none}
 }
+
+/* Celestial overview shares the WebGL Moon canvas (no third-party 3D runtime). */
+.map-title-right{flex-wrap:wrap;justify-content:flex-end}
+.map-tool.view-system{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:auto;min-width:101px;height:28px;padding:0 9px;font:600 10px 'DM Mono',monospace;white-space:nowrap;letter-spacing:.02em}
+.map-tool.view-system[aria-pressed="true"]{background:#29413b;color:#e4f8e7;border-color:rgba(186,235,202,.52)}
+.map-tool:disabled{opacity:.32;cursor:not-allowed}
+.map-stage .celestial-annotations{display:none}
+.map-stage.is-system-view .celestial-annotations{display:block;position:absolute;inset:0;z-index:3;pointer-events:none}
+.map-stage.is-system-view .map-overlay-top,
+.map-stage.is-system-view .map-overlay-bottom,
+.map-stage.is-system-view .mission-hud{display:none}
+.map-stage.is-system-view canvas#moon-map{cursor:default}
+.celestial-label{position:absolute;transform:translateX(-50%);font:600 11px 'DM Mono',monospace;letter-spacing:.18em;color:#e3edf0;text-shadow:0 2px 14px #000,0 2px 4px #000}
+.celestial-sun{left:calc(50% - var(--celestial-spread,145px));top:61%;color:#f3d4a3}
+.celestial-moon{left:50%;top:83%}
+.celestial-earth{left:calc(50% + var(--celestial-spread,145px));top:70%;color:#addfeb}
+.celestial-disclaimer{position:absolute;bottom:13px;left:12px;right:12px;font:9px/1.5 'DM Mono',monospace;letter-spacing:.035em;text-align:center;color:#aebfc7;text-shadow:0 1px 5px #000}
+@media(max-width:720px){
+ .map-title-right{justify-content:flex-start}
+ .map-tool.view-system{min-width:98px}
+ .celestial-label{font-size:10px}
+ .celestial-disclaimer{font-size:8px;bottom:9px}
+}
