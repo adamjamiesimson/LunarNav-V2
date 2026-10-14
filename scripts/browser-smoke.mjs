@@ -92,6 +92,7 @@ try{
   assert((await page.locator('#celestial-clock').textContent())!==beforePlay,'timeline playback did not progress');
   await page.locator('#celestial-reset').click();
   await page.screenshot({path:'smoke-artifacts/celestial.png',fullPage:false});
+  await page.locator('#celestial-scrubber').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});
   await page.locator('#time-next').click();
   const clock=await page.locator('#hud-clock').textContent();
   assert(clock.includes('18:00'),'six hour UTC advance did not update mission HUD');
