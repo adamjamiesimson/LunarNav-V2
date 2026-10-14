@@ -1,29 +1,57 @@
 /**
- * View-space layout and visual spin for the three-body overview.
- * Coordinates are screen/illustration units, never true orbital distances.
- * Independent of WebGL so pointer hit-testing matches the shader exactly.
+ * Celestial reference bodies rendered behind the interactive Moon.
+ * Directions are lunar-body-fixed, aligned with the analytical ephemeris.
+ * Marker sizes are deliberately enlarged and sky projection is illustrative:
+ * this is a directional visual reference, NOT a to-scale distance model.
  */
 const TAU=Math.PI*2;
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
 const wrapRadians=n=>((n%TAU)+TAU)%TAU;
-export function celestialLayout(width,height){
-  const aspect=Math.max(1,width)/Math.max(1,height);
-  const spread=Math.min(0.82,aspect*0.63);
+
+/** Azimuth clockwise from north, elevation relative to selected lunar site. */
+export function horizontalToLunarVector(observation,lat,lon){
+  const R=Math.PI/180;
+  const phi=lat*R,theta=lon*R,az=observation.azimuth*R,el=observation.elevation*R;
+  const east=[-Math.sin(theta),Math.cos(theta),0];
+  const north=[-Math.sin(phi)*Math.cos(theta),-Math.sin(phi)*Math.sin(theta),Math.cos(phi)];
+  const up=[Math.cos(phi)*Math.cos(theta),Math.cos(phi)*Math.sin(theta),Math.sin(phi)];
+  const n=[0,1,2].map(i=>up[i]*Math.sin(el)+north[i]*Math.cos(el)*Math.cos(az)+east[i]*Math.cos(el)*Math.sin(az));
+  const length=Math.hypot(...n)||1;
+  return n.map(v=>v/length);
+}
+
+/** Project sphere anchors into the Moon-camera sky. Returns visibility and coordinates. */
+export function skyBodies(camera,sunDirection,earthDirection,width,height,moonRadius=0.87){
+  const scale=1.27;
+  const project=(direction,radius)=>{
+    const x=dot(direction,camera.east)*scale,y=dot(direction,camera.north)*scale;
+    const front=dot(direction,camera.center)>0.015;
+    const within=Math.abs(x)<width/height+radius && Math.abs(y)<1+radius;
+    // Moon is in the foreground and the shader handles partial occultation.
+    const visible=front&&within;
+    const exposed=visible && Math.hypot(x,y)>moonRadius-radius*0.45;
+    return {x,y,r:radius,visible,exposed};
+  };
   return {
-    sun:{x:-spread,y:0.25,r:Math.min(0.31,spread*0.39)},
-    earth:{x:spread,y:0.06,r:Math.min(0.27,spread*0.34)},
-    moon:{x:0,y:-0.22,r:Math.min(0.34,spread*0.45)}
+    sun:project(sunDirection,0.16),
+    earth:project(earthDirection,0.145),
+    moon:{x:0,y:0,r:moonRadius,visible:true,exposed:true}
   };
 }
+
+/** Only allow drags on visible pixels; Moon covers overlapping sky bodies. */
 export function hitCelestialBody(layout,x,y,width,height){
   const scale=height*0.5;
-  for(const name of ['moon','earth','sun']){
-    const body=layout[name],dx=(x-width*0.5)/scale-body.x;
-    const dy=(height*0.5-y)/scale-body.y;
-    if(dx*dx+dy*dy<=body.r*body.r)return name;
+  const px=(x-width*0.5)/scale,py=(height*0.5-y)/scale;
+  if(px*px+py*py<=layout.moon.r*layout.moon.r)return 'moon';
+  for(const name of ['earth','sun']){
+    const body=layout[name],dx=px-body.x,dy=py-body.y;
+    if(body.visible && dx*dx+dy*dy<=body.r*body.r)return name;
   }
   return null;
 }
-/** Visual spin only: not an attitude/ephemeris solution. */
+
+/** Approximate visual surface spin by UTC time, independent of lunar horizon calculations. */
 export function celestialSpin(timeUTC){
   const ms=typeof timeUTC==='number'?timeUTC:Date.parse(timeUTC);
   if(!Number.isFinite(ms))return {sun:0,earth:0,moon:0};
