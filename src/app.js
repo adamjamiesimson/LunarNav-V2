@@ -81,7 +81,7 @@ function refreshMissionContext(){
 }
 function updateSelected(){const site=state.site;$('#selected-name').textContent=site.name;$('#selected-tag').textContent=site.tag;$('#selected-coord').textContent=fmtCoord(site.lat,site.lon);$('#selected-type').textContent=site.kind;$('#site-source').href=site.source||'https://science.nasa.gov/moon/';$('#site-source').style.display=site.custom?'none':'';$('#map-site-name').textContent=site.name.toUpperCase();$('#map-coordinate').textContent=fmtCoord(site.lat,site.lon);$('.site-dot').style.background=site.accent;map.render(site);}
 function readDate(){const date=$('#mission-date').value;const time=$('#mission-time').value;if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d\d:\d\d$/.test(time))throw new Error('Enter a valid UTC date and time.');const base=new Date(`${date}T${time}:00Z`);if(!Number.isFinite(base.getTime()))throw new Error('Invalid UTC date.');return {date,time,base};}
-function updateAnalysis(){try{state.terrain=getCachedTerrain(state.site);const x=readDate();state.date=x.date;state.time=x.time;state.base=x.base;state.offset=0;state.samples=sampleWindow({start:state.base,lat:state.site.lat,lon:state.site.lon,days:state.days,stepHours:2});state.ranking=rankedSites(SITES,state.base,state.days);$('#time-scrubber').max=String(state.days*24);$('#time-scrubber').value='0';$('#metric-days').textContent=`${state.days} DAYS`;$('#end-label').textContent=`+${state.days} DAYS`;$('#timeline-start').textContent=shortDate(state.base);$('#timeline-end').textContent=shortDate(new Date(state.base.getTime()+state.days*86400000));updateSelected();refreshMissionContext();updateMetrics();drawTimeline();drawComparison();updateInspection();updateMissionPanels();updateURL();}catch(e){toast(e.message||'Could not calculate the mission window.');}}
+function updateAnalysis(){try{state.terrain=getCachedTerrain(state.site);const x=readDate();state.date=x.date;state.time=x.time;state.base=x.base;state.offset=0;state.samples=sampleWindow({start:state.base,lat:state.site.lat,lon:state.site.lon,days:state.days,stepHours:2});state.ranking=rankedSites(SITES,state.base,state.days);$('#time-scrubber').max=String(state.days*24);$('#celestial-scrubber').max=String(state.days*24);$('#time-scrubber').value='0';$('#metric-days').textContent=`${state.days} DAYS`;$('#end-label').textContent=`+${state.days} DAYS`;$('#timeline-start').textContent=shortDate(state.base);$('#timeline-end').textContent=shortDate(new Date(state.base.getTime()+state.days*86400000));updateSelected();refreshMissionContext();updateMetrics();drawTimeline();drawComparison();updateInspection();updateMissionPanels();updateURL();}catch(e){toast(e.message||'Could not calculate the mission window.');}}
 function updateMetrics(){const stats=summarize(state.samples);$('#dual-value').textContent=stats.dual.toFixed(1);$('#sun-value').textContent=fmtPct(stats.sun);$('#earth-value').textContent=fmtPct(stats.earth);$('#blackout-value').textContent=stats.longestBlackoutHours.toFixed(0)+' h';$('#sun-bar').style.width=`${stats.sun}%`;$('#earth-bar').style.width=`${stats.earth}%`;$('#metric-ring').style.setProperty('--metric-pct',`${stats.dual}%`);const best=longestDualWindow(state.samples);$('#best-window-length').textContent=best.hours?`${best.hours.toFixed(0)} hours`:'No dual-access window';$('#best-window-dates').textContent=best.start?`${shortDate(new Date(best.start))} → ${shortDate(new Date(best.end))} (UTC)`:'No continuous overlap detected in sampled period';}
 function drawTimeline(){const list=state.samples.slice(0,-1),N=list.length;const rows=[['SUNLIGHT',x=>x.sun.visible,'sun'],['EARTH LINK',x=>x.earth.visible,'earth'],['DUAL WINDOW',x=>x.dual,'dual']];const W=960,H=126,L=112,R=12,Y=17,rowGap=34,rowH=17,width=W-L-R;let svg=`<svg class="timeline-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Mission visibility timeline">`;
   for(let d=0;d<=state.days;d++){const x=L+width*d/state.days;svg+=`<line x1="${x}" x2="${x}" y1="6" y2="${Y+rowGap*2+rowH+7}" stroke="rgba(211,224,233,${d===0||d===state.days?'.17':'.08'})" stroke-dasharray="3 5"/>`;if(d<state.days)svg+=`<text x="${x+4}" y="${H-6}" fill="#7e909d" font-size="10" font-family="DM Mono,monospace">${d===0?'D01':d%2===0||state.days<=7?'D'+String(d+1).padStart(2,'0'):''}</text>`;}
@@ -122,6 +122,10 @@ function updateInspection(){
   $('#scrub-time-label').textContent='DAY '+String(Math.floor(state.offset/24)+1).padStart(2,'0')+
     ' · '+date.toISOString().slice(11,16);
   $('#time-scrubber').value=String(state.offset);
+  const celestialSlider=$('#celestial-scrubber');
+  if(celestialSlider)celestialSlider.value=String(state.offset);
+  const celestialClock=$('#celestial-clock');
+  if(celestialClock)celestialClock.textContent=date.toISOString().slice(0,16).replace('T','  ')+' UTC';
   updateIndicator();
 }
 function setOffset(v){state.offset=Math.max(0,Math.min(state.days*24,Number(v)||0));updateInspection();}
@@ -129,8 +133,24 @@ function drawComparison(){const entries=state.ranking;$('#site-comparison').inne
 function generateCSV(){const esc=v=>'"'+String(v).replaceAll('"','""')+'"';const csv=[['utc','site','latitude_deg','longitude_deg_east','sun_azimuth_deg','sun_elevation_deg','sun_visible_flat_horizon','earth_azimuth_deg','earth_elevation_deg','earth_visible_flat_horizon','both_visible'].join(',')];state.samples.forEach(r=>csv.push([r.time,state.site.name,state.site.lat,state.site.lon,r.sun.azimuth.toFixed(4),r.sun.elevation.toFixed(4),r.sun.visible,r.earth.azimuth.toFixed(4),r.earth.elevation.toFixed(4),r.earth.visible,r.dual].map(esc).join(',')));const blob=new Blob([csv.join('\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`lunarnav-${state.site.id}-${state.date}-${state.days}d.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);toast('Mission timeline CSV exported');}
 function briefText(){const {site,date,time,days}=state;const q=summarize(state.samples);const best=longestDualWindow(state.samples);return `LUNARNAV V2 — LUNAR MISSION SCREENING BRIEF\nGenerated: ${new Date().toISOString()}\nSite: ${site.name} (${site.kind})\nCoordinates: ${fmtCoord(site.lat,site.lon)}\nPeriod: ${date} ${time} UTC + ${days} days\n\nSun visible: ${fmtPct(q.sun)}\nEarth visible: ${fmtPct(q.earth)}\nSun + Earth together: ${fmtPct(q.dual)}\nLongest sampled Earth blackout: ${q.longestBlackoutHours.toFixed(0)} hours\nLongest continuous dual-access period: ${best.hours.toFixed(0)} hours (${best.start||'none'} to ${best.end||'none'})\n\nMETHOD: analytical ephemeris; spherical geometric horizon; two-hour samples. No terrain occlusion, link-budget analysis, solar power calculation, or landing hazard validation. For research screening only — not for flight operations.\nSource reference: ${site.source||'User-selected coordinates'}\n`;} 
 function openBrief(){const q=summarize(state.samples);const best=longestDualWindow(state.samples);$('#brief-content').innerHTML=`<div class="report-kicker">LUNAR SOUTH POLE / PLANNING REPORT</div><h3>${escapeHTML(state.site.name)}</h3><p class="report-coordinates">${escapeHTML(fmtCoord(state.site.lat,state.site.lon))}</p><div class="report-grid"><div><small>MISSION WINDOW</small><strong>${state.days} days</strong></div><div><small>START TIME (UTC)</small><strong>${escapeHTML(state.date)} ${escapeHTML(state.time)}</strong></div><div><small>SUN VISIBILITY</small><strong>${fmtPct(q.sun)}</strong></div><div><small>EARTH VISIBILITY</small><strong>${fmtPct(q.earth)}</strong></div><div><small>DUAL ACCESS</small><strong>${fmtPct(q.dual)}</strong></div><div><small>MAX EARTH BLACKOUT</small><strong>${q.longestBlackoutHours.toFixed(0)} h</strong></div><div><small>BEST CONTINUOUS OVERLAP</small><strong>${best.hours.toFixed(0)} h</strong></div></div><p class="report-warning">SCIENTIFIC LIMITATIONS — Analytical geometry with a 0° spherical horizon. Does not account for lunar terrain shadows, spacecraft communications link margin, solar power budget, landing hazards or flight validation. Values are screening estimates only.</p>`;$('#brief-dialog').showModal();}
-function stopPlay(){state.playing=false;clearInterval(playTimer);const b=$('#replay-btn');if(b)b.textContent='▶ Replay window';}
-function togglePlay(){if(state.playing){stopPlay();return;}state.playing=true;$('#replay-btn').textContent='Ⅱ Pause replay';playTimer=setInterval(()=>{if(state.offset>=state.days*24)setOffset(0);else setOffset(state.offset+2);},95);}
+function stopPlay(){
+  state.playing=false;clearInterval(playTimer);
+  const b=$('#replay-btn');if(b)b.textContent='▶ Replay window';
+  const celestial=$('#celestial-play');if(celestial){celestial.textContent='▶ Simulate';celestial.setAttribute('aria-pressed','false');}
+}
+function togglePlay(){
+  if(state.playing){stopPlay();return;}
+  state.playing=true;
+  const replay=$('#replay-btn');if(replay)replay.textContent='Ⅱ Pause replay';
+  const celestial=$('#celestial-play');celestial.textContent='Ⅱ Pause';celestial.setAttribute('aria-pressed','true');
+  let last=performance.now();
+  playTimer=setInterval(()=>{
+    const now=performance.now(),seconds=Math.min(0.35,Math.max(0,(now-last)/1000));last=now;
+    const speed=Number($('#celestial-speed').value)||24; // Simulated hours per real second
+    const next=state.offset+seconds*speed;
+    setOffset(next>state.days*24?next%(state.days*24):next);
+  },100);
+}
 
 
 function engineeringInputs(){
@@ -484,19 +504,20 @@ $('#time-event').addEventListener('click',()=>{
   toast('Jumped to modeled '+upcoming.eventType+' horizon event');
 });
 const celestialViewBtn=$('#celestial-view');
-if(!map.setSystemView)celestialViewBtn.disabled=true; // 2D fallback has no celestial shader.
+if(!map.setCelestialVisible){
+  celestialViewBtn.disabled=true;celestialViewBtn.setAttribute('aria-pressed','false');
+  celestialViewBtn.title='Earth and Sun markers require WebGL';
+}
 celestialViewBtn.addEventListener('click',()=>{
-  const requested=celestialViewBtn.getAttribute('aria-pressed')!=='true';
-  const enabled=map.setSystemView?.(requested);
-  if(enabled===undefined){toast('3D celestial view requires WebGL');return;}
+  const enabled=map.setCelestialVisible?.(celestialViewBtn.getAttribute('aria-pressed')!=='true');
+  if(enabled===undefined){toast('3D sky view requires WebGL');return;}
   celestialViewBtn.setAttribute('aria-pressed',String(enabled));
-  celestialViewBtn.setAttribute('aria-label',enabled?'Return to interactive lunar globe':'Show Sun, Moon and Earth in a 3D scene');
-  celestialViewBtn.title=enabled?'Return to interactive lunar globe':'Show Sun, Moon and Earth as 3D spheres';
-  celestialViewBtn.querySelector('span').textContent=enabled?'Moon view':'System view';
-  for(const id of ['focus-site','reset-view','zoom-out','zoom-in'])$('#'+id).disabled=enabled;
-  $('#zoom-label').hidden=enabled;
-  if(enabled){$('#focus-site').setAttribute('aria-pressed','false');$('#map-tooltip').hidden=true;}
+  celestialViewBtn.setAttribute('aria-label',enabled?'Hide Sun and Earth in the lunar globe':'Show Sun and Earth in the lunar globe');
+  celestialViewBtn.querySelector('span').textContent=enabled?'Bodies on':'Bodies off';
 });
+$('#celestial-scrubber').addEventListener('input',event=>{stopPlay();setOffset(event.target.value);});
+$('#celestial-play').addEventListener('click',togglePlay);
+$('#celestial-reset').addEventListener('click',()=>{map.resetBodies?.();toast('Earth and Sun spins reset');});
 $('#zoom-in').addEventListener('click',()=>$('#zoom-label').textContent=map.zoomBy(.2)+'%');
 $('#zoom-out').addEventListener('click',()=>$('#zoom-label').textContent=map.zoomBy(-.2)+'%');
 
@@ -524,7 +545,6 @@ document.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&document.body.classList.contains('globe-immersive'))setImmersive(false);
 });
 $('#hero-explore').addEventListener('click',()=>{
-  if(celestialViewBtn.getAttribute('aria-pressed')==='true')celestialViewBtn.click();
   $('#map-stage').scrollIntoView({behavior:'smooth',block:'center'});
   const level=map.focusSite?.();
   if(Number.isFinite(level))$('#zoom-label').textContent=level+'%';
