@@ -493,7 +493,7 @@ celestialViewBtn.addEventListener('click',()=>{
   celestialViewBtn.setAttribute('aria-label',enabled?'Return to interactive lunar globe':'Show Sun, Moon and Earth in a 3D scene');
   celestialViewBtn.title=enabled?'Return to interactive lunar globe':'Show Sun, Moon and Earth as 3D spheres';
   celestialViewBtn.querySelector('span').textContent=enabled?'Moon view':'System view';
-  for(const id of ['focus-site','reset-view','zoom-out','zoom-in'])$(id).disabled=enabled;
+  for(const id of ['focus-site','reset-view','zoom-out','zoom-in'])$('#'+id).disabled=enabled;
   $('#zoom-label').hidden=enabled;
   if(enabled){$('#focus-site').setAttribute('aria-pressed','false');$('#map-tooltip').hidden=true;}
 });
