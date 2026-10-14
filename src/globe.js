@@ -4,7 +4,9 @@
  * it is NOT a terrain horizon model, elevation dataset or landing-risk map.
  * https://svs.gsfc.nasa.gov/4720/
  *
- * The original polar schematic remains available as a WebGL fallback.
+ * Earth, Moon and Sun are ray-traced as spheres in a shared Moon-fixed scene.
+ * Celestial directions follow the ephemeris; their displayed size/distance is
+ * deliberately compressed for inspection. The 2D polar fallback remains.
  */
 import {SITES,fmtCoord} from './sites.js';
 import {createMap as createPolarMap} from './map.js';
@@ -23,7 +25,8 @@ const fragment=String.raw`precision highp float;
 uniform vec2 resolution;
 uniform vec3 forward, right, up, sun;
 uniform float zoom, hasTexture, showSkyBodies, hasEarthTexture, elapsedDays;
-uniform vec3 sunSphere, earthSphere, spinYaw, spinPitch;
+uniform vec3 spinYaw, spinPitch;
+uniform vec4 sunSphere, earthSphere;
 uniform sampler2D moon, earthImage;
 float hash(vec2 x){return fract(sin(dot(x,vec2(127.1,311.7)))*43758.5453);}
 float noise(vec2 p){
@@ -58,9 +61,23 @@ vec3 moonAlbedo(vec3 n){
  float spots=pow(noise(uv*vec2(28.0,15.0)),2.7);
  return vec3(0.38+0.32*land-0.12*spots);
 }
+/* Orthographic rays through one Moon-fixed 3D coordinate system.
+   Depth selects the nearest sphere, rather than compositing three 2D disks. */
+float sphereHit(vec3 origin,vec3 ray,vec3 center,float radius){
+ if(radius<=0.0)return 1.0e6;
+ vec3 offset=origin-center;
+ float b=dot(offset,ray);
+ float delta=b*b-dot(offset,offset)+radius*radius;
+ if(delta<0.0)return 1.0e6;
+ float root=sqrt(delta);
+ float near=-b-root;
+ return near>0.0?near:(-b+root>0.0?-b+root:1.0e6);
+}
 void main(){
  vec2 screen=(gl_FragCoord.xy-resolution*0.5)/(resolution.y*0.5);
- float radius=0.87*zoom, rr=dot(screen,screen)/(radius*radius);
+ float scale=0.87*zoom;
+ vec3 rayOrigin=forward*4.0+right*screen.x/scale+up*screen.y/scale;
+ vec3 ray=-forward;
  vec3 space=vec3(0.023,0.038,0.060);
  space+=0.024*exp(-length(screen-vec2(0.35,-0.1))*1.7)*vec3(0.35,0.7,1.0);
  vec2 starCell=floor(gl_FragCoord.xy/22.0);
@@ -68,82 +85,83 @@ void main(){
  float glow=pow(max(0.0,1.0-length(fract(gl_FragCoord.xy/22.0)-0.5)*2.0),8.0);
  space+=vec3(0.35,0.53,0.63)*star*glow*0.65;
 
+ float moonT=sphereHit(rayOrigin,ray,vec3(0.0),1.0);
+ float sunT=1.0e6,earthT=1.0e6;
+ vec2 sunPos=vec2(dot(sunSphere.xyz,right),dot(sunSphere.xyz,up))*scale;
+ vec2 earthPos=vec2(dot(earthSphere.xyz,right),dot(earthSphere.xyz,up))*scale;
+ float sunR=sunSphere.w*scale,earthR=earthSphere.w*scale;
  if(showSkyBodies>0.5){
-   vec2 sunPos=sunSphere.xy,earthPos=earthSphere.xy;
-   float sunR=sunSphere.z,earthR=earthSphere.z;
-   vec3 color=space;
+   sunT=sphereHit(rayOrigin,ray,sunSphere.xyz,sunSphere.w);
+   earthT=sphereHit(rayOrigin,ray,earthSphere.xyz,earthSphere.w);
    if(sunR>0.0){
-   float sunDistance=length(screen-sunPos);
-   float outer=max(0.0,(sunDistance-sunR)/max(sunR,0.01));
-   float corona=exp(-outer*4.0);
-   float rayAngle=atan(screen.y-sunPos.y,screen.x-sunPos.x);
-   float rayFlare=pow(0.5+0.5*sin(rayAngle*13.0+sin(rayAngle*7.0)*3.0),8.0);
-   color+=vec3(0.85,0.32,0.064)*(0.29*corona+0.18*corona*rayFlare);
-   if(sunDistance<sunR+0.008){
-     vec3 surface=sphereNormal((screen-sunPos)/sunR);
-     vec3 solar=turned(surface,spinYaw.x,spinPitch.x);
-     vec2 pos=solar.xy*9.0+vec2(solar.z*3.4,2.6);
-     float cells=fbm(pos*5.5);
-     float flows=fbm(pos*0.85+fbm(pos*1.9)*2.7);
-     float sunspots=smoothstep(0.67,0.77,fbm(pos*0.66+vec2(18.0,11.0)));
-     float hot=clamp(0.42+0.46*cells+0.26*flows,0.0,1.0);
-     vec3 fire=mix(vec3(1.0,0.40,0.07),vec3(1.0,0.96,0.60),hot);
-     fire*=1.0-0.58*sunspots;
-     fire*=0.77+0.23*pow(max(surface.z,0.0),0.48);
-     float edge=1.0-smoothstep(sunR-0.007,sunR+0.004,sunDistance);
-     color=mix(color,fire,edge);
-   }
+     float outer=max(0.0,(length(screen-sunPos)-sunR)/sunR);
+     float halo=exp(-outer*4.0);
+     float angle=atan(screen.y-sunPos.y,screen.x-sunPos.x);
+     float flare=pow(0.5+0.5*sin(angle*13.0+sin(angle*7.0)*3.0),8.0);
+     space+=vec3(0.85,0.32,0.064)*halo*(0.26+0.13*flare);
    }
    if(earthR>0.0){
-   vec2 eq=(screen-earthPos)/earthR;
-   float earthDist=length(eq);
-   if(earthDist<1.12){
-     float haze=exp(-pow(abs(earthDist-1.0)*19.0,1.4));
-     color+=vec3(0.035,0.25,0.75)*haze*0.20;
+     float halo=exp(-pow(abs(length(screen-earthPos)/earthR-1.0)*19.0,1.4));
+     space+=vec3(0.035,0.25,0.75)*halo*0.20;
    }
-   if(earthDist<1.01){
-     vec3 n=sphereNormal(eq);
-     vec3 rot=turned(n,spinYaw.y,spinPitch.y);
-     vec2 uv=vec2(fract(0.5+atan(rot.x,rot.z)/6.2831853),
-                  0.5+asin(clamp(rot.y,-1.0,1.0))/3.14159265);
-     float elevation=fbm(uv*vec2(6.7,4.5)+vec2(2.7,0.0));
-     float land=smoothstep(0.455,0.545,elevation);
-     float detail=fbm(uv*vec2(33.0,19.0)+vec2(4.1,2.4));
-     vec3 ocean=mix(vec3(0.015,0.09,0.21),vec3(0.035,0.30,0.52),0.4+0.6*detail);
-     vec3 terrain=mix(vec3(0.075,0.28,0.13),vec3(0.52,0.39,0.24),detail);
-     vec3 albedo=mix(ocean,terrain,land);
-     albedo=mix(albedo,vec3(0.86,0.91,0.95),
-                smoothstep(0.80,0.95,abs(rot.y))*0.92);
-     if(hasEarthTexture>0.5)albedo=texture2D(earthImage,uv).rgb;
-     // Atmospheric bands and high clouds sit above the stationary Blue Marble image.
-     vec2 cloudUV=uv+vec2(elapsedDays*0.005,0.0);
-     float cloudNoise=fbm(cloudUV*vec2(23.0,13.0)+vec2(0.0,3.9));
-     float cloud=0.85*smoothstep(0.57,0.72,cloudNoise);
-     cloud+=0.25*smoothstep(0.61,0.75,fbm(cloudUV*vec2(46.0,26.0)));
-     albedo=mix(albedo,vec3(0.94,0.98,1.0),clamp(cloud,0.0,0.92));
-     vec3 sunRay=normalize(vec3(sunPos-earthPos,0.85));
-     float daylight=max(0.0,dot(n,sunRay));
-     float reflected=pow(max(0.0,dot(reflect(-sunRay,n),vec3(0.0,0.0,1.0))),28.0);
-     vec3 earthColor=albedo*(0.045+0.98*pow(daylight,0.76));
-     earthColor+=vec3(0.13,0.39,0.70)*reflected*0.26*daylight;
-     float rim=pow(1.0-max(0.0,n.z),3.7);
-     earthColor+=vec3(0.10,0.42,0.85)*rim*(0.17+0.61*daylight);
-     color=mix(color,earthColor,1.0-smoothstep(0.987,1.013,earthDist));
-   }
-   }
-   space=color;
  }
- if(rr>=1.0){gl_FragColor=vec4(space,1.0);return;}
- float z=sqrt(max(0.0,1.0-rr));
- vec3 n=normalize(right*screen.x/radius+up*screen.y/radius+forward*z);
+ // An occluded or out-of-view sphere cannot draw on top of a nearer body.
+ float nearT=min(moonT,min(sunT,earthT));
+ if(nearT>9.0e5){gl_FragColor=vec4(space,1.0);return;}
+
+ vec3 hitPoint=rayOrigin+nearT*ray;
+ if(sunT<=moonT && sunT<=earthT){
+   vec3 normal=normalize(hitPoint-sunSphere.xyz);
+   vec3 solar=turned(normal,spinYaw.x,spinPitch.x);
+   vec2 pos=solar.xy*9.0+vec2(solar.z*3.4,2.6);
+   float cells=fbm(pos*5.5);
+   float flows=fbm(pos*0.85+fbm(pos*1.9)*2.7);
+   float spots=smoothstep(0.67,0.77,fbm(pos*0.66+vec2(18.0,11.0)));
+   float hot=clamp(0.42+0.46*cells+0.26*flows,0.0,1.0);
+   vec3 fire=mix(vec3(1.0,0.40,0.07),vec3(1.0,0.96,0.60),hot);
+   fire*=1.0-0.58*spots;
+   fire*=0.8+0.2*pow(max(dot(normal,forward),0.0),0.48);
+   float disk=1.0-smoothstep(0.987,1.01,length(screen-sunPos)/max(sunR,0.001));
+   gl_FragColor=vec4(mix(space,fire,disk),1.0);
+   return;
+ }
+ if(earthT<=moonT){
+   vec3 normal=normalize(hitPoint-earthSphere.xyz);
+   vec3 rot=turned(normal,spinYaw.y,spinPitch.y);
+   vec2 uv=vec2(fract(0.5+atan(rot.x,rot.z)/6.2831853),
+                0.5+asin(clamp(rot.y,-1.0,1.0))/3.14159265);
+   float elevation=fbm(uv*vec2(6.7,4.5)+vec2(2.7,0.0));
+   float land=smoothstep(0.455,0.545,elevation);
+   float detail=fbm(uv*vec2(33.0,19.0)+vec2(4.1,2.4));
+   vec3 ocean=mix(vec3(0.015,0.09,0.21),vec3(0.035,0.30,0.52),0.4+0.6*detail);
+   vec3 terrain=mix(vec3(0.075,0.28,0.13),vec3(0.52,0.39,0.24),detail);
+   vec3 albedo=mix(ocean,terrain,land);
+   albedo=mix(albedo,vec3(0.86,0.91,0.95),smoothstep(0.80,0.95,abs(rot.y))*0.92);
+   if(hasEarthTexture>0.5)albedo=texture2D(earthImage,uv).rgb;
+   vec2 cloudUV=uv+vec2(elapsedDays*0.005,0.0);
+   float clouds=0.85*smoothstep(0.57,0.72,fbm(cloudUV*vec2(23.0,13.0)+vec2(0.0,3.9)));
+   clouds+=0.25*smoothstep(0.61,0.75,fbm(cloudUV*vec2(46.0,26.0)));
+   albedo=mix(albedo,vec3(0.94,0.98,1.0),clamp(clouds,0.0,0.92));
+   // Lighting is based on the Moon-fixed Sun direction, not screen-space dots.
+   float daylight=max(0.0,dot(normal,normalize(sun)));
+   float reflected=pow(max(0.0,dot(reflect(-normalize(sun),normal),forward)),28.0);
+   vec3 earthColor=albedo*(0.045+0.98*pow(daylight,0.76));
+   earthColor+=vec3(0.13,0.39,0.70)*reflected*0.26*daylight;
+   float rim=pow(1.0-max(0.0,dot(normal,forward)),3.7);
+   earthColor+=vec3(0.10,0.42,0.85)*rim*(0.17+0.61*daylight);
+   float disk=1.0-smoothstep(0.987,1.013,length(screen-earthPos)/max(earthR,0.001));
+   gl_FragColor=vec4(mix(space,earthColor,disk),1.0);
+   return;
+ }
+ vec3 n=normalize(hitPoint);
  vec3 rock=moonAlbedo(n);
  float daylight=max(0.0,dot(n,normalize(sun)));
  float shade=0.115+0.94*pow(daylight,0.78);
- float rim=pow(1.0-z,4.0);
+ float rim=pow(1.0-max(0.0,dot(n,forward)),4.0);
  vec3 result=rock*shade*vec3(0.97,1.01,1.06);
  result+=vec3(0.18,0.28,0.32)*rim*0.19;
- result=mix(result,space,smoothstep(0.994,1.0,rr)*0.24);
  gl_FragColor=vec4(result,1.0);
+}
 }`;
 
 function program(gl){
@@ -191,7 +209,7 @@ export function createMap(canvas,{onPick,onHover}){
  let imageStatus='GLOBE VISUALIZATION';
  const setImageStatus=text=>{imageStatus=text;const el=document.querySelector('#map-image-status');if(el)el.textContent=imageStatus;};
  let sunlight=norm([0.5,0.32,-0.75]),earthlight=norm([0.22,0.18,0.95]),w=0,h=0,dpr=1,frame=0;
- let origin=null,dragging=false,moved=false;
+ let origin=null,dragging=false,moved=false,suppressCelestialClick=false;
  const ctx=canvas.getContext('2d');
  const axes=()=>{
    const center=spherical(lat,lon),east=[-Math.sin(lon*D),Math.cos(lon*D),0];
@@ -218,7 +236,7 @@ export function createMap(canvas,{onPick,onHover}){
    gl.uniform3fv(u.spinPitch,bodies.map(name=>manualSpin[name].pitch));
    layout=skyBodies(a,sunlight,earthlight,w,h,0.87*zoom);
    for(const [name,key] of [['sun','sunSphere'],['earth','earthSphere']]){
-     const sphere=layout[name];gl.uniform3f(u[key],sphere.x,sphere.y,showSkyBodies&&sphere.visible?sphere.r:0);
+     const sphere=layout[name];gl.uniform4f(u[key],...sphere.world,showSkyBodies&&sphere.visible?sphere.worldRadius:0);
    }
    positionCelestialLabels();
    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.drawArrays(gl.TRIANGLES,0,6);
@@ -242,7 +260,8 @@ export function createMap(canvas,{onPick,onHover}){
    ctx.strokeStyle='rgba(148,199,218,0.36)';ctx.beginPath();ctx.arc(0,0,R,0,Math.PI*2);ctx.stroke();
    ctx.restore();
    const points=SITES.concat(site.custom?[site]:[]);
-   const overlays=points.map(point=>({point,pos:project(point)})).filter(x=>x.pos.visible);
+   const overlays=points.map(point=>({point,pos:project(point)})).filter(x=>x.pos.visible &&
+     (!showSkyBodies||!layout||!['sun','earth'].includes(hitCelestialBody(layout,x.pos.x,x.pos.y,w,h))));
    for(const {point,pos} of overlays){
      const selected=point.id===site.id;
      ctx.save();
@@ -285,6 +304,7 @@ export function createMap(canvas,{onPick,onHover}){
    request();
  }
  function nearest(x,y){
+   if(showSkyBodies&&layout&&['sun','earth'].includes(hitCelestialBody(layout,x,y,w,h)))return null;
    let target=null,distance=24;
    for(const s of SITES.concat(site.custom?[site]:[])){
      const q=project(s),d=Math.hypot(q.x-x,q.y-y);
@@ -306,7 +326,7 @@ export function createMap(canvas,{onPick,onHover}){
    const body=showSkyBodies&&layout?hitCelestialBody(layout,point.x,point.y,w,h):null;
    if(body==='sun'||body==='earth'){
      activeBody=body;
-     celestialDrag={name:body,x:e.clientX,y:e.clientY,pointerId:e.pointerId};
+     celestialDrag={name:body,x:e.clientX,y:e.clientY,pointerId:e.pointerId,moved:false};
      canvas.setPointerCapture(e.pointerId);canvas.style.cursor='grabbing';
      e.preventDefault();return;
    }
@@ -318,6 +338,7 @@ export function createMap(canvas,{onPick,onHover}){
    if(celestialDrag){
      if(celestialDrag.pointerId===e.pointerId){
        const spin=manualSpin[celestialDrag.name];
+       if(Math.hypot(e.clientX-celestialDrag.x,e.clientY-celestialDrag.y)>1)celestialDrag.moved=true;
        spin.yaw+=(e.clientX-celestialDrag.x)*0.014;
        spin.pitch=clamp(spin.pitch+(e.clientY-celestialDrag.y)*0.014,-1.35,1.35);
        celestialDrag.x=e.clientX;celestialDrag.y=e.clientY;request();
@@ -337,13 +358,16 @@ export function createMap(canvas,{onPick,onHover}){
    }
  });
  const finish=e=>{
-   if(celestialDrag&&celestialDrag.pointerId===e.pointerId)celestialDrag=null;
+   if(celestialDrag&&celestialDrag.pointerId===e.pointerId){
+     suppressCelestialClick=celestialDrag.moved;celestialDrag=null;
+   }
    dragging=false;origin=null;
    if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId);
  };
  canvas.addEventListener('pointerup',finish);canvas.addEventListener('pointercancel',finish);
  canvas.addEventListener('pointerleave',()=>onHover(null));
  canvas.addEventListener('click',e=>{
+   if(suppressCelestialClick){suppressCelestialClick=false;return;}
    if(moved){moved=false;return;}
    const pt=where(e),chosen=nearest(pt.x,pt.y);
    if(chosen){onPick(chosen);return;}
@@ -422,7 +446,7 @@ export function createMap(canvas,{onPick,onHover}){
    setCelestialVisible(enabled){
      showSkyBodies=Boolean(enabled);
      stage.classList.toggle('show-celestial-bodies',showSkyBodies);
-     canvas.setAttribute('aria-label','Interactive Moon globe. Drag the Moon to orbit; drag visible Earth or Sun to spin them. Keyboard: 1 Sun, 2 Earth, 3 Moon; arrow keys rotate selected body. Celestial sizes and distances are not to scale.');
+     canvas.setAttribute('aria-label','Interactive Moon globe. Drag the Moon to orbit; drag visible Earth or Sun to spin them. Keyboard: 1 Sun, 2 Earth, 3 Moon; arrow keys rotate selected body. All spheres share Moon-fixed coordinates; their distances and sizes are compressed for visibility.');
      request();return showSkyBodies;
    },
    rotateBody(name,yaw,pitch=0){
