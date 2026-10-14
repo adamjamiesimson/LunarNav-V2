@@ -656,3 +656,29 @@ body.tour-is-active{overscroll-behavior:none}
  .celestial-label{font-size:10px}
  .celestial-disclaimer{font-size:8px;bottom:9px}
 }
+
+/* Earth and Sun are in the Moon's camera space, not a separate three-body layout. */
+.map-stage .celestial-annotations{display:block;position:absolute;inset:0;z-index:3;pointer-events:none}
+.map-stage:not(.show-celestial-bodies) .celestial-annotations{display:none}
+.map-stage .celestial-moon{display:none}
+.map-stage .celestial-disclaimer{top:12px;bottom:auto;font-size:8px;color:#a2b9bd;opacity:.84}
+.map-stage .celestial-label[hidden],.map-stage .celestial-disclaimer[hidden]{display:none}
+.map-stage .celestial-label{width:max-content;max-width:100px;white-space:nowrap;font-size:9px;text-shadow:0 2px 6px #03070d,0 0 10px #03070d}
+.map-stage canvas#moon-map{cursor:grab}
+.map-footer{flex-wrap:wrap}
+.celestial-time-controls{display:flex;flex:1 0 100%;align-items:center;flex-wrap:wrap;gap:9px;padding:12px 0 1px;border-top:1px solid rgba(157,192,203,.16)}
+.celestial-time-label{font:9px 'DM Mono',monospace;color:#829eab;white-space:nowrap}
+.celestial-time-controls input[type=range]{accent-color:#c5e9ce;flex:1 1 135px;min-width:75px}
+.celestial-time-controls output{font:10px 'DM Mono',monospace;color:#d4e9df;min-width:146px;white-space:nowrap}
+.celestial-time-controls select{font:10px 'DM Mono',monospace;padding:7px 5px;background:#101c26;border:1px solid #38505c;border-radius:5px;color:#d6ebea}
+.celestial-control-btn{border:1px solid rgba(165,201,199,.32);border-radius:5px;background:rgba(26,46,54,.82);color:#dcf2e6;padding:7px 10px;font:10px 'DM Mono',monospace;white-space:nowrap}
+.celestial-control-btn:hover,.celestial-control-btn[aria-pressed=true]{border-color:#b8e3be;background:#29483e}
+@media(max-width:650px){
+ .celestial-time-controls{gap:7px}
+ .celestial-time-controls output{order:-1;flex:1 1 100%;font-size:11px}
+ .celestial-time-controls input[type=range]{flex:1 1 45%;order:1}
+ .celestial-time-controls select{order:2}
+ .celestial-time-controls #celestial-reset{order:3}
+ .celestial-time-controls label[for=celestial-speed]{display:none}
+ .celestial-time-controls label[for=celestial-scrubber]{order:1}
+}
