@@ -45,6 +45,7 @@ try{
   // The multi-page refactor put #hero-explore inside the explore view, so open
   // that route directly instead of clicking through the home page.
   await page.goto(address+'explore',{waitUntil:'domcontentloaded',timeout:25000});
+  await page.waitForFunction(()=>document.body.dataset.page==='explore');
   await page.waitForFunction(()=>document.querySelector('#hud-sun')?.textContent!=='—',{timeout:20000});
   await page.waitForFunction(()=>document.querySelector('#mission-source')?.textContent?.includes('LOLA'),{timeout:20000});
   const initial=await page.$eval('#mission-source',node=>node.textContent);
@@ -73,8 +74,8 @@ try{
   if(cards!==5)throw Error('Terrain finder should show five matched site cards; found '+cards);
   // Measure the Explorer view — the surface this smoke run exercises (and the
   // one that hosts the traverse + transit planners).
-  await page.goto(address+'explore',{waitUntil:'domcontentloaded',timeout:25000});
-  await page.waitForFunction(()=>document.querySelector('#hud-sun')?.textContent!=='—',{timeout:20000});
+  await page.click('a[data-route="explore"]');
+  await page.waitForFunction(()=>document.body.dataset.page==='explore'&&document.querySelector('#hud-sun')?.textContent!=='—',{timeout:20000});
   await page.setViewport({width:390,height:844,isMobile:true,hasTouch:true});
   await page.waitForFunction(()=>document.documentElement.clientWidth<=392,{timeout:15000});
   await new Promise(resolve=>setTimeout(resolve,400));
@@ -87,10 +88,8 @@ try{
   if(dims.scrollWidth>dims.width+4)throw Error('Explorer horizontally overflows small viewport: '+JSON.stringify(dims));
   // Windows page: the wide finder heatmap stays inside its own scroll wrap and
   // must never pan the page itself at 390px.
-  for(let attempt=0;attempt<2;attempt++){
-    try{await page.goto(address+'windows',{waitUntil:'domcontentloaded',timeout:25000});break;}
-    catch(e){if(attempt===1)throw e;await new Promise(resolve=>setTimeout(resolve,800));}
-  }
+  await page.click('a[data-route="windows"]');
+  await page.waitForFunction(()=>document.body.dataset.page==='windows',{timeout:20000});
   if(await page.evaluate(()=>!document.querySelector('#finder-heatmap')?.children.length))
     await page.waitForFunction(()=>document.querySelector('#finder-heatmap')?.children.length>0,{timeout:25000});
   await page.evaluate(()=>window.scrollTo(9999,0));
