@@ -14,7 +14,7 @@
     "preview": "npm run build && node scripts/preview-server.js --dist"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.21.0"
+    "@google/genai": "^2.32.0"
   },
   "engines": {
     "node": ">=18"

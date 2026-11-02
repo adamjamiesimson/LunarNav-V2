@@ -2,12 +2,15 @@
  * LunarNav Gemini mission-assistant API (Vercel serverless function).
  *
  * The Gemini API key never reaches the browser: it is read here from the
- * GEMINI_API_KEY environment variable. The model (default gemini-2.0-flash)
+ * GEMINI_API_KEY environment variable. The model (default gemini-3.8-flash)
  * is configurable through GEMINI_MODEL. Gemini's native function-calling is
  * used to execute the same LunarNav calculation modules the planner runs in
  * the browser (src/tools.js), so the assistant never invents ephemeris values.
+ *
+ * Uses the current @google/genai SDK (Interactions API) with a manual
+ * function-calling loop over stateless models.generateContent calls.
  */
-import {GoogleGenerativeAI} from '@google/generative-ai';
+import {GoogleGenAI} from '@google/genai';
 import {TOOL_DECLARATIONS,executeTool} from '../src/tools.js';
 
 const ALLOWED_PAGES = new Set(['home','explore','windows','engineering','compare','science']);
@@ -137,39 +140,61 @@ const buildContextBlock = context => ({
 
 /** Test seam: tests may swap the SDK constructor via a global (never used in prod). */
 function geminiConstructor(){
-  return globalThis.__LUNARNAV_GEMINI_CTOR || GoogleGenerativeAI;
+  return globalThis.__LUNARNAV_GEMINI_CTOR || GoogleGenAI;
+}
+function buildContents(coreMessage, history, context){
+  return [
+    buildContextBlock(context),
+    ...history,
+    {role: 'user', parts: coreMessage.parts}
+  ];
+}
+function modelContent(result){
+  return result.candidates?.[0]?.content || null;
 }
 async function runGeminiRoundtrip(coreMessage, history, context){
   const GenAI = geminiConstructor();
   const genAI = new GenAI(process.env.GEMINI_API_KEY);
-  const modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
-  const model = genAI.getGenerativeModel({model: modelName});
-  const chat = model.startChat({
-    history: [buildContextBlock(context), ...history],
-    systemInstruction: {parts: [{text: SYSTEM_INSTRUCTION}]},
-    generationConfig: {temperature: 0.3, maxOutputTokens: 2048}
-  });
-  let currentParts = coreMessage.parts;
+  const modelName = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+  let contents = buildContents(coreMessage, history, context);
   const toolTraces = [];
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++){
-    const result = await chat.sendMessage(currentParts);
-    const content = result.response.candidates?.[0]?.content;
-    const parts = content?.parts || [];
-    const toolCalls = parts.filter(p => p.functionCall);
-    const text = parts.filter(p => p.text !== undefined).map(p => p.text).join('');
-    if (!toolCalls.length) return {text, toolTraces};
-    const responses = [];
-    for (const call of toolCalls){
-      const name = String(call.functionCall?.name || '');
-      const args = JSON.parse(JSON.stringify(call.functionCall?.args || {}));
+    const result = await genAI.models.generateContent({
+      model: modelName,
+      contents,
+      config: {
+        systemInstruction: {role: 'user', parts: [{text: SYSTEM_INSTRUCTION}]},
+        tools: [{functionDeclarations: TOOL_DECLARATIONS}],
+        temperature: 0.3,
+        maxOutputTokens: 2048
+      }
+    });
+    const text = result.text;
+    const calls = result.functionCalls;
+    if (!calls || !calls.length) return {text, toolTraces};
+
+    // Include the model's own response content in history for multi-turn
+    // function calling before appending the tool results.
+    const next = [...contents];
+    const model = modelContent(result);
+    if (model && Array.isArray(model.parts) && model.parts.length){
+      next.push({role: 'model', parts: model.parts.slice()});
+    }
+    const responseParts = [];
+    for (const call of calls){
+      const name = String(call.name || '');
+      const args = JSON.parse(JSON.stringify(call.args || {}));
       const resultValue = executeTool(name, args, context);
       toolTraces.push({name, ok: resultValue.ok, summary: resultValue.summary});
-      responses.push({functionResponse: {
-        name,
-        response: resultValue.ok ? resultValue.value : {error: resultValue.error || 'Tool execution failed'}
-      }});
+      responseParts.push({
+        functionResponse: {
+          name,
+          response: resultValue.ok ? resultValue.value : {error: resultValue.error || 'Tool execution failed'}
+        }
+      });
     }
-    currentParts = responses;
+    if (responseParts.length) next.push({role: 'user', parts: responseParts});
+    contents = next;
   }
   throw new Error('Gemini function calling did not settle within ' + MAX_TOOL_ROUNDS + ' rounds');
 }
@@ -203,7 +228,9 @@ export default async function handler(req, res){
     const result = await runGeminiRoundtrip(message, history, context);
     return res.status(200).json({reply: result.text, tools: result.toolTraces});
   } catch (error){
-    const status = /413|429|rate limit|quota/i.test(String(error.message)) ? 429 : 500;
-    return res.status(status).json({error: 'The Gemini request failed: ' + (error.message || 'unknown error')});
+    const apiStatus = Number(error?.status);
+    const status = (apiStatus >= 400 && apiStatus < 500) ? apiStatus
+      : /413|429|rate limit|quota/i.test(String(error?.message || '')) ? 429 : 500;
+    return res.status(status).json({error: 'The Gemini request failed: ' + (error?.message || 'unknown error')});
   }
 }

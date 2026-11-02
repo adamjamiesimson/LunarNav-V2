@@ -24,7 +24,7 @@ test('Gemini API key is never exposed in frontend files or committed config', ()
   assert.match(chat, /process\.env\.GEMINI_MODEL/);
   assert.doesNotMatch(app, /process\.env\.GEMINI_API_KEY/);
   assert.doesNotMatch(assistant, /process\.env\.GEMINI_API_KEY/);
-  assert.ok(packageJson.dependencies['@google/generative-ai'], 'SDK runtime dependency declared');
+  assert.ok(packageJson.dependencies['@google/genai'], 'SDK runtime dependency declared');
 });
 
 test('API endpoint reads the key and model from environment variables only', () => {

@@ -261,8 +261,8 @@ A floating **mission analyst** button (available on every page) opens a chat pan
 
 Serverless architecture:
 
-- `api/chat.js` (Vercel function) keeps the API key **server-side only**. It validates the request, sanitises the context, builds a compact history and calls Gemini's native function-calling loop, running structured tools until the model produces a final text reply.
-- Configure on Vercel: `GEMINI_API_KEY` (required) and optionally `GEMINI_MODEL` (default `gemini-2.0-flash`). Never add the key to frontend code or commit it. A local `.env.example` documents the variables for local development of the function.
+- `api/chat.js` (Vercel function) keeps the API key **server-side only**. It validates the request, sanitises the context, builds a compact history and calls Gemini's native function-calling loop over the current `@google/genai` SDK (Interactions API), running structured tools until the model produces a final text reply.
+- Configure on Vercel: `GEMINI_API_KEY` (required) and optionally `GEMINI_MODEL` (default **`gemini-3.8-flash`**). Never add the key to frontend code or commit it. A local `.env.example` documents the variables for local development of the function. If a request reports that the configured model `xxx` is no longer available, set `GEMINI_MODEL` to a currently served model (for example `gemini-3.8-flash`) in the Vercel environment variables and redeploy.
 - Conversation history lives in browser memory (and `sessionStorage` when available). No database is introduced.
 - The assistant has a bounded, explicitly declared tool set (`get_mission_context`, `calculate_celestial_conditions`, `analyze_mission_window`, `compare_locations`, `find_optimal_windows`, `simulate_engineering`, `inspect_operations`, `find_next_horizon_event`, `estimate_surface_traverse`). It cannot run arbitrary JavaScript, read files or modify application code.
 

@@ -1,15 +1,15 @@
 /**
  * Tests the Vercel serverless handler (api/chat.js) contract without making
  * live Gemini calls: the handler is invoked with mocked environment, request
- * and response objects, and a lightweight fake of @google/generative-ai is
- * injected through the module cache. This verifies validation, error paths,
- * function-calling loop behaviour and that the API key never leaks into the
- * client payload.
+ * and response objects, and a lightweight fake of @google/genai is injected
+ * through the documented global test seam. This verifies validation, error
+ * paths, function-calling loop behaviour and that the API key never leaks
+ * into the client payload.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-// Stand-in for @google/generative-ai served through import cache.
+// Stand-in for @google/genai served through the global test seam.
 const GeminiFake = {
   fakeCalls: [],
   configure(replyPlan){
@@ -18,28 +18,29 @@ const GeminiFake = {
   },
   getFakeCalls(){ return GeminiFake.fakeCalls; }
 };
-class FakeGenerativeModel {
-  constructor(plan){ this.plan = plan; }
-  startChat(opts){
-    return {sendMessage: async parts => {
-      GeminiFake.fakeCalls.push(parts);
-      const candidate = this.plan.shift();
+GeminiFake.GoogleGenAI = class {
+  constructor(){}
+  models = {
+    generateContent: async ({model, contents, config}) => {
+      GeminiFake.fakeCalls.push({model, contents, config});
+      const candidate = GeminiFake.plan.shift();
       if (!candidate){
         const error = new Error('429 Quota exceeded for Gemini API requests');
         error.status = 429;
         throw error;
       }
-      return {response: {candidates: [{content: candidate}]}};
-    }};
-  }
-}
-GeminiFake.GoogleGenerativeAI = class {
-  constructor(){}
-  getGenerativeModel({model}){ return new FakeGenerativeModel(GeminiFake.plan || [{parts:[{text:'ok'}]}]); }
+      const content = candidate.parts ? {role: 'model', parts: candidate.parts} : undefined;
+      return {
+        text: candidate.text || (candidate.parts || []).filter(p => p.text != null).map(p => p.text).join(''),
+        functionCalls: candidate.functionCalls,
+        candidates: [{content}]
+      };
+    }
+  };
 };
 async function loadHandler(){
   // Test seam documented in api/chat.js: swap the SDK constructor via a global.
-  globalThis.__LUNARNAV_GEMINI_CTOR = GeminiFake.GoogleGenerativeAI;
+  globalThis.__LUNARNAV_GEMINI_CTOR = GeminiFake.GoogleGenAI;
   const mod = await import('../api/chat.js?' + Date.now());
   return {default: mod.default};
 }
@@ -92,7 +93,8 @@ test('endpoint performs a tool call roundtrip for numerical questions', async ()
       parts: [
         {text: 'Let me calculate that.'},
         {functionCall: {name: 'calculate_celestial_conditions', args: {utcTimestamp: '2026-11-14T12:00:00Z', lat: -84.79, lon: 29.2}}}
-      ]
+      ],
+      functionCalls: [{name: 'calculate_celestial_conditions', args: {utcTimestamp: '2026-11-14T12:00:00Z', lat: -84.79, lon: 29.2}}]
     },
     {parts: [{text: 'The solar elevation is 1.4° above the geometric horizon.'}]}
   ]);
@@ -117,6 +119,10 @@ test('multiple sequential tool calls are handled in one request', async () => {
       parts: [
         {functionCall: {name: 'analyze_mission_window', args: {startUTC: '2026-11-14T12:00:00Z', days: 7, lat: -84.79, lon: 29.2}}},
         {functionCall: {name: 'compare_locations', args: {}}}
+      ],
+      functionCalls: [
+        {name: 'analyze_mission_window', args: {startUTC: '2026-11-14T12:00:00Z', days: 7, lat: -84.79, lon: 29.2}},
+        {name: 'compare_locations', args: {}}
       ]
     },
     {parts: [{text: 'Dual access is above 90% and Mons Mouton ranks first.'}]}
