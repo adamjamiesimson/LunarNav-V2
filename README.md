@@ -255,6 +255,22 @@ The Engineering page includes a surface traverse estimator: pick an origin (defa
 - If NASA-derived terrain is loaded at the origin, its azimuth-dependent horizon is applied to origin visibility screening; terrain along the path itself is not sampled.
 - Visibility along the route is a screening estimate, not an operations guarantee or a radio link budget.
 
+## Earth-to-Moon transit estimator (Phase 8)
+
+The Explore tab closes with a **Plan your journey to the Moon** section. It estimates how long the spacecraft takes to travel from Earth to the currently selected lunar landing site. This is deliberately **not** a trajectory solver: it uses transparent, configurable reference transfer durations so no false precision is presented.
+
+- **Transfer profiles**: `direct` (reference ~3.5 days, 3–4 day direct family), `extended` (low-energy / fuel-efficient family, ~7.5 days), and `custom` (operator-supplied hours).
+- **Anchoring**: estimate either forward from an Earth departure UTC time, or *backward* from a desired lunar landing UTC time (departure is back-calculated by subtracting the transit duration).
+- **Phase breakdown**: Earth departure → lunar transfer → lunar arrival / LOI → descent → surface touchdown. Each is a distinct event with its own reference duration; the phases sum to the total transit time.
+- **Destination**: auto-uses the currently selected landing site and its coordinates. The coordinates identify the landing target and frame the approach discussion but do **not** change the Earth–Moon transit duration.
+- **Limitation**: output is a *scheduling estimate* — no dV budget, launch-window analysis, patched-conic propagation or terrain-aware landing approach is performed. Lunar arrival is not the same as surface touchdown.
+
+### Transit implementation
+
+`src/transit.js` exposes `estimateEarthMoonTransit()`, `transitPhases()`, `formatHours()` and `TRANSIT_PROFILES`. It does **not** divide an average Earth–Moon distance by an arbitrary spacecraft speed, and makes no claim to compute a real trajectory. The destination's coordinates never artificially inflate or shrink the transit time.
+
+The **Gemini assistant** gets a callable `estimate_earth_moon_transit` tool (server-side in `src/tools.js`, browser-side in `src/tool-executor.js`) so it can answer questions like *"How long would a direct transfer to Shackleton take?"* or *"If we want to land on 20 November, when do we depart Earth?"* using the exact same module as the UI. The current transit estimate is also included in the context snapshot sent with each message.
+
 ## Gemini AI mission assistant (Phase 8)
 
 A floating **mission analyst** button (available on every page) opens a chat panel styled like the rest of the app. The assistant receives a compact snapshot of the live mission configuration, selected site, UTC mission start, inspection time, terrain status, engineering simulation and Finder results, and answers planning questions by executing the same calculation modules the planner uses.
@@ -265,9 +281,9 @@ Serverless architecture:
 - Configure on Vercel: `GEMINI_API_KEY` (required) and optionally `GEMINI_MODEL` (default **`gemini-3.8-flash`**). Never add the key to frontend code or commit it. A local `.env.example` documents the variables for local development of the function. If a request reports that the configured model `xxx` is no longer available, set `GEMINI_MODEL` to a currently served model (for example `gemini-3.8-flash`) in the Vercel environment variables and redeploy.
 - **Resilience**: the server wraps each Gemini call with a 25 s timeout and a fallback model chain. If the preferred model returns a transient error (429 quota, 503 high demand, a hang) or is retired/unknown (404), the same request is transparently retried with `GEMINI_FALLBACK_MODELS` (default `gemini-3.5-flash,gemini-3.1-flash-lite`). The chat panel on the client also aborts a request that stalls for 90 s and shows a clear error instead of "Consulting Gemini…" forever.
 - Conversation history lives in browser memory (and `sessionStorage` when available). No database is introduced.
-- The assistant has a bounded, explicitly declared tool set (`get_mission_context`, `calculate_celestial_conditions`, `analyze_mission_window`, `compare_locations`, `find_optimal_windows`, `simulate_engineering`, `inspect_operations`, `find_next_horizon_event`, `estimate_surface_traverse`). It cannot run arbitrary JavaScript, read files or modify application code.
+- The assistant has a bounded, explicitly declared tool set (`get_mission_context`, `calculate_celestial_conditions`, `analyze_mission_window`, `compare_locations`, `find_optimal_windows`, `simulate_engineering`, `inspect_operations`, `find_next_horizon_event`, `estimate_surface_traverse`, `estimate_earth_moon_transit`). It cannot run arbitrary JavaScript, read files or modify application code.
 
-Callable tools reuse the existing modules directly (`src/tools.js` on the server, `src/tool-executor.js` in the browser): `ephemeris`, `sampleWindow`, `summarize`, `longestDualWindow`, `rankedSites`, `findMissionWindows`, `simulateMission`, `inspectSituation`, `findNextHorizonEvent` and `estimateSurfaceTraverse`. The system instruction requires the model to cite actual tool results, distinguish calculated values from assumptions, name the horizon model used, and never present screening as flight-qualified.
+Callable tools reuse the existing modules directly (`src/tools.js` on the server, `src/tool-executor.js` in the browser): `ephemeris`, `sampleWindow`, `summarize`, `longestDualWindow`, `rankedSites`, `findMissionWindows`, `simulateMission`, `inspectSituation`, `findNextHorizonEvent`, `estimateSurfaceTraverse` and `estimateEarthMoonTransit`. The system instruction requires the model to cite actual tool results, distinguish calculated values from assumptions, name the horizon model used, and never present screening as flight-qualified.
 
 Because the API key stays server-side, the static preview without `GEMINI_API_KEY` degrades gracefully: the assistant opens and shows a clear configuration message instead of crashing.
 

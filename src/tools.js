@@ -13,6 +13,7 @@ import {simulateMission,validateEngineering} from './mission.js';
 import {findMissionWindows} from './finder.js';
 import {inspectSituation,findNextHorizonEvent} from './situation.js';
 import {estimateSurfaceTraverse} from './travel.js';
+import {estimateEarthMoonTransit,TRANSIT_PROFILES} from './transit.js';
 import {horizonAt} from './mission.js';
 
 const MAX_WINDOW_WINDOWS=20;
@@ -106,6 +107,19 @@ export const TOOL_DECLARATIONS=Object.freeze([
     speedKph:{type:'number',description:'Assumed average rover speed in km/h (default 10)'},
     delayHours:{type:'number',description:'Additional operational delay in hours (default 0)'}
   },required:['originLat','originLon','destinationLat','destinationLon','departUTC']}
+},
+{
+  name:'estimate_earth_moon_transit',
+  description:'Estimate the Earth-to-Moon spacecraft transit for the selected landing destination using reference transfer-profile durations (direct ~3–4 days, extended ~7.5 days low-energy, or operator-supplied custom). Computes departure/arrival UTC timestamps (forward from a departure time, or backward from a desired landing time) and a phase breakdown (Earth departure, lunar transfer, LOI, descent, surface touchdown). This is a scheduling estimate, NOT a trajectory or delta-v solver.',
+  parameters:{type:'object',properties:{
+    profile:{type:'string',enum:['direct','extended','custom'],description:'Transfer profile: direct (default), extended (fuel-efficient), or custom.'},
+    referenceHours:{type:'number',description:'Total transit duration in hours; required for profile=custom.'},
+    departUTC:{type:'string',description:'ISO 8601 UTC Earth departure timestamp (used when scheduleMode=depart).'},
+    landingUTC:{type:'string',description:'ISO 8601 UTC desired landing timestamp (used when scheduleMode=land; departure is back-calculated).'},
+    scheduleMode:{type:'string',enum:['depart','land'],description:'Whether a departure time or a desired landing time anchors the estimate.'},
+    destinationSiteId:{type:'string',description:'Optional LunarNav site id for the landing destination; defaults to the currently selected site.'},
+    destinationLat:{type:'number'},destinationLon:{type:'number'}
+  },required:['profile']}
 }
 ]);
 
@@ -315,6 +329,47 @@ function runEstimateSurfaceTraverse(args,context){
   };
 }
 
+function runEstimateEarthMoonTransit(args, context){
+  let destination = null;
+  if (typeof args.destinationSiteId === 'string' && args.destinationSiteId.trim()){
+    const site = SITES.find(s => s.id === args.destinationSiteId.trim());
+    if (!site) throw new Error('Unknown LunarNav site id for destination: ' + args.destinationSiteId);
+    destination = {id: site.id, name: site.name, lat: site.lat, lon: site.lon};
+  } else if (args.destinationLat !== undefined && args.destinationLon !== undefined){
+    destination = {id: args.destinationSiteId || 'custom', name: args.destinationName || 'Custom destination', lat: num(args.destinationLat, 0, 'destinationLat'), lon: num(args.destinationLon, 0, 'destinationLon')};
+  } else {
+    // Default to the currently selected mission landing site.
+    const site = contextSite(context);
+    destination = {id: site.id, name: site.name, lat: site.lat, lon: site.lon};
+  }
+  const profile = ['direct', 'extended', 'custom'].includes(String(args.profile)) ? String(args.profile) : 'direct';
+  const scheduleMode = String(args.scheduleMode) === 'land' ? 'land' : 'depart';
+  const estimate = estimateEarthMoonTransit({
+    destination,
+    profile,
+    referenceHours: args.referenceHours !== undefined ? Number(args.referenceHours) : null,
+    departUTC: args.departUTC || null,
+    landingUTC: args.landingUTC || null,
+    scheduleMode
+  });
+  return {
+    model: estimate.model,
+    profile: estimate.profileLabel,
+    transferProfile: estimate.profile,
+    scheduleMode: estimate.scheduleMode,
+    destination: estimate.destination,
+    totalTransitHours: estimate.totalTransitHours,
+    totalTransitLabel: estimate.totalTransitLabel,
+    departureUTC: estimate.departureUTC,
+    arrivalUTC: estimate.arrivalUTC,
+    lunarArrivalUTC: estimate.phases.find(p => p.kind === 'insertion').endUTC || estimate.arrivalUTC,
+    phases: estimate.phases,
+    assumptions: estimate.assumptions,
+    limitation: estimate.limitation,
+    note: 'Earth departure → lunar transfer → LOI → descent → touchdown are distinct events; arrival/landing timing and coordinates frame the approach discussion but do not change the Earth–Moon transit duration.'
+  };
+}
+
 const EXECUTORS={
   get_mission_context:runGetMissionContext,
   calculate_celestial_conditions:runCalculateCelestialConditions,
@@ -324,7 +379,8 @@ const EXECUTORS={
   simulate_engineering:runSimulateEngineering,
   inspect_operations:runInspectOperations,
   find_next_horizon_event:runFindNextHorizonEvent,
-  estimate_surface_traverse:runEstimateSurfaceTraverse
+  estimate_surface_traverse:runEstimateSurfaceTraverse,
+  estimate_earth_moon_transit:runEstimateEarthMoonTransit
 };
 
 /** Execute a declared tool against the live mission context. Never fails badly:
@@ -348,6 +404,7 @@ function toolSummary(name,value,args){
   if(name==='inspect_operations')return `${value.combinedOutlook} · Sun ${value.sun.marginDeg.toFixed(2)}° · Earth ${value.earth.marginDeg.toFixed(2)}°`;
   if(name==='find_next_horizon_event')return value.result||`Next ${value.eventType} crossing ${value.eventUTC}`;
   if(name==='estimate_surface_traverse')return `${value.distanceKm.toFixed(1)} km · ${value.totalHours.toFixed(1)} h traverse`;
+  if(name==='estimate_earth_moon_transit')return `${value.totalTransitLabel} · depart ${value.departureUTC.slice(0,16).replace('T',' ')} UTC → land ${value.arrivalUTC.slice(0,16).replace('T',' ')} UTC`;
   if(name==='get_mission_context')return `${value.selectedSite.name} ${value.mission.startUTC}`;
   return 'Tool executed';
 }

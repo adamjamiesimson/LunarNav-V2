@@ -104,6 +104,17 @@ function sanitizeContext(raw){
   if (context.missionSummary && typeof context.missionSummary === 'object'){
     out.missionSummary = pickNumbers(context.missionSummary, ['sunPct','earthPct','dualPct','longestBlackoutHours','bestDualHours']);
   }
+  if (context.transit && typeof context.transit === 'object' && Number.isFinite(context.transit.totalTransitHours)){
+    out.transit = {
+      model: String(context.transit.model ?? '').slice(0, 60),
+      profile: String(context.transit.profile ?? ''),
+      profileLabel: String(context.transit.profileLabel ?? '').slice(0, 60),
+      totalTransitHours: Number(context.transit.totalTransitHours),
+      departureUTC: typeof context.transit.departureUTC === 'string' ? context.transit.departureUTC.slice(0, 24) : null,
+      arrivalUTC: typeof context.transit.arrivalUTC === 'string' ? context.transit.arrivalUTC.slice(0, 24) : null,
+      scheduleMode: String(context.transit.scheduleMode ?? '')
+    };
+  }
   if (context.finder && typeof context.finder === 'object' && Array.isArray(context.finder.top)){
     const finder = context.finder;
     out.finder = {
@@ -156,6 +167,7 @@ Rules you must follow:
 - Answer questions specifically about LunarNav and its methodologies. Do not drift into unrelated topics.
 - Whenever a question needs any numerical value (ephemeris, percentages, windows, energy, traverse times), call the appropriate tool and use its ACTUAL result. NEVER invent ephemeris values, mission statistics or simulation results.
 - Distinguish calculated results from assumptions and estimates. State which model and horizon assumption applied (analytical-screening-v1, 0° geometric horizon, or loaded NASA LOLA 20 km local horizon).
+- For Earth-to-Moon spacecraft transit questions use estimate_earth_moon_transit, which returns reference-duration planning estimates (direct ~3–4 days, extended low-energy ~7.5 days, or a custom duration). Never present it as a trajectory or delta-v solution, and clearly separate lunar arrival / LOI / descent / surface touchdown. This is the spacecraft transfer from Earth to the Moon — do NOT confuse it with estimate_surface_traverse, which is a rover driving on the lunar surface between two landing sites.
 - Explain the analytical ephemeris limitations: ±~0.5° azimuth/elevation samples, angular uncertainty near the horizon, and that geometric Earth visibility is NOT an RF link budget; solar visibility is NOT achievable electrical power.
 - Never describe experimental screening as flight-qualified. Never claim a study coordinate is a certified landing site.
 - If information is genuinely unavailable (for example a requested site has no terrain loaded), say so clearly.

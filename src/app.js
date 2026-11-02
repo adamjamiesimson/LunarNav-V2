@@ -4,6 +4,7 @@ import {SITES,fmtCoord} from './sites.js';
 import {createMap} from './globe.js';
 import {simulateMission,DEFAULT_ENGINEERING} from './mission.js';
 import {estimateSurfaceTraverse} from './travel.js';
+import {estimateEarthMoonTransit} from './transit.js';
 import {loadLolaTerrain} from './terrain.js';
 import {findMissionWindows,compareFinderModels} from './finder.js';
 import {inspectSituation,buildSkyDiagram,fmtMargin,findNextHorizonEvent} from './situation.js';
@@ -83,6 +84,10 @@ function refreshMissionContext(){
   $('#compare-context').textContent=label;
   const travelDate=$('#travel-date');
   if(travelDate){travelDate.value=state.date;$('#travel-time').value=state.time;populateTravelDestinations();}
+  const transitDate=$('#transit-date');
+  if(transitDate){transitDate.value=state.date;$('#transit-time').value=state.time;}
+  const destTag=$('#transit-destination-tag');
+  if(destTag)destTag.textContent='DESTINATION: '+(state.site?state.site.name.toUpperCase():'—');
   refreshAssistantContext();
 }
 function updateSelected(){const site=state.site;$('#selected-name').textContent=site.name;$('#selected-tag').textContent=site.tag;$('#selected-coord').textContent=fmtCoord(site.lat,site.lon);$('#selected-type').textContent=site.kind;$('#site-source').href=site.source||'https://science.nasa.gov/moon/';$('#site-source').style.display=site.custom?'none':'';$('#map-site-name').textContent=site.name.toUpperCase();$('#map-coordinate').textContent=fmtCoord(site.lat,site.lon);$('.site-dot').style.background=site.accent;map.render(site);}
@@ -630,6 +635,81 @@ $('#travel-destination').addEventListener('change',()=>{if(travelEstimate)runTra
 syncTravelFromMission();
 $('#travel-horizon-tag').textContent=state.terrain?'GEODESIC · '+state.terrain.source.toUpperCase():'GEODESIC · FLAT HORIZON';
 
+// ---- Earth-to-Moon transit estimator ----
+const transitMode=$('#transit-mode');
+const transitProfile=$('#transit-profile');
+const transitCustomHours=$('#transit-custom-hours');
+const transitDate=$('#transit-date');
+const transitTime=$('#transit-time');
+function syncTransitFromMission(){
+  if(!transitDate)return;
+  transitDate.value=state.date;
+  transitTime.value=state.time;
+  const tag=$('#transit-destination-tag');
+  if(tag)tag.textContent='DESTINATION: '+(state.site?state.site.name.toUpperCase():'—');
+  const label=$('#selected-name');
+  if($('#transit-mode')&&!transitMode.value)transitMode.value='depart';
+}
+let transitEstimate=null;
+function runTransitEstimate(){
+  if(!transitDate)return;
+  const date=transitDate.value,time=transitTime.value;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d\d:\d\d$/.test(time)){toast('Enter a valid UTC date and time.');return;}
+  const mode=transitMode.value==='land'?'land':'depart';
+  const profile=transitProfile.value==='extended'?'extended':transitProfile.value==='custom'?'custom':'direct';
+  const referenceHours=profile==='custom'?(Number(transitCustomHours.value)||100):null;
+  try{
+    transitEstimate=estimateEarthMoonTransit({
+      destination:{id:state.site.id,name:state.site.name,lat:state.site.lat,lon:state.site.lon},
+      profile,
+      referenceHours,
+      scheduleMode:mode,
+      departUTC:mode==='depart'?`${date}T${time}:00Z`:null,
+      landingUTC:mode==='land'?`${date}T${time}:00Z`:null
+    });
+    renderTransitResults(transitEstimate);
+    toast('Earth-to-Moon transit estimated');
+  }catch(e){toast(e.message||'Could not estimate the transit.');}
+}
+function renderTransitResults(estimate){
+  const fmtUTC=iso=>iso.slice(0,16).replace('T',' ')+' UTC';
+  const dest=estimate.destination;
+  const destLabel=dest?`${dest.name}  ·  ${fmtCoord(dest.lat,dest.lon)}`:'Selected landing site';
+  $('#transit-results').innerHTML=
+    `<div class="transit-summary">
+       <div><small>DESTINATION</small><strong>${escapeHTML(dest?dest.name:'Selected site')}</strong><span>${escapeHTML(fmtCoord(dest.lat,dest.lon))}</span></div>
+       <div><small>TRANSIT PROFILE</small><strong>${escapeHTML(estimate.profileLabel)}</strong><span>${escapeHTML(estimate.totalTransitLabel)} total</span></div>
+       <div><small>EARTH DEPARTURE</small><strong>${fmtUTC(estimate.departureUTC)}</strong><span>${estimate.scheduleMode==='land'?'Back-calculated from landing':'Chosen departure'}</span></div>
+       <div><small>LUNAR ARRIVAL</small><strong>${fmtUTC(estimate.arrivalUTC)}</strong><span>${estimate.scheduleMode==='land'?'Target landing':'Arrival after transit'}</span></div>
+     </div>
+     <div class="transit-schedule">
+       <div><small>LUNAR ORBIT INSERTION</small><strong>${fmtUTC(estimate.phases.find(p=>p.kind==='insertion').endUTC)}</strong><span>Approx. LOI event</span></div>
+       <div><small>DESCENT START</small><strong>${fmtUTC(estimate.phases.find(p=>p.kind==='descent').startUTC)}</strong><span>Approx. powered descent</span></div>
+     </div>
+     <div class="transit-phases">
+       ${estimate.phases.map(p=>`<div class="transit-phase-row"><span class="transit-phase">${escapeHTML(p.phase)}</span><span class="transit-phase-labels">${p.kind.toUpperCase()}</span><span class="transit-phase-time">${p.durationHours.toFixed(1)} h</span><span class="transit-phase-time">${fmtUTC(p.startUTC)}</span></div>`).join('')}
+     </div>
+     <p class="transit-limitation">${escapeHTML(estimate.limitation)}</p>`;
+}
+$('#transit-run').addEventListener('click',runTransitEstimate);
+$('#transit-sync').addEventListener('click',()=>{syncTransitFromMission();toast('Transit inputs synced to the current mission configuration');});
+$('#transit-mode').addEventListener('change',()=>{if(transitEstimate)runTransitEstimate();});
+$('#transit-profile').addEventListener('change',()=>{
+  $('#transit-custom-hours').disabled=$('#transit-profile').value!=='custom';
+  const profile=$('#transit-profile').value;
+  $('#transit-profile-tag').textContent={
+    direct:'REFERENCE ~3.5 DAYS · NOT A TRAJECTORY SOLVER',
+    extended:'REFERENCE ~7.5 DAYS · LOW-ENERGY FAMILY',
+    custom:'CUSTOM DURATION · OPERATOR-SUPPLIED'
+  }[profile]||'REFERENCE DURATIONS';
+  if(transitEstimate)runTransitEstimate();
+});
+$('#transit-custom-hours').addEventListener('input',()=>{if(transitEstimate&&$('#transit-profile').value==='custom')runTransitEstimate();});
+$('#transit-date').addEventListener('change',()=>{if(transitEstimate)runTransitEstimate();});
+$('#transit-time').addEventListener('change',()=>{if(transitEstimate)runTransitEstimate();});
+syncTransitFromMission();
+$('#transit-hint').textContent='Direct transfer reference ~3.5 days. Extended low-energy references ~7.5 days. Destination auto-uses your selected landing site.';
+
 // Events
 siteSelect.addEventListener('change',()=>{const s=SITES.find(x=>x.id===siteSelect.value);if(s)selectSite(s);});
 document.querySelectorAll('#duration button').forEach(b=>b.addEventListener('click',()=>{state.days=Number(b.dataset.days);document.querySelectorAll('#duration button').forEach(x=>x.classList.toggle('selected',x===b));stopPlay();updateAnalysis();}));
@@ -795,7 +875,17 @@ function assistantContext(){
       bestDualHours: best && best.hours ? best.hours : 0
     } : null,
     finder: state.finder || null,
-    terrainProfiles: Object.fromEntries(terrainProfiles.entries())
+    terrainProfiles: Object.fromEntries(terrainProfiles.entries()),
+    transit: (typeof transitEstimate !== 'undefined' && transitEstimate) ? {
+      model: transitEstimate.model,
+      profile: transitEstimate.profile,
+      profileLabel: transitEstimate.profileLabel,
+      destination: transitEstimate.destination,
+      totalTransitHours: transitEstimate.totalTransitHours,
+      departureUTC: transitEstimate.departureUTC,
+      arrivalUTC: transitEstimate.arrivalUTC,
+      scheduleMode: transitEstimate.scheduleMode
+    } : null
   };
 }
 initMissionAssistant({

@@ -58,6 +58,23 @@ test('Multipage workspace keeps all live tool DOM nodes while showing one view a
  assert.match(app,/navigatePage\('engineering'\)/);
 });
 
+test('Earth-to-Moon transit estimator is a prominent section at the bottom of the Explore tab',()=>{
+  // It lives inside the explore app-view and appears AFTER the site-exploration content.
+  const exploreStart=html.indexOf('data-view=\"explore\"');
+  const transitSection=html.indexOf('id=\"transit\"');
+  const engineeringSection=html.indexOf('data-view=\"engineering\"');
+  assert.ok(transitSection>exploreStart,'transit section must be inside the Explore tab');
+  assert.ok(transitSection>0&&transitSection<engineeringSection,'transit section must appear before the engineering view');
+  assert.match(html,/Plan your journey to the Moon/i);
+  for(const id of ['transit-mode','transit-date','transit-time','transit-profile','transit-custom-hours',
+    'transit-run','transit-sync','transit-results','transit-hint','transit-destination-tag','transit-profile-tag']){
+    assert.ok(html.includes('id="'+id+'"'),'Missing transit control: '+id);
+    assert.ok(app.includes("'#"+id+"'"),'Missing transit JS integration for: '+id);
+  }
+  assert.match(app,/estimateEarthMoonTransit/);
+  assert.match(build,/src\/transit\.js/);
+});
+
 test('Earth and Sun are part of the existing Moon globe, not a separate 3D scene',()=>{
  const globe=readFileSync(new URL('../src/globe.js',import.meta.url),'utf8');
  for(const id of ['celestial-view','celestial-scrubber','celestial-play','celestial-speed','celestial-clock','celestial-reset']){

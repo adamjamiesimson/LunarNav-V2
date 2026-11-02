@@ -3,7 +3,8 @@
  *
  * Reuses the exact same exported LunarNav calculation functions the planner
  * UI uses (ephemeris, sampleWindow, summarize, findMissionWindows,
- * simulateMission, inspectSituation, findNextHorizonEvent, estimateSurfaceTraverse).
+ * simulateMission, inspectSituation, findNextHorizonEvent, estimateSurfaceTraverse,
+ * estimateEarthMoonTransit).
  * Returns structured function responses; the actual tool *declarations* live
  * server-side in src/tools.js so browser and API never drift.
  */
@@ -13,6 +14,7 @@ import {simulateMission,validateEngineering} from './mission.js';
 import {findMissionWindows} from './finder.js';
 import {inspectSituation,findNextHorizonEvent} from './situation.js';
 import {estimateSurfaceTraverse} from './travel.js';
+import {estimateEarthMoonTransit} from './transit.js';
 
 export {TOOL_DECLARATIONS} from './tools.js';
 
@@ -210,6 +212,38 @@ const browserExecutors = {
           offsetHours: s.offsetHours, time: s.time, sunElevationDeg: s.sun.elevation,
           sunVisibleHorizon: s.sun.visible, earthElevationDeg: s.earth.elevation, earthVisibleHorizon: s.earth.visible}))},
       limitation: r.limitation};
+  },
+  estimate_earth_moon_transit(args){
+    const c = currentAssistantContext();
+    let destination = null;
+    const siteId = args.destinationSiteId ? String(args.destinationSiteId) : c.site?.id;
+    const known = SITES.find(s => s.id === siteId);
+    if (known){
+      destination = {id: known.id, name: known.name, lat: known.lat, lon: known.lon};
+    } else if (args.destinationLat !== undefined && args.destinationLon !== undefined){
+      destination = {id: args.destinationSiteId || 'custom', name: args.destinationName || 'Custom destination',
+        lat: Number(args.destinationLat), lon: Number(args.destinationLon)};
+    } else if (c.site){
+      destination = {id: c.site.id, name: c.site.name, lat: Number(c.site.lat), lon: Number(c.site.lon)};
+    }
+    const profile = ['direct', 'extended', 'custom'].includes(String(args.profile)) ? String(args.profile) : 'direct';
+    const scheduleMode = String(args.scheduleMode) === 'land' ? 'land' : 'depart';
+    const r = estimateEarthMoonTransit({
+      destination,
+      profile,
+      referenceHours: args.referenceHours !== undefined ? Number(args.referenceHours) : null,
+      departUTC: args.departUTC || null,
+      landingUTC: args.landingUTC || null,
+      scheduleMode
+    });
+    return {
+      model: r.model, profile: r.profileLabel, transferProfile: r.profile, scheduleMode: r.scheduleMode,
+      destination: r.destination, totalTransitHours: r.totalTransitHours, totalTransitLabel: r.totalTransitLabel,
+      departureUTC: r.departureUTC, arrivalUTC: r.arrivalUTC,
+      lunarArrivalUTC: r.phases.find(p => p.kind === 'insertion').endUTC || r.arrivalUTC,
+      phases: r.phases, assumptions: r.assumptions, limitation: r.limitation,
+      note: 'Earth departure → lunar transfer → LOI → descent → touchdown are distinct events.'
+    };
   }
 };
 
@@ -233,6 +267,7 @@ function summarizeTool(name, value, args){
   if (name === 'inspect_operations') return `${value.combinedOutlook} · Sun ${value.sun.marginDeg.toFixed(2)}° · Earth ${value.earth.marginDeg.toFixed(2)}°`;
   if (name === 'find_next_horizon_event') return value.result || `Next ${value.eventType} crossing ${value.eventUTC}`;
   if (name === 'estimate_surface_traverse') return `${value.distanceKm.toFixed(1)} km · ${value.totalHours.toFixed(1)} h traverse`;
+  if (name === 'estimate_earth_moon_transit') return `${value.totalTransitLabel} · depart ${value.departureUTC.slice(0, 16).replace('T', ' ')} UTC → land ${value.arrivalUTC.slice(0, 16).replace('T', ' ')} UTC`;
   if (name === 'get_mission_context') return `${value.selectedSite.name} ${value.mission.startUTC}`;
   return 'Tool executed';
 }

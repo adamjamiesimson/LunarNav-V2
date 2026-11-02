@@ -19,6 +19,7 @@ I'm working from your **live LunarNav configuration** and the same calculation e
 - **mission windows**, site comparisons and the Window Finder
 - **engineering** (power, battery, Earth access)
 - **surface traverses** between study locations
+- **Earth-to-Moon transit** for the selected landing site (reference-duration estimates, not a trajectory solver)
 
 Every number I give you is either present in the current application state or produced by a real LunarNav calculation tool.`;
 const STORAGE_KEY = 'lunarnav:assistant:history:v1';
@@ -148,7 +149,17 @@ function collectContext(){
     finder: state.finder ? {startDate: state.finder.startDate, searchDays: state.finder.searchDays,
       windowDays: state.finder.windowDays, priority: state.finder.priority, terrainMode: state.finder.terrainMode,
       top: state.finder.top} : null,
-    terrainProfilesBySite: state.terrainProfiles || {}
+    terrainProfilesBySite: state.terrainProfiles || {},
+    transit: state.transit ? {
+      model: state.transit.model,
+      profile: state.transit.profile,
+      profileLabel: state.transit.profileLabel,
+      destination: state.transit.destination,
+      totalTransitHours: state.transit.totalTransitHours,
+      departureUTC: state.transit.departureUTC,
+      arrivalUTC: state.transit.arrivalUTC,
+      scheduleMode: state.transit.scheduleMode
+    } : null
   };
 }
 

@@ -45,6 +45,7 @@ test('all declared tools execute against the existing LunarNav modules', () => {
   assert.ok(names.includes('inspect_operations'));
   assert.ok(names.includes('find_next_horizon_event'));
   assert.ok(names.includes('estimate_surface_traverse'));
+  assert.ok(names.includes('estimate_earth_moon_transit'));
   for (const name of names){
     const result = executeTool(name, {}, context);
     assert.equal(typeof result.ok, 'boolean', name);
