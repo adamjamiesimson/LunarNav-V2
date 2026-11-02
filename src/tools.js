@@ -14,7 +14,7 @@ import {findMissionWindows} from './finder.js';
 import {inspectSituation,findNextHorizonEvent} from './situation.js';
 import {estimateSurfaceTraverse} from './travel.js';
 import {estimateEarthMoonTransit,TRANSIT_PROFILES} from './transit.js';
-import {horizonAt} from './mission.js';
+import {toolSummary} from './tool-summary.js';
 
 const MAX_WINDOW_WINDOWS=20;
 const str=v=>typeof v==='string'?v.trim():'';
@@ -394,17 +394,4 @@ export function executeTool(name,args={},context={}){
   }catch(error){
     return {ok:false,error:error.message||'Tool execution failed',summary:`${name} failed: ${error.message||'internal error'}`};
   }
-}
-function toolSummary(name,value,args){
-  if(name==='calculate_celestial_conditions')return `Sun ${value.sun.elevation_deg.toFixed(2)}°, Earth ${value.earth.elevation_deg.toFixed(2)}° at ${value.utc}`;
-  if(name==='analyze_mission_window')return `Dual ${value.simultaneousVisibilityPct.toFixed(1)}% · Sun ${value.solarAvailabilityPct.toFixed(1)}% · Earth ${value.earthVisibilityPct.toFixed(1)}%`;
-  if(name==='compare_locations')return `Ranked ${value.ranked.length} locations · top ${value.ranked[0]?.name}`;
-  if(name==='find_optimal_windows')return `${value.top.length} windows found · best ${value.top[0]?.siteName} ${value.top[0]?.startDate}`;
-  if(name==='simulate_engineering')return `Min SOC ${value.minimumSocPct.toFixed(1)}% · unmet ${value.unmetHours.toFixed(1)} h · generated ${(value.generatedWh/1000).toFixed(1)} kWh`;
-  if(name==='inspect_operations')return `${value.combinedOutlook} · Sun ${value.sun.marginDeg.toFixed(2)}° · Earth ${value.earth.marginDeg.toFixed(2)}°`;
-  if(name==='find_next_horizon_event')return value.result||`Next ${value.eventType} crossing ${value.eventUTC}`;
-  if(name==='estimate_surface_traverse')return `${value.distanceKm.toFixed(1)} km · ${value.totalHours.toFixed(1)} h traverse`;
-  if(name==='estimate_earth_moon_transit')return `${value.totalTransitLabel} · depart ${value.departureUTC.slice(0,16).replace('T',' ')} UTC → land ${value.arrivalUTC.slice(0,16).replace('T',' ')} UTC`;
-  if(name==='get_mission_context')return `${value.selectedSite.name} ${value.mission.startUTC}`;
-  return 'Tool executed';
 }

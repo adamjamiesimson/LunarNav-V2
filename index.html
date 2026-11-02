@@ -211,7 +211,7 @@
             <div class="panel-head compact"><div><span class="section-n">SURFACE TRAVERSE</span><h3>Travel-time estimator</h3></div><span class="sim-tag" id="travel-horizon-tag">GEODESIC · FLAT HORIZON</span></div>
             <p class="terrain-intro">Estimate how long a rover would take to drive between two lunar points, and what Sun/Earth visibility can be expected along the way. Origin, departure and terrain default from the current mission configuration.</p>
             <div class="travel-fields">
-              <label>ORIGIN SITE<select id="travel-origin"><option value="selected" selected>Current selected site</option></select></label>
+              <label>ORIGIN SITE<span id="travel-origin-name" class="travel-origin-static">Current selected site</span></label>
               <label>DESTINATION<select id="travel-destination"></select></label>
               <label>DEPART · UTC DATE<input type="date" id="travel-date" min="2025-01-01" max="2036-12-31" /></label>
               <label>DEPART · UTC TIME<input type="time" id="travel-time" step="3600" /></label>

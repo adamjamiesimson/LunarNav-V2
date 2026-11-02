@@ -699,6 +699,7 @@ body.tour-is-active{overscroll-behavior:none}
 .travel-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:14px 0 16px}
 .travel-fields label{display:flex;flex-direction:column;gap:7px;font:9px 'DM Mono',monospace;color:#9eb3bd;letter-spacing:.08em}
 .travel-fields select,.travel-fields input{color:#dce6e8;outline:none;background:#0d141c;border:1px solid #28333d;border-radius:6px;height:40px;padding:0 11px;width:100%;font-size:12px;min-width:0;font-family:'DM Sans',sans-serif}
+.travel-fields .travel-origin-static{display:flex;align-items:center;min-height:40px;padding:0 11px;background:#0d141c;border:1px solid #28333d;border-radius:6px;color:#dce6e8;font-size:12px;line-height:1.4;width:100%}
 .travel-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .travel-results{margin-top:16px;border:1px solid rgba(157,197,204,.14);border-radius:8px;padding:16px;background:rgba(6,16,24,.5)}
 .travel-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}

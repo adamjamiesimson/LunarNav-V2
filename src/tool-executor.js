@@ -15,6 +15,7 @@ import {findMissionWindows} from './finder.js';
 import {inspectSituation,findNextHorizonEvent} from './situation.js';
 import {estimateSurfaceTraverse} from './travel.js';
 import {estimateEarthMoonTransit} from './transit.js';
+import {toolSummary} from './tool-summary.js';
 
 export {TOOL_DECLARATIONS} from './tools.js';
 
@@ -30,7 +31,6 @@ const lunarNav = {
 
 /** Attach live application state (set up once by app.js). */
 export function configureAssistantState(hook){
-  lunarNav.stateIsConfigured = true;
   lunarNav.getContext = hook;
 }
 export function currentAssistantContext(){
@@ -38,8 +38,13 @@ export function currentAssistantContext(){
   return lunarNav.state;
 }
 
+/** Terrain horizon profile for a site, from the live assistant context. */
 function profileForSite(siteId){
-  return lunarNav.terrainProfilesBySite[siteId] || (lunarNav.state.site?.id === siteId ? lunarNav.state.terrain : null) || null;
+  const c = currentAssistantContext();
+  const bySite = c.terrainProfilesBySite || c.terrainProfiles;
+  const profile = bySite && typeof bySite === 'object' ? bySite[siteId] : null;
+  if (profile) return profile;
+  return c.site?.id === siteId ? (c.terrain || null) : null;
 }
 function currentSite(){
   const c = currentAssistantContext();
@@ -217,14 +222,15 @@ const browserExecutors = {
     const c = currentAssistantContext();
     let destination = null;
     const siteId = args.destinationSiteId ? String(args.destinationSiteId) : c.site?.id;
-    const known = SITES.find(s => s.id === siteId);
-    if (known){
+    if (siteId){
+      const known = SITES.find(s => s.id === siteId);
+      if (!known) throw new Error('Unknown LunarNav site id for transit destination: ' + siteId);
       destination = {id: known.id, name: known.name, lat: known.lat, lon: known.lon};
     } else if (args.destinationLat !== undefined && args.destinationLon !== undefined){
-      destination = {id: args.destinationSiteId || 'custom', name: args.destinationName || 'Custom destination',
+      destination = {id: 'custom', name: args.destinationName || 'Custom destination',
         lat: Number(args.destinationLat), lon: Number(args.destinationLon)};
-    } else if (c.site){
-      destination = {id: c.site.id, name: c.site.name, lat: Number(c.site.lat), lon: Number(c.site.lon)};
+    } else {
+      throw new Error('No mission configuration is available; pass a destinationSiteId or explicit lat/lon');
     }
     const profile = ['direct', 'extended', 'custom'].includes(String(args.profile)) ? String(args.profile) : 'direct';
     const scheduleMode = String(args.scheduleMode) === 'land' ? 'land' : 'depart';
@@ -253,21 +259,8 @@ export function executeBrowserTool(name, args = {}, context = currentAssistantCo
   if (!fn) return {ok: false, error: 'Unknown tool: ' + name, summary: 'Unknown tool: ' + name};
   try {
     const value = fn(args, context);
-    return {ok: true, value, summary: summarizeTool(name, value, args)};
+    return {ok: true, value, summary: toolSummary(name, value, args)};
   } catch (error) {
     return {ok: false, error: error.message || 'Tool execution failed', summary: name + ' failed: ' + (error.message || 'error')};
   }
-}
-function summarizeTool(name, value, args){
-  if (name === 'calculate_celestial_conditions') return `Sun ${value.sun.elevation_deg.toFixed(2)}°, Earth ${value.earth.elevation_deg.toFixed(2)}° at ${value.utc}`;
-  if (name === 'analyze_mission_window') return `Dual ${value.simultaneousVisibilityPct.toFixed(1)}% · Sun ${value.solarAvailabilityPct.toFixed(1)}% · Earth ${value.earthVisibilityPct.toFixed(1)}%`;
-  if (name === 'compare_locations') return `Ranked ${value.ranked.length} locations · top ${value.ranked[0]?.name}`;
-  if (name === 'find_optimal_windows') return `${value.top.length} windows · best ${value.top[0]?.siteName} ${value.top[0]?.startDate}`;
-  if (name === 'simulate_engineering') return `Min SOC ${value.minimumSocPct.toFixed(1)}% · unmet ${value.unmetHours.toFixed(1)} h`;
-  if (name === 'inspect_operations') return `${value.combinedOutlook} · Sun ${value.sun.marginDeg.toFixed(2)}° · Earth ${value.earth.marginDeg.toFixed(2)}°`;
-  if (name === 'find_next_horizon_event') return value.result || `Next ${value.eventType} crossing ${value.eventUTC}`;
-  if (name === 'estimate_surface_traverse') return `${value.distanceKm.toFixed(1)} km · ${value.totalHours.toFixed(1)} h traverse`;
-  if (name === 'estimate_earth_moon_transit') return `${value.totalTransitLabel} · depart ${value.departureUTC.slice(0, 16).replace('T', ' ')} UTC → land ${value.arrivalUTC.slice(0, 16).replace('T', ' ')} UTC`;
-  if (name === 'get_mission_context') return `${value.selectedSite.name} ${value.mission.startUTC}`;
-  return 'Tool executed';
 }

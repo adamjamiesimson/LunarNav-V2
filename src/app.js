@@ -84,10 +84,9 @@ function refreshMissionContext(){
   $('#compare-context').textContent=label;
   const travelDate=$('#travel-date');
   if(travelDate){travelDate.value=state.date;$('#travel-time').value=state.time;populateTravelDestinations();}
-  const transitDate=$('#transit-date');
-  if(transitDate){transitDate.value=state.date;$('#transit-time').value=state.time;}
-  const destTag=$('#transit-destination-tag');
-  if(destTag)destTag.textContent='DESTINATION: '+(state.site?state.site.name.toUpperCase():'—');
+  const transitDateInput=$('#transit-date');
+  if(transitDateInput){transitDateInput.value=state.date;$('#transit-time').value=state.time;}
+  $('#transit-destination-tag').textContent='DESTINATION: '+state.site.name.toUpperCase();
   refreshAssistantContext();
 }
 function updateSelected(){const site=state.site;$('#selected-name').textContent=site.name;$('#selected-tag').textContent=site.tag;$('#selected-coord').textContent=fmtCoord(site.lat,site.lon);$('#selected-type').textContent=site.kind;$('#site-source').href=site.source||'https://science.nasa.gov/moon/';$('#site-source').style.display=site.custom?'none':'';$('#map-site-name').textContent=site.name.toUpperCase();$('#map-coordinate').textContent=fmtCoord(site.lat,site.lon);$('.site-dot').style.background=site.accent;map.render(site);}
@@ -571,28 +570,20 @@ function exportFinderCSV(){
 const travelDestination=$('#travel-destination');
 const populateTravelDestinations=()=>{
   if(state.site.custom)return;
-  travelDestination.innerHTML=projectedDestinations().map(site=>
-    `<option value="${site.id}">${escapeHTML(site.name)}  ·  ${escapeHTML(fmtCoord(site.lat,site.lon))}</option>`).join('');
-  if(travelDestination.value===state.site.id)travelDestination.value=SITES.find(s=>s.id!==state.site.id)?.id||travelDestination.value;
-};
-const projectedDestinations=()=>{
-  const base=[...SITES].filter(s=>s.id!==state.site.id);
-  if(state.site.custom)return [];
-  return base;
+  travelDestination.innerHTML=SITES.filter(s=>s.id!==state.site.id)
+    .map(site=>`<option value="${site.id}">${escapeHTML(site.name)}  ·  ${escapeHTML(fmtCoord(site.lat,site.lon))}</option>`).join('');
 };
 function syncTravelFromMission(){
   $('#travel-date').value=state.date;
   $('#travel-time').value=state.time;
+  $('#travel-origin-name').textContent=state.site.name+' · '+fmtCoord(state.site.lat,state.site.lon);
   populateTravelDestinations();
-  const tag=$('#travel-horizon-tag');
-  tag.textContent=state.terrain?'GEODESIC · '+state.terrain.source.toUpperCase():'GEODESIC · FLAT HORIZON';
+  $('#travel-horizon-tag').textContent=state.terrain?'GEODESIC · '+state.terrain.source.toUpperCase():'GEODESIC · FLAT HORIZON';
 }
 let travelEstimate=null;
 function runTravelEstimate(){
-  const originSelect=$('#travel-origin').value;
-  const destination=travelDestination.value;
-  const origin=originSelect==='selected'?state.site:(SITES.find(s=>s.id===originSelect)||state.site);
-  const target=SITES.find(s=>s.id===destination);
+  const origin=state.site;
+  const target=SITES.find(s=>s.id===travelDestination.value);
   if(!target){toast('Select a destination site');return;}
   const date=$('#travel-date').value,time=$('#travel-time').value;
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d\d:\d\d$/.test(time)){toast('Enter a valid UTC departure date and time.');return;}
@@ -624,7 +615,6 @@ function renderTravelResults(estimate,origin,target){
      <div><span>EARTH VISIBILITY</span><strong>${v.earthVisiblePct.toFixed(0)}%</strong><small>${v.anyEarthLimited?'some Earth geometric outages along route':'continuous geometric Earth visibility along route'}</small></div></div>
      <p class="travel-caveat">${escapeHTML(estimate.limitation)} ${v.terrainApplied?'Loaded terrain at the origin was applied to horizon screening; terrain along the path itself was not sampled.':''}</p>`;
 }
-$('#travel-origin').innerHTML='<option value="selected" selected>Current selected site</option>';
 $('#travel-run').addEventListener('click',runTravelEstimate);
 $('#travel-sync').addEventListener('click',()=>{syncTravelFromMission();toast('Travel inputs synced to the current mission configuration');});
 $('#travel-speed').addEventListener('input',()=>{if(travelEstimate)runTravelEstimate();});
@@ -642,17 +632,13 @@ const transitCustomHours=$('#transit-custom-hours');
 const transitDate=$('#transit-date');
 const transitTime=$('#transit-time');
 function syncTransitFromMission(){
-  if(!transitDate)return;
   transitDate.value=state.date;
   transitTime.value=state.time;
-  const tag=$('#transit-destination-tag');
-  if(tag)tag.textContent='DESTINATION: '+(state.site?state.site.name.toUpperCase():'—');
-  const label=$('#selected-name');
-  if($('#transit-mode')&&!transitMode.value)transitMode.value='depart';
+  $('#transit-destination-tag').textContent='DESTINATION: '+state.site.name.toUpperCase();
+  if(!transitMode.value)transitMode.value='depart';
 }
 let transitEstimate=null;
 function runTransitEstimate(){
-  if(!transitDate)return;
   const date=transitDate.value,time=transitTime.value;
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d\d:\d\d$/.test(time)){toast('Enter a valid UTC date and time.');return;}
   const mode=transitMode.value==='land'?'land':'depart';
