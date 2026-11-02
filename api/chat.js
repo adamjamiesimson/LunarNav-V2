@@ -17,6 +17,37 @@ const ALLOWED_PAGES = new Set(['home','explore','windows','engineering','compare
 const MAX_MESSAGES = 24;
 const MAX_CONTEXT_BYTES = 24 * 1024;
 const MAX_TOOL_ROUNDS = 8;
+const MODEL_TIMEOUT_MS = 25000;
+const CIRCUIT_BREAKER_MS = 90 * 1000;
+// Preferred model comes from GEMINI_MODEL (default gemini-3.8-flash). If it is
+// unavailable (404 retired/not allowed, 429 quota, 503 high demand, or a hang)
+// the request transparently retries with these fallbacks so the assistant stays
+// responsive during capacity spikes on the newest tier.
+const DEFAULT_MODEL = 'gemini-3.8-flash';
+const DEFAULT_FALLBACK_MODELS = ['gemini-3.5-flash', 'gemini-3.1-flash-lite'];
+function modelChain(){
+  const preferred = (process.env.GEMINI_MODEL || '').trim() || DEFAULT_MODEL;
+  const fallbacks = (process.env.GEMINI_FALLBACK_MODELS || '')
+    .split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
+  const chain = [preferred, ...(fallbacks.length ? fallbacks : DEFAULT_FALLBACK_MODELS)];
+  return [...new Set(chain)];
+}
+// Small in-process circuit breaker: after a transient failure on a model,
+// skip it for a short window so a capacity spike on the newest tier does not
+// add a 25 s stall to every request. Vercel instances are per-isolate, so a
+// few warm isolates still probe the preferred model periodically.
+const recentlyFailing = new Map();
+function isCircuitOpen(model){
+  const until = recentlyFailing.get(model);
+  return until != null && until > Date.now();
+}
+function openCircuit(model){
+  recentlyFailing.set(model, Date.now() + CIRCUIT_BREAKER_MS);
+}
+function orderedModelAttempts(){
+  const chain = modelChain();
+  return chain.filter(m => !isCircuitOpen(m)).concat(chain.filter(m => isCircuitOpen(m)));
+}
 
 /* ---- Context sanitisation: only known, bounded fields reach the model ---- */
 function pickNumbers(object, keys){
@@ -152,23 +183,68 @@ function buildContents(coreMessage, history, context){
 function modelContent(result){
   return result.candidates?.[0]?.content || null;
 }
+function isTransientGeminiError(error){
+  if (!error) return true;
+  const status = Number(error?.status);
+  // Transient/unretryable-only: 429 quota/throttle, 5xx capacity, and 404 model
+  // not available/retired. Hard auth/validation failures (400/401/403) or an
+  // explicit 404 for other resources must NOT be retried.
+  if (status === 404){
+    return /model.*(?:not|no longer|unavailable|not supported)/i.test(String(error?.message || ''));
+  }
+  if (status === 429 || (status >= 500 && status < 600)) return true;
+  // SDK timeouts / retry exhaustion are surfaced as errors with these hints.
+  return /timeout|abort|retries? exhausted|503|429|unavailable|high demand/i.test(String(error?.message || ''));
+}
+async function generateContentWithTimeout(genAI, model, contents){
+  let timeout;
+  const timer = new Promise((_, reject) => {
+    timeout = setTimeout(() => {
+      reject(Object.assign(new Error(`Timed out after ${MODEL_TIMEOUT_MS} ms`), {status: 504}));
+    }, MODEL_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([
+      genAI.models.generateContent({
+        model,
+        contents,
+        config: {
+          systemInstruction: {role: 'user', parts: [{text: SYSTEM_INSTRUCTION}]},
+          tools: [{functionDeclarations: TOOL_DECLARATIONS}],
+          temperature: 0.3,
+          maxOutputTokens: 2048,
+          httpOptions: {timeout: MODEL_TIMEOUT_MS}
+        }
+      }),
+      timer
+    ]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+async function generateContentWithFallback(genAI, contents){
+  // Healthy models first; open (recently failed) models are pushed to the end
+  // so their 25 s stall is only paid again after the circuit re-arms.
+  const attempts = orderedModelAttempts();
+  let lastError = null;
+  for (const model of attempts){
+    try {
+      return await generateContentWithTimeout(genAI, model, contents);
+    } catch (error){
+      lastError = error;
+      if (!isTransientGeminiError(error)) throw error;
+      openCircuit(model);
+    }
+  }
+  throw lastError || new Error('All configured Gemini models failed');
+}
 async function runGeminiRoundtrip(coreMessage, history, context){
   const GenAI = geminiConstructor();
   const genAI = new GenAI(process.env.GEMINI_API_KEY);
-  const modelName = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
   let contents = buildContents(coreMessage, history, context);
   const toolTraces = [];
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++){
-    const result = await genAI.models.generateContent({
-      model: modelName,
-      contents,
-      config: {
-        systemInstruction: {role: 'user', parts: [{text: SYSTEM_INSTRUCTION}]},
-        tools: [{functionDeclarations: TOOL_DECLARATIONS}],
-        temperature: 0.3,
-        maxOutputTokens: 2048
-      }
-    });
+    const result = await generateContentWithFallback(genAI, contents);
     const text = result.text;
     const calls = result.functionCalls;
     if (!calls || !calls.length) return {text, toolTraces};

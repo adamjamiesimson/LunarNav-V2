@@ -10,10 +10,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 // Stand-in for @google/genai served through the global test seam.
+// failModels: an object listing models (or a '*' catch-all) that should throw.
 const GeminiFake = {
   fakeCalls: [],
-  configure(replyPlan){
+  configure(replyPlan, failModels = null, failError = null){
     GeminiFake.plan = replyPlan;
+    GeminiFake.failModels = failModels;
+    GeminiFake.failError = failError;
     GeminiFake.fakeCalls = [];
   },
   getFakeCalls(){ return GeminiFake.fakeCalls; }
@@ -23,6 +26,9 @@ GeminiFake.GoogleGenAI = class {
   models = {
     generateContent: async ({model, contents, config}) => {
       GeminiFake.fakeCalls.push({model, contents, config});
+      if (GeminiFake.failModels && (GeminiFake.failModels[model] || GeminiFake.failModels['*'])){
+        throw GeminiFake.failError || Object.assign(new Error('429 Quota exceeded for Gemini API requests'), {status: 429});
+      }
       const candidate = GeminiFake.plan.shift();
       if (!candidate){
         const error = new Error('429 Quota exceeded for Gemini API requests');
@@ -152,6 +158,96 @@ test('Gemini failure surfaces as a structured API error, not a crash', async () 
   }), res);
   assert.ok([500, 429].includes(res.getStatus()));
   assert.match(res.getBody().error, /Gemini request failed/);
+});
+
+test('transient preferred-model failure falls back to the next model', async () => {
+  process.env.GEMINI_API_KEY = 'test-key';
+  process.env.GEMINI_MODEL = 'gemini-3.8-flash';
+  process.env.GEMINI_FALLBACK_MODELS = 'gemini-3.5-flash';
+  GeminiFake.configure(
+    [{parts: [{text: 'Recovered on the fallback model.'}]}],
+    {'gemini-3.8-flash': true}
+  );
+  const {default: handler} = await loadHandler();
+  const res = makeRes();
+  await handler(makeReq('POST', {
+    message: {role: 'user', text: 'hi'},
+    context: {site: {id: 'mons-mouton', name: 'Mons Mouton', lat: -84.79, lon: 29.2}, date: '2026-11-14', time: '12:00', days: 7},
+    history: []
+  }), res);
+  assert.equal(res.getStatus(), 200);
+  assert.match(res.getBody().reply, /Recovered on the fallback model/);
+  const modelsTried = GeminiFake.getFakeCalls().map(c => c.model);
+  assert.ok(modelsTried.includes('gemini-3.8-flash'));
+  assert.ok(modelsTried.includes('gemini-3.5-flash'));
+});
+
+test('non-transient Gemini errors are not retried through the fallback chain', async () => {
+  process.env.GEMINI_API_KEY = 'test-key';
+  process.env.GEMINI_MODEL = 'gemini-3.8-flash';
+  process.env.GEMINI_FALLBACK_MODELS = 'gemini-3.5-flash';
+  const forbiddenError = Object.assign(new Error('API key not valid'), {status: 403});
+  GeminiFake.configure(
+    [{parts: [{text: 'should not be reached'}]}],
+    {'*': true},
+    forbiddenError
+  );
+  const {default: handler} = await loadHandler();
+  const res = makeRes();
+  await handler(makeReq('POST', {
+    message: {role: 'user', text: 'hi'},
+    context: {site: {id: 'mons-mouton', name: 'Mons Mouton', lat: -84.79, lon: 29.2}, date: '2026-11-14', time: '12:00', days: 7},
+    history: []
+  }), res);
+  assert.equal(res.getStatus(), 403);
+  // Only the preferred model should have been attempted for a non-transient error.
+  const modelsTried = GeminiFake.getFakeCalls().map(c => c.model);
+  assert.deepEqual(modelsTried, ['gemini-3.8-flash']);
+});
+
+test('404 for a no-longer-available model falls back to the next model', async () => {
+  process.env.GEMINI_API_KEY = 'test-key';
+  process.env.GEMINI_MODEL = 'gemini-2.0-flash';
+  process.env.GEMINI_FALLBACK_MODELS = 'gemini-3.5-flash';
+  const retired = Object.assign(new Error('This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash'), {status: 404});
+  GeminiFake.configure(
+    [{parts: [{text: 'Fell back from a retired model.'}]}],
+    {'gemini-2.0-flash': true},
+    retired
+  );
+  const {default: handler} = await loadHandler();
+  const res = makeRes();
+  await handler(makeReq('POST', {
+    message: {role: 'user', text: 'hi'},
+    context: {site: {id: 'mons-mouton', name: 'Mons Mouton', lat: -84.79, lon: 29.2}, date: '2026-11-14', time: '12:00', days: 7},
+    history: []
+  }), res);
+  assert.equal(res.getStatus(), 200);
+  assert.match(res.getBody().reply, /Fell back from a retired model/);
+  const modelsTried = GeminiFake.getFakeCalls().map(c => c.model);
+  assert.deepEqual([...new Set(modelsTried)], ['gemini-2.0-flash', 'gemini-3.5-flash']);
+});
+
+test('a 400 validation error from the preferred model is not retried', async () => {
+  process.env.GEMINI_API_KEY = 'test-key';
+  process.env.GEMINI_MODEL = 'gemini-3.8-flash';
+  process.env.GEMINI_FALLBACK_MODELS = 'gemini-3.5-flash';
+  const badRequest = Object.assign(new Error('Invalid contents role'), {status: 400});
+  GeminiFake.configure(
+    [{parts: [{text: 'should not be reached'}]}],
+    {'*': true},
+    badRequest
+  );
+  const {default: handler} = await loadHandler();
+  const res = makeRes();
+  await handler(makeReq('POST', {
+    message: {role: 'user', text: 'hi'},
+    context: {site: {id: 'mons-mouton', name: 'Mons Mouton', lat: -84.79, lon: 29.2}, date: '2026-11-14', time: '12:00', days: 7},
+    history: []
+  }), res);
+  assert.equal(res.getStatus(), 400);
+  const modelsTried = GeminiFake.getFakeCalls().map(c => c.model);
+  assert.deepEqual(modelsTried, ['gemini-3.8-flash']);
 });
 
 test('context sent to the model is sanitised and excludes secrets', async () => {

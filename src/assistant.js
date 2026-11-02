@@ -208,11 +208,24 @@ async function sendMessage(text){
 
   try {
     const payload = {message: {role: 'user', text: userText}, history: historyForApi, context};
-    const response = await fetch(ui.endpoint, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(payload)
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90000);
+    let response;
+    try {
+      response = await fetch(ui.endpoint, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+    } catch (fetchError){
+      if (fetchError.name === 'AbortError'){
+        throw new Error('The assistant request timed out. The Gemini service may be busy; please try again shortly.');
+      }
+      throw fetchError;
+    } finally {
+      clearTimeout(timeout);
+    }
     const body = await response.json().catch(() => ({}));
     if (!response.ok){
       throw new Error(body.error || `Assistant API error (${response.status})`);
