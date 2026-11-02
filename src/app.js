@@ -16,6 +16,7 @@ const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
 const fmtPct=n=>`${n.toFixed(1)}%`;
 const fmtDeg=n=>`${n>=0?'+':''}${n.toFixed(2)}°`;
+const fmtUTC=iso=>String(iso).slice(0,16).replace('T',' ')+' UTC';
 const longDate=date=>date.toLocaleString('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).toUpperCase()+' UTC';
 const shortDate=date=>date.toLocaleDateString('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
 const escapeHTML=str=>String(str).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
@@ -603,7 +604,6 @@ function runTravelEstimate(){
 }
 function renderTravelResults(estimate,origin,target){
   const v=estimate.visibility;
-  const fmtUTC=iso=>iso.slice(0,16).replace('T',' ')+' UTC';
   const sunLabel=s=>s?`${Number.isFinite(s)?s.toFixed(0):'—'}% illuminated`:'Sampling unavailable';
   $('#travel-results').innerHTML=
     `<div class="travel-summary"><div><small>ROUTE</small><strong>${escapeHTML(origin.name)} → ${escapeHTML(target.name)}</strong><span>${escapeHTML(fmtCoord(origin.lat,origin.lon))} → ${escapeHTML(fmtCoord(target.lat,target.lon))}</span></div>
@@ -658,7 +658,6 @@ function runTransitEstimate(){
   }catch(e){toast(e.message||'Could not estimate the transit.');}
 }
 function renderTransitResults(estimate){
-  const fmtUTC=iso=>iso.slice(0,16).replace('T',' ')+' UTC';
   const dest=estimate.destination;
   const destLabel=dest?`${dest.name}  ·  ${fmtCoord(dest.lat,dest.lon)}`:'Selected landing site';
   $('#transit-results').innerHTML=
