@@ -701,11 +701,11 @@ body.tour-is-active{overscroll-behavior:none}
 /* Surface traverse estimator */
 .travel-panel{padding:21px;grid-column:1/-1;border-top:1px solid var(--line)}
 .travel-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:14px 0 16px}
-.travel-fields label{display:flex;flex-direction:column;gap:7px;font:9px 'DM Mono',monospace;color:#9eb3bd;letter-spacing:.08em}
-.travel-fields select,.travel-fields input{color:#dce6e8;outline:none;background:#0d141c;border:1px solid #28333d;border-radius:6px;height:40px;padding:0 11px;width:100%;font-size:12px;min-width:0;font-family:'DM Sans',sans-serif}
+.travel-fields label,.transit-fields label{display:flex;flex-direction:column;gap:7px;font:9px 'DM Mono',monospace;color:#9eb3bd;letter-spacing:.08em}
+.travel-fields select,.travel-fields input,.transit-fields select,.transit-fields input{color:#dce6e8;outline:none;background:#0d141c;border:1px solid #28333d;border-radius:6px;height:40px;padding:0 11px;width:100%;font-size:12px;min-width:0;font-family:'DM Sans',sans-serif}
 .travel-fields .travel-origin-static{display:flex;align-items:center;min-height:40px;padding:0 11px;background:#0d141c;border:1px solid #28333d;border-radius:6px;color:#dce6e8;font-size:12px;line-height:1.4;width:100%}
 .travel-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.travel-results{margin-top:16px;border:1px solid rgba(157,197,204,.14);border-radius:8px;padding:16px;background:rgba(6,16,24,.5)}
+.travel-results,.transit-results{margin-top:16px;border:1px solid rgba(157,197,204,.14);border-radius:8px;padding:16px;background:rgba(6,16,24,.5)}
 .travel-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 .travel-summary>div,.travel-schedule>div{padding:11px;background:rgba(12,24,34,.7);border:1px solid rgba(157,197,204,.1);border-radius:6px;min-width:0}
 .travel-summary small,.travel-schedule small,.travel-visibility span{display:block;font:8px 'DM Mono',monospace;color:#9db4be;letter-spacing:.08em}
@@ -727,12 +727,9 @@ body.tour-is-active{overscroll-behavior:none}
 .transit-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin:34px 0 16px}
 .transit-panel{padding:21px;border-top:1px solid var(--line)}
 .transit-fields{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin:14px 0 16px}
-.transit-fields label{display:flex;flex-direction:column;gap:7px;font:9px 'DM Mono',monospace;color:#9eb3bd;letter-spacing:.08em}
-.transit-fields select,.transit-fields input{color:#dce6e8;outline:none;background:#0d141c;border:1px solid #28333d;border-radius:6px;height:40px;padding:0 11px;width:100%;font-size:12px;min-width:0;font-family:'DM Sans',sans-serif}
 .transit-fields select:disabled,.transit-fields input:disabled{opacity:.45;cursor:not-allowed}
 .transit-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .transit-hint{font:9px 'DM Mono',monospace;color:#7f98a4;letter-spacing:.02em}
-.transit-results{margin-top:16px;border:1px solid rgba(157,197,204,.14);border-radius:8px;padding:16px;background:rgba(6,16,24,.5)}
 .transit-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 .transit-summary>div,.transit-schedule>div{padding:11px;background:rgba(12,24,34,.7);border:1px solid rgba(157,197,204,.1);border-radius:6px;min-width:0}
 .transit-summary small,.transit-schedule small,.transit-phase small,.transit-visibility span{display:block;font:8px 'DM Mono',monospace;color:#9db4be;letter-spacing:.08em}
