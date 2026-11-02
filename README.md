@@ -243,6 +243,33 @@ The Chromium smoke workflow checks homepage links, focused page isolation, direc
 All scientific caveats continue to apply: terrain is an experimental 20 km derived NASA LOLA local horizon, the JPL benchmark covers sampled reference cases only, visual globe lighting isn't a true DEM shadow model, and no outputs are mission- or flight-qualified.
 
 
+## Detachable mission timeline position (Phase 8 — drag)
+
+The Operational Visibility timeline in the Explorer no longer reacts only to clicks. The UTC inspection indicator (`#time-indicator`, its triangle and the semi-circular handle) can be grabbed and dragged continuously; click still jumps. Dragging uses Pointer Events (`pointerdown`/`pointermove`/`pointerup`/`pointercancel`) with pointer capture, converts screen coordinates through the SVG CTM (correct under viewBox scaling and responsive layouts), clamps to the track, and routes the new offset through the existing `setOffset()` so the current Sun/Earth elevations, sky plot, globe lighting, mission-condition indicators, UTC clock and celestial scrubber all stay in sync. The sampled multi-day timeline is not recalculated per pointer movement.
+
+## Surface traverse planner (Phase 8)
+
+The Engineering page includes a surface traverse estimator: pick an origin (defaulting to the current landing site), a study destination, UTC departure, rover speed and optional operational delay. It computes the great-circle geodesic distance on a spherical Moon (R = 1737.4 km, haversine) and drives the result through the same analytical ephemeris to sample expected Sun/Earth illumination along the journey at the origin location. Driving time = distance / speed; total traverse duration = driving + operational delay. Results show distance, driving time, total time, departure/arrival UTC, % solar and Earth visibility during the traverse and the key limitations.
+
+- Labeled a **geodesic surface-distance estimate**: the schematic map is not a traversable terrain network, so no obstacle/slope-aware route optimisation is claimed.
+- If NASA-derived terrain is loaded at the origin, its azimuth-dependent horizon is applied to origin visibility screening; terrain along the path itself is not sampled.
+- Visibility along the route is a screening estimate, not an operations guarantee or a radio link budget.
+
+## Gemini AI mission assistant (Phase 8)
+
+A floating **mission analyst** button (available on every page) opens a chat panel styled like the rest of the app. The assistant receives a compact snapshot of the live mission configuration, selected site, UTC mission start, inspection time, terrain status, engineering simulation and Finder results, and answers planning questions by executing the same calculation modules the planner uses.
+
+Serverless architecture:
+
+- `api/chat.js` (Vercel function) keeps the API key **server-side only**. It validates the request, sanitises the context, builds a compact history and calls Gemini's native function-calling loop, running structured tools until the model produces a final text reply.
+- Configure on Vercel: `GEMINI_API_KEY` (required) and optionally `GEMINI_MODEL` (default `gemini-2.0-flash`). Never add the key to frontend code or commit it. A local `.env.example` documents the variables for local development of the function.
+- Conversation history lives in browser memory (and `sessionStorage` when available). No database is introduced.
+- The assistant has a bounded, explicitly declared tool set (`get_mission_context`, `calculate_celestial_conditions`, `analyze_mission_window`, `compare_locations`, `find_optimal_windows`, `simulate_engineering`, `inspect_operations`, `find_next_horizon_event`, `estimate_surface_traverse`). It cannot run arbitrary JavaScript, read files or modify application code.
+
+Callable tools reuse the existing modules directly (`src/tools.js` on the server, `src/tool-executor.js` in the browser): `ephemeris`, `sampleWindow`, `summarize`, `longestDualWindow`, `rankedSites`, `findMissionWindows`, `simulateMission`, `inspectSituation`, `findNextHorizonEvent` and `estimateSurfaceTraverse`. The system instruction requires the model to cite actual tool results, distinguish calculated values from assumptions, name the horizon model used, and never present screening as flight-qualified.
+
+Because the API key stays server-side, the static preview without `GEMINI_API_KEY` degrades gracefully: the assistant opens and shows a clear configuration message instead of crashing.
+
 ## Branded welcome and first-visit tutorial
 
 LunarNav features a skippable **six-second branded lunar intro** once per browser tab session. It is a cinematic welcome animation (not a claim that NASA data is downloading), with a CSS progress track, orbital visuals, and an immediately accessible **Skip intro** button. Reopening another page within that tab, or refreshing it, does not repeat the splash. A 9.5-second emergency CSS fallback removes the screen if the main application fails to start.
