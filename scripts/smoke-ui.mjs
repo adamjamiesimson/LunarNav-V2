@@ -85,6 +85,19 @@ try{
     layoutHeight:document.body.scrollHeight
   }));
   if(dims.scrollWidth>dims.width+4)throw Error('Explorer horizontally overflows small viewport: '+JSON.stringify(dims));
+  // Windows page: the wide finder heatmap stays inside its own scroll wrap and
+  // must never pan the page itself at 390px.
+  for(let attempt=0;attempt<2;attempt++){
+    try{await page.goto(address+'windows',{waitUntil:'domcontentloaded',timeout:25000});break;}
+    catch(e){if(attempt===1)throw e;await new Promise(resolve=>setTimeout(resolve,800));}
+  }
+  if(await page.evaluate(()=>!document.querySelector('#finder-heatmap')?.children.length))
+    await page.waitForFunction(()=>document.querySelector('#finder-heatmap')?.children.length>0,{timeout:25000});
+  await page.evaluate(()=>window.scrollTo(9999,0));
+  await new Promise(resolve=>setTimeout(resolve,300));
+  const pan=await page.evaluate(()=>window.scrollX);
+  await page.evaluate(()=>window.scrollTo(0,0));
+  if(pan>2)throw Error('Windows page pans horizontally at mobile width: scrollX='+pan);
   await page.screenshot({path:'/tmp/lunarnav-mobile-smoke.png',fullPage:false});
   if(errors.length)throw Error('Unexpected JS page errors: '+errors.join(' | '));
   console.log(JSON.stringify({result:'PASS',chrome:binary,initialSituation:initial,terrainImpactCards:cards,mobile:dims},null,2));

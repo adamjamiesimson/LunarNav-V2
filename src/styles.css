@@ -82,8 +82,9 @@
 .finder-legend{display:flex;align-items:center;gap:15px}
 .finder-legend i{width:11px;height:11px;border-radius:2px;display:inline-block;background:rgba(168,227,190,.22)}
 .finder-legend i.finder-legend-high{background:rgba(168,227,190,.92)}
-.finder-heatmap-wrap{overflow-x:auto;overscroll-behavior-x:contain;border:1px solid rgba(165,206,208,.12);border-radius:7px;background:#071019;padding:15px 11px 15px;scrollbar-color:#31535c #09141b}
-.finder-table{display:flex;flex-direction:column;gap:5px}
+.finder-heatmap-wrap{overflow-x:auto;overscroll-behavior-x:contain;border:1px solid rgba(165,206,208,.12);border-radius:7px;background:#071019;padding:15px 11px 15px;scrollbar-color:#31535c #09141b;max-width:100%;min-width:0}
+.finder-heatmap{width:100%;min-width:0;max-width:100%}
+.finder-table{min-width:0}
 .finder-table-heading,.finder-table-row{display:grid;grid-template-columns:181px repeat(var(--day-count),minmax(23px,1fr));gap:3px;align-items:center}
 .finder-table-heading{margin-bottom:7px}
 .finder-table-heading>div{color:#8099a5;font:9px 'DM Mono',monospace}
@@ -360,6 +361,9 @@ main{padding:0 clamp(18px,3.5vw,62px);min-height:calc(100vh - 145px)}
 .explore-page .panel{box-shadow:none}
 .explore-page .mission-situation{background:linear-gradient(135deg,#11242b,#111c24)}
 .engineering-section,.finder-section,.comparison-section{min-height:74vh;scroll-margin-top:85px}
+/* The finder heatmap is intentionally wider than its wrap on small screens;
+   keep the overflow contained so the page itself never pans horizontally. */
+body[data-page="windows"]{overflow-x:hidden}
 .engineering-section,.finder-section{padding:54px 0 38px}
 .comparison-section{padding:56px 0 55px}
 .section-title-row{margin-bottom:25px}
