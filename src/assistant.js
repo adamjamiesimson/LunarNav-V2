@@ -1,0 +1,286 @@
+/**
+ * LunarNav Gemini mission-assistant front-end.
+ *
+ * Renders the floating chat panel and sends messages to /api/chat with a
+ * compact, sanitised snapshot of the live mission configuration. Tool calls
+ * that reference current application data execute locally through
+ * executeBrowserTool (the same modules the planner uses); the server runs the
+ * identical tools through Gemini function calling. Conversation history stays
+ * in browser memory (unless sessionStorage persistence is available).
+ *
+ * IMPORTANT: the Gemini API key is never present in this or any other
+ * front-end file; it only exists as the server-side GEMINI_API_KEY env var.
+ */
+import {executeBrowserTool} from './tool-executor.js';
+
+const WELCOME = `### Mission analyst online
+I'm working from your **live LunarNav configuration** and the same calculation engine as the planner. Ask me about:
+- **Sun/Earth visibility** for the selected site and date
+- **mission windows**, site comparisons and the Window Finder
+- **engineering** (power, battery, Earth access)
+- **surface traverses** between study locations
+- **Earth-to-Moon transit** for the selected landing site (reference-duration estimates, not a trajectory solver)
+
+Every number I give you is either present in the current application state or produced by a real LunarNav calculation tool.`;
+const STORAGE_KEY = 'lunarnav:assistant:history:v1';
+
+function escapeHTML(str){
+  return String(str).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+}
+/** Minimal Markdown rendering tuned for scientific answers (no raw HTML). */
+function renderMarkdown(text){
+  return String(text)
+    .replace(/\r\n/g, '\n')
+    .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+    .replace(/^## (.+)$/gm, '<h4>$1</h4>')
+    .replace(/^# (.+)$/gm, '<h4>$1</h4>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>')
+    .replace(/^(\d+)\. (.+)$/gm, '<li>$1&nbsp;&nbsp;$2</li>')
+    .replace(/(<li>\d+&nbsp;&nbsp;[\s\S]*?<\/li>)/g, '<ol>$1</ol>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br/>');
+}
+
+/* ---- State ---- */
+const ui = {};
+let history = [];
+let busy = false;
+let contextHook = null;
+
+export function initMissionAssistant({
+  root, fab, panel, messages, input, send, close, newConversation, context, toolsEl, contextText,
+  endpoint = '/api/chat',
+  getContext = null
+} = {}){
+  Object.assign(ui, {root, fab, panel, messages, input, send, close, newConversation, context, toolsEl, contextText, endpoint});
+  contextHook = getContext || null;
+
+  fab.addEventListener('click', () => toggle(true));
+  for (const el of [close, ...document.querySelectorAll('[data-assistant-close]')]){
+    el.addEventListener('click', () => toggle(false));
+  }
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !root.hidden) toggle(false);
+  });
+  const submit = () => { if (!busy && input.value.trim()) sendMessage(input.value); };
+  send.addEventListener('click', submit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); submit(); }
+  });
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(160, input.scrollHeight) + 'px';
+  });
+
+  newConversation.addEventListener('click', () => { history = []; persistHistory(); renderHistory(); focusInput(); });
+
+  pushMessage('assistant', WELCOME);
+  restoreHistory();
+  updateContextBanner();
+}
+
+export function assistantOpen(){
+  return !(ui.root?.hidden ?? true);
+}
+export function toggleAssistant(open){
+  toggle(open);
+}
+function toggle(open){
+  const show = open ?? ui.root.hidden;
+  ui.root.hidden = !show;
+  ui.fab.setAttribute('aria-expanded', String(show));
+  ui.fab.setAttribute('aria-label', show ? 'Close the LunarNav mission assistant' : 'Open the LunarNav mission assistant');
+  document.body.classList.toggle('assistant-open', show);
+  if (show){
+    updateContextBanner();
+    focusInput();
+    ui.input.focus({preventScroll: true});
+  }
+}
+export function refreshAssistantContext(){
+  // Re-render the context banner whenever the mission config changes.
+  if (assistantOpen()) updateContextBanner();
+}
+function focusInput(){
+  requestAnimationFrame(() => ui.input.focus({preventScroll: true}));
+}
+function updateContextBanner(){
+  if (!ui.contextText) return;
+  const c = collectContext();
+  ui.contextText.textContent = c.label
+    ? `${c.label}` + (c.terrainApplied ? ' · DEM APPLIED' : ' · FLAT HORIZON')
+    : 'Configure a mission to begin analysis.';
+}
+
+function collectContext(){
+  const state = contextHook ? contextHook() : {};
+  return {
+    site: state.site || null,
+    date: state.date || null,
+    time: state.time || null,
+    days: state.days,
+    offsetHours: state.offset,
+    inspectionUTC: state.inspectionUTC || (state.base ? new Date(state.base.getTime() + (state.offset || 0) * 3600000).toISOString() : null),
+    route: state.route,
+    isCustom: Boolean(state.site?.custom),
+    terrain: state.terrain ? {
+      applied: Boolean(state.terrain),
+      source: state.terrain.source || state.terrain.provenance || null,
+      verifiedSource: Boolean(state.terrain.verifiedSource),
+      coveragePct: state.terrain.coveragePct,
+      radiusKm: state.terrain.radiusKm,
+      resolutionM: state.terrain.resolutionM,
+      azimuthDeg: state.terrain.azimuthDeg,
+      elevationDeg: state.terrain.elevationDeg
+    } : null,
+    simulation: state.simulation ? {
+      minimumSocPct: state.simulation.minimumSocPct, endingSocPct: state.simulation.endingSocPct,
+      generatedWh: state.simulation.generatedWh, consumedWh: state.simulation.consumedWh,
+      unmetWh: state.simulation.unmetWh, unmetHours: state.simulation.unmetHours,
+      solarAccessPct: state.simulation.solarAccessPct, earthAccessPct: state.simulation.earthAccessPct,
+      dualAccessPct: state.simulation.dualAccessPct, longestAccessGapHours: state.simulation.longestAccessGapHours,
+      terrainApplied: state.simulation.terrainApplied
+    } : null,
+    missionSummary: state.missionSummary || null,
+    finder: state.finder ? {startDate: state.finder.startDate, searchDays: state.finder.searchDays,
+      windowDays: state.finder.windowDays, priority: state.finder.priority, terrainMode: state.finder.terrainMode,
+      top: state.finder.top} : null,
+    terrainProfilesBySite: state.terrainProfiles || {},
+    transit: state.transit ? {
+      model: state.transit.model,
+      profile: state.transit.profile,
+      profileLabel: state.transit.profileLabel,
+      destination: state.transit.destination,
+      totalTransitHours: state.transit.totalTransitHours,
+      departureUTC: state.transit.departureUTC,
+      arrivalUTC: state.transit.arrivalUTC,
+      scheduleMode: state.transit.scheduleMode
+    } : null
+  };
+}
+
+function renderHistory(){
+  const box = ui.messages;
+  box.replaceChildren();
+  for (const entry of history){
+    const node = buildMessageNode(entry.role, entry.text, entry.tools);
+    box.appendChild(node);
+  }
+  box.scrollTop = box.scrollHeight;
+}
+function pushMessage(role, text, tools = []){
+  history.push({role, text, tools});
+  // Keep only the most recent messages for the API round trip.
+  ui.messages.appendChild(buildMessageNode(role, text, tools));
+  ui.messages.scrollTop = ui.messages.scrollHeight;
+  persistHistory();
+}
+function buildMessageNode(role, text, tools = []){
+  const node = document.createElement('div');
+  node.className = 'assistant-message ' + (role === 'user' ? 'user' : 'assistant');
+  if (role === 'user'){
+    node.innerHTML = `<div class="assistant-message-bubble">${escapeHTML(text)}</div>`;
+    return node;
+  }
+  const toolsHtml = tools.length
+    ? `<div class="assistant-tool-log">${tools.map(t =>
+        `<span class="assistant-tool-chip ${t.ok ? 'ok' : 'fail'}" title="${escapeHTML(t.args ? JSON.stringify(t.args).slice(0,200) : '')}">${escapeHTML(t.name)} · ${escapeHTML(t.summary)}</span>`).join('')}</div>`
+    : '';
+  node.innerHTML = `<div class="assistant-message-bubble assistant-answer">${renderMarkdown(text)}${toolsHtml}</div>`;
+  return node;
+}
+function showTyping(){
+  const node = document.createElement('div');
+  node.className = 'assistant-message assistant typing';
+  node.id = 'assistant-typing';
+  node.innerHTML = '<div class="assistant-message-bubble"><span class="assistant-typing-dots"><i></i><i></i><i></i></span><span class="assistant-typing-label">Consulting Gemini…</span></div>';
+  ui.messages.appendChild(node);
+  ui.messages.scrollTop = ui.messages.scrollHeight;
+  return node;
+}
+/* ---- API round trip ---- */
+async function sendMessage(text){
+  const userText = text.trim();
+  if (!userText || busy) return;
+  busy = true;
+  ui.input.value = '';
+  ui.input.style.height = 'auto';
+  pushMessage('user', userText);
+  const typing = showTyping();
+  ui.send.disabled = true;
+
+  // Compact history for the API round trip.
+  const context = collectContext();
+  const historyForApi = history.slice(0, -1).map(e => ({role: e.role, text: e.text})).slice(-12);
+
+  try {
+    const payload = {message: {role: 'user', text: userText}, history: historyForApi, context};
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90000);
+    let response;
+    try {
+      response = await fetch(ui.endpoint, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+    } catch (fetchError){
+      if (fetchError.name === 'AbortError'){
+        throw new Error('The assistant request timed out. The Gemini service may be busy; please try again shortly.');
+      }
+      throw fetchError;
+    } finally {
+      clearTimeout(timeout);
+    }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok){
+      throw new Error(body.error || `Assistant API error (${response.status})`);
+    }
+    typing.querySelector('.assistant-typing-label').textContent = 'Rendering…';
+    pushMessage('assistant', body.reply || 'No reply received.', body.tools || []);
+  } catch (error){
+    typing.remove();
+    pushMessage('assistant', `**The assistant could not complete that request.**\n\n${escapeHTML(error.message)}\n\n> Verify that **GEMINI_API_KEY** is configured on the Vercel deployment and that you are online. History and context remain available for a retry.`);
+  } finally {
+    typing.remove();
+    busy = false;
+    ui.send.disabled = false;
+    focusInput();
+  }
+}
+
+/* ---- session persistence (local, no database on the server) ---- */
+function persistHistory(){
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-20)));
+  } catch { /* Storage unavailable; chat still works in memory. */ }
+}
+function restoreHistory(){
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const stored = JSON.parse(raw);
+    if (Array.isArray(stored)){
+      // Do not duplicate the welcome message.
+      const welcome = history[0];
+      history = [];
+      pushMessage('assistant', welcome.text);
+      for (const entry of stored.slice(0, 20)){
+        if (entry.role === 'assistant' && entry.text === welcome.text) continue;
+        history.push(entry);
+        ui.messages.appendChild(buildMessageNode(entry.role, entry.text, entry.tools || []));
+      }
+      ui.messages.scrollTop = ui.messages.scrollHeight;
+    }
+  } catch { /* Corrupt or inaccessible storage is ignored. */ }
+}
+
+/** Route a Gemini tool name through the shared browser executor. */
+export function runAssistantTool(name, args, context){
+  return executeBrowserTool(name, args, context);
+}

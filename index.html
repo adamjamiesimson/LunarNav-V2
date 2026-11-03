@@ -136,6 +136,7 @@
       </section>
 
       </div>
+
       <section class="engineering-section app-view" data-view="engineering" id="engineering" hidden aria-label="Lunar mission feasibility">
         <div class="context-bar"><span>ACTIVE MISSION</span><strong id="engineering-context">Selected lunar study site</strong><a data-route="explore" href="/explore">Change site & date in Explorer ↗</a></div>
         <div class="section-title-row engineering-heading">
@@ -180,11 +181,53 @@
             <div id="terrain-plot" class="terrain-plot" role="img" aria-label="Terrain horizon elevation by azimuth"></div>
             <p class="terrain-foot">Experimental coarse ~80 m DEM; 20 km horizon radius. No slope certification, small obstacles, optical limb, or flight qualification. <a href="https://doi.org/10.3847/PSJ/acf3e1" target="_blank" rel="noopener noreferrer">Barker et al. 2023 ↗</a></p>
           </div>
+          <div class="travel-panel" id="travel-panel">
+            <div class="panel-head compact"><div><span class="section-n">SURFACE TRAVERSE</span><h3>Travel-time estimator</h3></div><span class="sim-tag" id="travel-horizon-tag">GEODESIC · FLAT HORIZON</span></div>
+            <p class="terrain-intro">Estimate how long a rover would take to drive between two lunar points, and what Sun/Earth visibility can be expected along the way. Origin, departure and terrain default from the current mission configuration.</p>
+            <div class="travel-fields">
+              <label>ORIGIN SITE<span id="travel-origin-name" class="travel-origin-static">Current selected site</span></label>
+              <label>DESTINATION<select id="travel-destination"></select></label>
+              <label>DEPART · UTC DATE<input type="date" id="travel-date" min="2025-01-01" max="2036-12-31" /></label>
+              <label>DEPART · UTC TIME<input type="time" id="travel-time" step="3600" /></label>
+              <label>ROVER SPEED · km/h<input type="number" id="travel-speed" min="1" max="60" step="1" value="10" /></label>
+              <label>EXTRA DELAY · h<input type="number" id="travel-delay" min="0" max="240" step="0.5" value="0" /></label>
+            </div>
+            <div class="travel-actions"><button id="travel-run" class="top-primary" type="button">Estimate traverse →</button>
+              <button id="travel-sync" class="outline-button" type="button">Sync to mission</button></div>
+            <div id="travel-results" class="travel-results" aria-live="polite"></div>
+          </div>
         </div>
       </section>
 
       <section class="finder-section app-view" data-view="windows" id="finder" hidden aria-label="Find mission windows across sites and dates">
         <div class="section-title-row finder-heading"><div><span class="section-n">02 / MISSION WINDOWS</span><h2>The right place. <em>The right time.</em></h2><p>Compare candidate lunar sites and start dates together. Discover when geometric sunlight and direct-to-Earth opportunities overlap.</p></div><span class="sim-tag" id="finder-model-badge">GEOMETRIC HORIZON · EXPERIMENTAL</span></div>
+        <section class="transit-section" id="transit" aria-label="Earth-to-Moon transit planning">
+        <div class="section-title-row transit-heading">
+          <div><span class="section-n">02B / JOURNEY</span><h2>Plan your journey to the Moon<span class="accent-stop">.</span></h2><p>Estimate the spacecraft's journey from Earth to your selected lunar landing site. This planning estimate uses reference transfer durations — it is not a trajectory or delta-v solver.</p></div>
+          <span class="sim-tag" id="transit-profile-tag">REFERENCE DURATIONS · NOT A TRAJECTORY SOLVER</span>
+        </div>
+        <div class="panel transit-panel">
+          <div class="panel-head compact"><div><span class="section-n">EARTH → MOON</span><h3>Transit estimator</h3></div><span class="sim-tag" id="transit-destination-tag">DESTINATION: MONS MOUTON</span></div>
+          <p class="terrain-intro">Estimate how long the spacecraft takes to travel from Earth to your <strong>currently selected landing site</strong>. You can anchor the estimate on an Earth departure time or on a desired lunar landing time.</p>
+          <div class="transit-fields">
+            <label>ANCHOR<select id="transit-mode"><option value="depart">Earth departure time</option><option value="land">Desired landing time</option></select></label>
+            <label>UTC DATE<input type="date" id="transit-date" min="2025-01-01" max="2040-12-31" /></label>
+            <label>UTC TIME<input type="time" id="transit-time" step="3600" /></label>
+            <label>TRANSFER PROFILE<select id="transit-profile">
+              <option value="direct">Direct transfer (~3–4 days)</option>
+              <option value="extended">Extended / fuel-efficient (~7.5 days)</option>
+              <option value="custom">Custom transit duration</option>
+            </select></label>
+            <label>CUSTOM DURATION · h<input type="number" id="transit-custom-hours" min="48" max="720" step="1" value="100" disabled /></label>
+          </div>
+          <div class="transit-actions">
+            <button id="transit-run" class="top-primary" type="button">Estimate transit →</button>
+            <button id="transit-sync" class="outline-button" type="button">Sync to mission</button>
+            <span class="transit-hint" id="transit-hint">Direct transfer reference ~3.5 days. Destination auto-uses your selected landing site.</span>
+          </div>
+          <div id="transit-results" class="transit-results" aria-live="polite"></div>
+        </div>
+      </section>
         <div class="panel finder-shell">
           <div class="finder-toolbar">
             <label>SCAN START · UTC<input type="date" id="finder-date" value="2026-11-14" min="2025-01-01" max="2036-12-31" /></label>
@@ -227,5 +270,32 @@
   <dialog id="method-dialog" class="dialog"><div class="dialog-head"><div><span class="section-n">MODEL TRANSPARENCY</span><h2>How these estimates work</h2></div><button class="dialog-close" data-close="method-dialog" aria-label="Close">×</button></div><div class="dialog-body"><p><strong>LunarNav V2</strong> computes Sun and Earth azimuth and elevation for user-selected lunar coordinates and UTC dates using an analytical model.</p><div class="method-line"><span>01</span><div><h3>Celestial geometry</h3><p>Truncated analytical lunar and solar orbital series (Meeus/NOAA style) are transformed into a Moon-fixed frame using the IAU lunar rotation model. Celestial direction is converted to local azimuth/elevation.</p></div></div><div class="method-line"><span>02</span><div><h3>Visibility decision</h3><p>A body is counted as visible when its <em>center</em> is above the 0° geometric horizon. Sun and Earth percentages are hourly-window approximations sampled every two hours; simultaneous availability requires both conditions at once.</p></div></div><div class="method-line"><span>03</span><div><h3>What is deliberately missing</h3><p>Optional coarse NASA LOLA elevation pixels can produce a local 20 km horizon profile; by default calculations remain flat-horizon. The first-order energy and antenna screening model does not include exact surface properties, detailed charging physics, link margin, antenna pattern, terrain below DEM resolution, disk corrections or eclipses. The 3D globe is visual context and not the DEM.</p></div></div><div class="method-line"><span>04</span><div><h3>Independent JPL benchmark</h3><p>The analytical Sun/Earth geometry was compared with 90 independently returned JPL Horizons azimuth/elevation measurements across Mons Mouton, Malapert and an approximate Shackleton Rim coordinate in November 2026, March 2027 and July 2027. Maximum sampled errors were 0.480° azimuth and 0.285° elevation. These are <em>not</em> worst-case error guarantees, especially around the horizon where a small error can change a visible/hidden decision. Reference measurements are archived in GitHub.</p></div></div><div class="method-line"><span>05</span><div><h3>Further validation</h3><p>Increase the independent JPL/NAIF SPICE benchmark coverage, use shorter adaptive time steps at rise/set transitions, validate LOLA horizon projections, and add documented engineering uncertainty before representing these outputs as operational estimates.</p></div></div><div class="reference-links"><a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener noreferrer">NASA LOLA 80 m DEM ↗</a><a href="https://github.com/adamjamiesimson/LunarNav-V2/tree/main/tests/fixtures" target="_blank" rel="noopener noreferrer">Archived JPL observations ↗</a><a href="https://ssd.jpl.nasa.gov/horizons/manual.html" target="_blank" rel="noopener noreferrer">JPL Horizons ↗</a><a href="https://naif.jpl.nasa.gov/naif/" target="_blank" rel="noopener noreferrer">NAIF SPICE ↗</a><a href="https://science.nasa.gov/resource/illumination-map-of-the-moons-south-pole/" target="_blank" rel="noopener noreferrer">NASA south-pole illumination ↗</a><a href="https://www.spaceappschallenge.org/2026/find-a-team/1st-lunarnav/" target="_blank" rel="noopener noreferrer">Challenge brief ↗</a></div></div></dialog>
   <dialog id="brief-dialog" class="dialog report-dialog"><div class="dialog-head"><div><span class="section-n">MISSION SUMMARY</span><h2>Mission briefing</h2></div><button class="dialog-close" data-close="brief-dialog" aria-label="Close">×</button></div><div class="dialog-body"><div id="brief-content"></div><div class="report-actions"><button class="outline-button" id="copy-brief">Copy text summary</button><button class="top-primary" id="print-brief">Print / save PDF ↗</button></div></div></dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="assistant-root" id="assistant-root" hidden>
+    <div class="assistant-backdrop" data-assistant-close aria-hidden="true"></div>
+    <section class="assistant-panel" id="assistant-panel" role="dialog" aria-modal="true" aria-labelledby="assistant-title" aria-describedby="assistant-subtitle">
+      <div class="assistant-head">
+        <div class="assistant-title-block"><span class="assistant-glyph">◉</span><div><strong id="assistant-title">MISSION ASSISTANT</strong><small id="assistant-subtitle">Gemini · LunarNav mission analysis</small></div></div>
+        <div class="assistant-head-actions">
+          <button type="button" id="assistant-new" class="assistant-icon-btn" title="Start a new conversation" aria-label="Start a new conversation">↺</button>
+          <button type="button" id="assistant-close" class="assistant-icon-btn" title="Close assistant" aria-label="Close assistant" data-assistant-close>×</button>
+        </div>
+      </div>
+      <div class="assistant-context" id="assistant-context">
+        <span class="assistant-context-dot"></span><span id="assistant-context-text">Mons Mouton · 2026-11-14 12:00 UTC · 7 days</span>
+      </div>
+      <div class="assistant-messages" id="assistant-messages" role="log" aria-live="polite" aria-relevant="additions"></div>
+      <div class="assistant-composer">
+        <div class="assistant-tools" id="assistant-tools" aria-live="polite"></div>
+        <textarea id="assistant-input" rows="1" placeholder="Ask about sites, windows, power or traverses… (Enter to send, Shift+Enter for a new line)" aria-label="Message the mission assistant"></textarea>
+        <div class="assistant-composer-bottom">
+          <span class="assistant-hint">Enter to send · Shift+Enter for line break</span>
+          <button type="button" id="assistant-send" class="assistant-send" aria-label="Send message">Send <span>↗</span></button>
+        </div>
+      </div>
+    </section>
+  </div>
+  <button type="button" id="assistant-fab" class="assistant-fab" aria-label="Open the LunarNav mission assistant" aria-expanded="false" title="Ask the mission analyst (Gemini)">
+    <span class="assistant-fab-glyph">☾</span><span class="assistant-fab-label">ASK</span><span class="assistant-fab-dot"></span>
+  </button>
 </body>
 </html>

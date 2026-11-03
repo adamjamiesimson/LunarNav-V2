@@ -126,6 +126,51 @@ try{
   await page.reload({waitUntil:'domcontentloaded'});
   assert(await page.locator('#science-page').isVisible(),'deep-linked science page broke after refresh');
   await page.locator('a.nav-link[data-route="explore"]').click();
+
+  // Timeline stays fully draggable (pointer capture journal: indicator follows the pointer)…
+  await page.waitForSelector('#timeline-graph #timeline-hit',{state:'attached'});
+  // Disable smooth scrolling so coordinates are stable immediately, then center the widget.
+  await page.evaluate(() => { document.documentElement.style.scrollBehavior = 'auto'; });
+  await page.locator('#timeline-hit').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(80);
+  const track=await page.locator('#timeline-hit').boundingBox();
+  const readOffset=async()=>Number(await page.locator('#time-scrubber').inputValue());
+  const startOffset=await readOffset();
+  const startX=track.x+track.width*0.1;
+  const startY=track.y+track.height/2;
+  await page.mouse.move(startX,startY);
+  await page.mouse.down();
+  await page.mouse.move(startX+track.width*0.45,startY,{steps:8});
+  await page.mouse.up();
+  const draggedOffset=await readOffset();
+  assert(draggedOffset>startOffset+2,'timeline drag did not advance the inspection offset');
+  // Click-to-jump must still work: clicking the middle of the track should land
+  // near half the mission window (84 h on a 7-day mission).
+  const jumpTrack=await page.locator('#timeline-hit').boundingBox();
+  await page.mouse.click(jumpTrack.x+jumpTrack.width*0.5,jumpTrack.y+jumpTrack.height/2);
+  const clickedOffset=await readOffset();
+  assert(Math.abs(clickedOffset-84)<6,'click-to-jump no longer lands near the middle of the window');
+
+  // Surface traverse planner lives on the Engineering page and produces a results card.
+  await page.locator('a.nav-link[data-route="engineering"]').click();
+  await page.waitForSelector('#travel-panel',{state:'visible'});
+  await page.locator('#travel-run').scrollIntoViewIfNeeded();
+  await page.locator('#travel-run').click();
+  await page.waitForSelector('#travel-results .travel-summary',{state:'visible'});
+  const travelDistance=await page.locator('#travel-results .travel-summary').textContent();
+  assert(/\d+(\.\d+)? km/.test(travelDistance),'travel estimate did not report a distance');
+
+  // Gemini assistant floats above the app, opens without an API key, and shows a friendly failure.
+  assert(await page.locator('#assistant-fab').isVisible(),'assistant launcher button missing');
+  await page.locator('#assistant-fab').click();
+  await page.waitForSelector('#assistant-root:not([hidden])',{state:'visible'});
+  assert(await page.locator('.assistant-message.assistant').count()>=1,'assistant welcome message missing');
+  await page.locator('#assistant-input').fill('Which location has the most simultaneous Sun and Earth visibility?');
+  await page.locator('#assistant-send').click();
+  await page.waitForFunction(()=>document.querySelector('#assistant-messages')?.textContent?.includes('could not complete')===true,{timeout:15000});
+  assert((await page.locator('#assistant-messages').textContent()).includes('GEMINI_API_KEY'),'assistant did not surface the configuration message');
+  await page.locator('#assistant-close').click();
+  assert(await page.locator('#assistant-root').isHidden(),'assistant did not close');
   await page.screenshot({path:'smoke-artifacts/desktop.png',fullPage:false});
 
   const mobile=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'});

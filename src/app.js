@@ -1,17 +1,22 @@
 import {ephemeris,sampleWindow,summarize,rankedSites,longestDualWindow} from './astro.js';
+import {TIMELINE as TL,indicatorX,fractionToOffset,timelineFractionFromSVGPoint,horizontalCTM,clientXToSVGX} from './timeline.js';
 import {SITES,fmtCoord} from './sites.js';
 import {createMap} from './globe.js';
 import {simulateMission,DEFAULT_ENGINEERING} from './mission.js';
+import {estimateSurfaceTraverse} from './travel.js';
+import {estimateEarthMoonTransit} from './transit.js';
 import {loadLolaTerrain} from './terrain.js';
 import {findMissionWindows,compareFinderModels} from './finder.js';
 import {inspectSituation,buildSkyDiagram,fmtMargin,findNextHorizonEvent} from './situation.js';
 import {loadBundledTerrain} from './terrain-cache.js';
 import {PAGE_ROUTES,PAGE_TITLES,routeFromURL,buildPageURL} from './router.js';
 import {initOnboarding} from './onboarding.js';
+import {initMissionAssistant,refreshAssistantContext} from './assistant.js';
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
 const fmtPct=n=>`${n.toFixed(1)}%`;
 const fmtDeg=n=>`${n>=0?'+':''}${n.toFixed(2)}°`;
+const fmtUTC=iso=>String(iso).slice(0,16).replace('T',' ')+' UTC';
 const longDate=date=>date.toLocaleString('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).toUpperCase()+' UTC';
 const shortDate=date=>date.toLocaleDateString('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
 const escapeHTML=str=>String(str).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
@@ -78,17 +83,96 @@ function refreshMissionContext(){
   const label=state.site.name+' · '+state.date+' '+state.time+' UTC · '+state.days+' days';
   $('#engineering-context').textContent=label;
   $('#compare-context').textContent=label;
+  const travelDate=$('#travel-date');
+  if(travelDate){travelDate.value=state.date;$('#travel-time').value=state.time;populateTravelDestinations();}
+  const transitDateInput=$('#transit-date');
+  if(transitDateInput){transitDateInput.value=state.date;$('#transit-time').value=state.time;}
+  $('#transit-destination-tag').textContent='DESTINATION: '+state.site.name.toUpperCase();
+  refreshAssistantContext();
 }
 function updateSelected(){const site=state.site;$('#selected-name').textContent=site.name;$('#selected-tag').textContent=site.tag;$('#selected-coord').textContent=fmtCoord(site.lat,site.lon);$('#selected-type').textContent=site.kind;$('#site-source').href=site.source||'https://science.nasa.gov/moon/';$('#site-source').style.display=site.custom?'none':'';$('#map-site-name').textContent=site.name.toUpperCase();$('#map-coordinate').textContent=fmtCoord(site.lat,site.lon);$('.site-dot').style.background=site.accent;map.render(site);}
 function readDate(){const date=$('#mission-date').value;const time=$('#mission-time').value;if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d\d:\d\d$/.test(time))throw new Error('Enter a valid UTC date and time.');const base=new Date(`${date}T${time}:00Z`);if(!Number.isFinite(base.getTime()))throw new Error('Invalid UTC date.');return {date,time,base};}
 function updateAnalysis(){try{state.terrain=getCachedTerrain(state.site);const x=readDate();state.date=x.date;state.time=x.time;state.base=x.base;state.offset=0;state.samples=sampleWindow({start:state.base,lat:state.site.lat,lon:state.site.lon,days:state.days,stepHours:2});state.ranking=rankedSites(SITES,state.base,state.days);$('#time-scrubber').max=String(state.days*24);$('#celestial-scrubber').max=String(state.days*24);$('#time-scrubber').value='0';$('#metric-days').textContent=`${state.days} DAYS`;$('#end-label').textContent=`+${state.days} DAYS`;$('#timeline-start').textContent=shortDate(state.base);$('#timeline-end').textContent=shortDate(new Date(state.base.getTime()+state.days*86400000));updateSelected();refreshMissionContext();updateMetrics();drawTimeline();drawComparison();updateInspection();updateMissionPanels();updateURL();}catch(e){toast(e.message||'Could not calculate the mission window.');}}
 function updateMetrics(){const stats=summarize(state.samples);$('#dual-value').textContent=stats.dual.toFixed(1);$('#sun-value').textContent=fmtPct(stats.sun);$('#earth-value').textContent=fmtPct(stats.earth);$('#blackout-value').textContent=stats.longestBlackoutHours.toFixed(0)+' h';$('#sun-bar').style.width=`${stats.sun}%`;$('#earth-bar').style.width=`${stats.earth}%`;$('#metric-ring').style.setProperty('--metric-pct',`${stats.dual}%`);const best=longestDualWindow(state.samples);$('#best-window-length').textContent=best.hours?`${best.hours.toFixed(0)} hours`:'No dual-access window';$('#best-window-dates').textContent=best.start?`${shortDate(new Date(best.start))} → ${shortDate(new Date(best.end))} (UTC)`:'No continuous overlap detected in sampled period';}
-function drawTimeline(){const list=state.samples.slice(0,-1),N=list.length;const rows=[['SUNLIGHT',x=>x.sun.visible,'sun'],['EARTH LINK',x=>x.earth.visible,'earth'],['DUAL WINDOW',x=>x.dual,'dual']];const W=960,H=126,L=112,R=12,Y=17,rowGap=34,rowH=17,width=W-L-R;let svg=`<svg class="timeline-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Mission visibility timeline">`;
+const {W,H,L,R,Y,rowGap,rowH}=TL;
+function drawTimeline(){const list=state.samples.slice(0,-1),N=list.length;const rows=[['SUNLIGHT',x=>x.sun.visible,'sun'],['EARTH LINK',x=>x.earth.visible,'earth'],['DUAL WINDOW',x=>x.dual,'dual']];const width=W-L-R;let svg=`<svg class="timeline-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Mission visibility timeline"><g id="timeline-track">`;
   for(let d=0;d<=state.days;d++){const x=L+width*d/state.days;svg+=`<line x1="${x}" x2="${x}" y1="6" y2="${Y+rowGap*2+rowH+7}" stroke="rgba(211,224,233,${d===0||d===state.days?'.17':'.08'})" stroke-dasharray="3 5"/>`;if(d<state.days)svg+=`<text x="${x+4}" y="${H-6}" fill="#7e909d" font-size="10" font-family="DM Mono,monospace">${d===0?'D01':d%2===0||state.days<=7?'D'+String(d+1).padStart(2,'0'):''}</text>`;}
   rows.forEach(([label,pred,kind],i)=>{const y=Y+i*rowGap;svg+=`<text x="0" y="${y+12}" fill="#9daebb" font-size="11" font-family="DM Mono,monospace">${label}</text><rect x="${L}" y="${y}" width="${width}" height="${rowH}" rx="3" fill="#19232c"/>`;list.forEach((point,j)=>{if(pred(point))svg+=`<rect x="${(L+width*j/N).toFixed(2)}" y="${y}" width="${(width/N+.3).toFixed(2)}" height="${rowH}" fill="${kind==='sun'?'#cfa676':kind==='earth'?'#7dbac6':'#b7dfb0'}" />`;});});
-  svg+=`<line id="time-indicator" x1="${L}" x2="${L}" y1="4" y2="${Y+rowGap*2+rowH+3}" stroke="#e7f2e9" stroke-width="1.5"/><path id="indicator-triangle" d="M${L-4} 4 L${L+4} 4 L${L} 11 Z" fill="#e7f2e9"/><rect id="timeline-hit" x="${L}" y="4" width="${width}" height="100" fill="transparent" style="cursor:crosshair"/></svg>`;
-  $('#timeline-graph').innerHTML=svg;const hit=$('#timeline-hit');hit.addEventListener('pointerdown',e=>{const b=hit.ownerSVGElement.getBoundingClientRect();const u=(e.clientX-b.left)/b.width;const fraction=(u*960-L)/width;setOffset(Math.round(Math.max(0,Math.min(1,fraction))*state.days*24));});updateIndicator();}
-function updateIndicator(){const p=Math.max(0,Math.min(1,state.offset/(state.days*24)));const x=112+(960-112-12)*p;const l=$('#time-indicator');const tri=$('#indicator-triangle');if(l){l.setAttribute('x1',x);l.setAttribute('x2',x);}if(tri)tri.setAttribute('d',`M${x-4} 4 L${x+4} 4 L${x} 11 Z`);}
+  svg+=`</g><line id="time-indicator" x1="${L}" x2="${L}" y1="4" y2="${Y+rowGap*2+rowH+3}" stroke="#e7f2e9" stroke-width="1.5"/><path id="indicator-triangle" d="M${L-4} 4 L${L+4} 4 L${L} 11 Z" fill="#e7f2e9"/><path id="indicator-handle" d="M${L-11} 11 a11 11 0 0 0 22 0 Z" fill="rgba(231,242,233,.16)" stroke="#e7f2e9" stroke-width="1"/><rect id="timeline-hit" x="${L}" y="4" width="${width}" height="100" fill="transparent" style="cursor:crosshair" touch-action="none"/></svg>`;
+  $('#timeline-graph').innerHTML=svg;
+  $('#timeline-hit').addEventListener('pointerdown',onTimelinePointerDown);
+  const tri=$('#indicator-triangle'),handle=$('#indicator-handle');
+  for(const element of [tri,handle]){
+    element.setAttribute('role','slider');
+    element.setAttribute('tabindex','0');
+    element.setAttribute('aria-label','UTC inspection time');
+    element.setAttribute('aria-valuetext','0 hours from mission start');
+    element.style.cursor='col-resize';
+  }
+  for(const id of ['indicator-triangle','indicator-handle']){
+    const el=document.getElementById(id);
+    el.addEventListener('pointerdown',onTimelinePointerDown);
+    el.addEventListener('keydown',onIndicatorKeyDown);
+  }
+  updateIndicator();}
+let activeIndicatorPointerId=null;
+function onTimelinePointerDown(e){
+  if(e.target.closest?.('#timeline-track'))return; // The track is background decoration; clicks begin a jump.
+  if(e.pointerType==='mouse'&&e.button!==0)return;
+  e.preventDefault(); // Must be paired with touch-action:none to stop page scroll while dragging.
+  const svg=document.querySelector('#timeline-graph svg');
+  if(!svg)return;
+  activeIndicatorPointerId=e.pointerId;
+  const target=e.currentTarget||e.target;
+  try{target.setPointerCapture(e.pointerId);}catch{/* Capture is best-effort; pointermove still surfaces on the target. */}
+  target.addEventListener('pointermove',onIndicatorPointerMove);
+  target.addEventListener('pointerup',onIndicatorPointerUp);
+  target.addEventListener('pointercancel',onIndicatorPointerCancel);
+  applyIndicatorClientX(e.clientX);
+}
+function applyIndicatorClientX(clientX){
+  const svg=document.querySelector('#timeline-graph svg');
+  const ctm=horizontalCTM(svg);
+  if(!ctm)return null;
+  const x=clientXToSVGX(clientX,ctm);
+  const total=state.days*24;
+  const offset=fractionToOffset(timelineFractionFromSVGPoint({x}),total);
+  if(!Number.isFinite(offset))return null;
+  setOffset(offset);
+  return offset;
+}
+function onIndicatorPointerMove(e){
+  if(e.pointerId!==activeIndicatorPointerId)return;
+  e.preventDefault();
+  applyIndicatorClientX(e.clientX);
+}
+function onIndicatorPointerUp(e){
+  if(e.pointerId!==activeIndicatorPointerId)return;
+  finishIndicatorDrag(e.currentTarget||e.target);
+}
+function onIndicatorPointerCancel(e){
+  if(e.pointerId!==activeIndicatorPointerId)return;
+  finishIndicatorDrag(e.currentTarget||e.target);
+}
+function finishIndicatorDrag(target){
+  const pointerId=activeIndicatorPointerId;
+  activeIndicatorPointerId=null;
+  if(!target)return;
+  target.removeEventListener('pointermove',onIndicatorPointerMove);
+  target.removeEventListener('pointerup',onIndicatorPointerUp);
+  target.removeEventListener('pointercancel',onIndicatorPointerCancel);
+  try{target.releasePointerCapture?.(pointerId);}catch{/* No captive pointer to release. */}
+  const slider=document.querySelector('#timeline-graph [role="slider"]');
+  if(slider)slider.setAttribute('aria-valuenow',String(Math.round(state.offset)));
+}
+function onIndicatorKeyDown(e){
+  if(!['ArrowLeft','ArrowRight'].includes(e.key))return;
+  e.preventDefault();
+  stopPlay();
+  const step=e.key==='ArrowLeft'?-1:1;
+  setOffset(state.offset+step);
+}
+function updateIndicator(){const x=indicatorX(state.offset,state.days*24);const l=$('#time-indicator');const tri=$('#indicator-triangle');const handle=$('#indicator-handle');if(l){l.setAttribute('x1',x);l.setAttribute('x2',x);}if(tri)tri.setAttribute('d',`M${x-4} 4 L${x+4} 4 L${x} 11 Z`);if(handle)handle.setAttribute('d',`M${x-11} 11 a11 11 0 0 0 22 0 Z`);if(document.querySelector('#timeline-graph [role="slider"]'))document.querySelector('#timeline-graph [role="slider"]').setAttribute('aria-valuenow',String(Math.round(state.offset)));}
 function updateInspection(){
   const date=new Date(state.base.getTime()+state.offset*3600000);
   const obs=ephemeris(date,state.site.lat,state.site.lon);
@@ -483,6 +567,134 @@ function exportFinderCSV(){
   toast('All windows exported, with matched terrain differences where available');
 }
 
+// ---- Surface traverse planner ----
+const travelDestination=$('#travel-destination');
+const populateTravelDestinations=()=>{
+  if(state.site.custom)return;
+  travelDestination.innerHTML=SITES.filter(s=>s.id!==state.site.id)
+    .map(site=>`<option value="${site.id}">${escapeHTML(site.name)}  ·  ${escapeHTML(fmtCoord(site.lat,site.lon))}</option>`).join('');
+};
+function syncTravelFromMission(){
+  $('#travel-date').value=state.date;
+  $('#travel-time').value=state.time;
+  $('#travel-origin-name').textContent=state.site.name+' · '+fmtCoord(state.site.lat,state.site.lon);
+  populateTravelDestinations();
+  $('#travel-horizon-tag').textContent=state.terrain?'GEODESIC · '+state.terrain.source.toUpperCase():'GEODESIC · FLAT HORIZON';
+}
+let travelEstimate=null;
+function runTravelEstimate(){
+  const origin=state.site;
+  const target=SITES.find(s=>s.id===travelDestination.value);
+  if(!target){toast('Select a destination site');return;}
+  const date=$('#travel-date').value,time=$('#travel-time').value;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d\d:\d\d$/.test(time)){toast('Enter a valid UTC departure date and time.');return;}
+  const departUTC=`${date}T${time}:00Z`;
+  const speed=Number($('#travel-speed').value)||10;
+  const delay=Number($('#travel-delay').value)||0;
+  try{
+    travelEstimate=estimateSurfaceTraverse({
+      originLat:origin.lat,originLon:origin.lon,
+      destinationLat:target.lat,destinationLon:target.lon,
+      departUTC,speedKph:speed,delayHours:delay,
+      profile:origin.id===state.site.id?getCachedTerrain(origin):terrainProfiles.get(terrainKey(origin))||null
+    });
+    renderTravelResults(travelEstimate,origin,target);
+    toast('Surface traverse estimated');
+  }catch(e){toast(e.message||'Could not estimate the traverse.');}
+}
+function renderTravelResults(estimate,origin,target){
+  const v=estimate.visibility;
+  const sunLabel=s=>s?`${Number.isFinite(s)?s.toFixed(0):'—'}% illuminated`:'Sampling unavailable';
+  $('#travel-results').innerHTML=
+    `<div class="travel-summary"><div><small>ROUTE</small><strong>${escapeHTML(origin.name)} → ${escapeHTML(target.name)}</strong><span>${escapeHTML(fmtCoord(origin.lat,origin.lon))} → ${escapeHTML(fmtCoord(target.lat,target.lon))}</span></div>
+     <div><small>SURFACE DISTANCE</small><strong>${estimate.distanceKm.toFixed(1)} km</strong><span>Great-circle geodesic estimate</span></div>
+     <div><small>DRIVING TIME</small><strong>${estimate.drivingHours.toFixed(1)} h</strong><span>at ${estimate.speedKph} km/h average</span></div>
+     <div><small>TRAVERSE TOTAL</small><strong>${estimate.totalHours.toFixed(1)} h</strong><span>incl. ${estimate.delayHours.toFixed(1)} h operational delay</span></div></div>
+     <div class="travel-schedule"><div><small>DEPARTURE (UTC)</small><strong>${fmtUTC(estimate.departureUTC)}</strong></div><div><small>ARRIVAL (UTC)</small><strong>${fmtUTC(estimate.arrivalUTC)}</strong></div></div>
+     <div class="travel-visibility"><div><span>SUN VISIBILITY</span><strong>${v.sunIlluminatedPct.toFixed(0)}%</strong><small>${v.anyLimitedSolar?'some limited solar exposure along route':'continuous modeled illumination along route'}${estimate.terrainProfileApplied?' · origin terrain horizon applied':' · flat horizon'}</small></div>
+     <div><span>EARTH VISIBILITY</span><strong>${v.earthVisiblePct.toFixed(0)}%</strong><small>${v.anyEarthLimited?'some Earth geometric outages along route':'continuous geometric Earth visibility along route'}</small></div></div>
+     <p class="travel-caveat">${escapeHTML(estimate.limitation)} ${v.terrainApplied?'Loaded terrain at the origin was applied to horizon screening; terrain along the path itself was not sampled.':''}</p>`;
+}
+$('#travel-run').addEventListener('click',runTravelEstimate);
+$('#travel-sync').addEventListener('click',()=>{syncTravelFromMission();toast('Travel inputs synced to the current mission configuration');});
+$('#travel-speed').addEventListener('input',()=>{if(travelEstimate)runTravelEstimate();});
+$('#travel-delay').addEventListener('input',()=>{if(travelEstimate)runTravelEstimate();});
+$('#travel-date').addEventListener('change',()=>{if(travelEstimate)runTravelEstimate();});
+$('#travel-time').addEventListener('change',()=>{if(travelEstimate)runTravelEstimate();});
+$('#travel-destination').addEventListener('change',()=>{if(travelEstimate)runTravelEstimate();});
+syncTravelFromMission();
+$('#travel-horizon-tag').textContent=state.terrain?'GEODESIC · '+state.terrain.source.toUpperCase():'GEODESIC · FLAT HORIZON';
+
+// ---- Earth-to-Moon transit estimator ----
+const transitMode=$('#transit-mode');
+const transitProfile=$('#transit-profile');
+const transitCustomHours=$('#transit-custom-hours');
+const transitDate=$('#transit-date');
+const transitTime=$('#transit-time');
+function syncTransitFromMission(){
+  transitDate.value=state.date;
+  transitTime.value=state.time;
+  $('#transit-destination-tag').textContent='DESTINATION: '+state.site.name.toUpperCase();
+  if(!transitMode.value)transitMode.value='depart';
+}
+let transitEstimate=null;
+function runTransitEstimate(){
+  const date=transitDate.value,time=transitTime.value;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d\d:\d\d$/.test(time)){toast('Enter a valid UTC date and time.');return;}
+  const mode=transitMode.value==='land'?'land':'depart';
+  const profile=transitProfile.value==='extended'?'extended':transitProfile.value==='custom'?'custom':'direct';
+  const referenceHours=profile==='custom'?(Number(transitCustomHours.value)||100):null;
+  try{
+    transitEstimate=estimateEarthMoonTransit({
+      destination:{id:state.site.id,name:state.site.name,lat:state.site.lat,lon:state.site.lon},
+      profile,
+      referenceHours,
+      scheduleMode:mode,
+      departUTC:mode==='depart'?`${date}T${time}:00Z`:null,
+      landingUTC:mode==='land'?`${date}T${time}:00Z`:null
+    });
+    renderTransitResults(transitEstimate);
+    toast('Earth-to-Moon transit estimated');
+  }catch(e){toast(e.message||'Could not estimate the transit.');}
+}
+function renderTransitResults(estimate){
+  const dest=estimate.destination;
+  const destLabel=dest?`${dest.name}  ·  ${fmtCoord(dest.lat,dest.lon)}`:'Selected landing site';
+  $('#transit-results').innerHTML=
+    `<div class="transit-summary">
+       <div><small>DESTINATION</small><strong>${escapeHTML(dest?dest.name:'Selected site')}</strong><span>${escapeHTML(fmtCoord(dest.lat,dest.lon))}</span></div>
+       <div><small>TRANSIT PROFILE</small><strong>${escapeHTML(estimate.profileLabel)}</strong><span>${escapeHTML(estimate.totalTransitLabel)} total</span></div>
+       <div><small>EARTH DEPARTURE</small><strong>${fmtUTC(estimate.departureUTC)}</strong><span>${estimate.scheduleMode==='land'?'Back-calculated from landing':'Chosen departure'}</span></div>
+       <div><small>LUNAR ARRIVAL</small><strong>${fmtUTC(estimate.arrivalUTC)}</strong><span>${estimate.scheduleMode==='land'?'Target landing':'Arrival after transit'}</span></div>
+     </div>
+     <div class="transit-schedule">
+       <div><small>LUNAR ORBIT INSERTION</small><strong>${fmtUTC(estimate.phases.find(p=>p.kind==='insertion').endUTC)}</strong><span>Approx. LOI event</span></div>
+       <div><small>DESCENT START</small><strong>${fmtUTC(estimate.phases.find(p=>p.kind==='descent').startUTC)}</strong><span>Approx. powered descent</span></div>
+     </div>
+     <div class="transit-phases">
+       ${estimate.phases.map(p=>`<div class="transit-phase-row"><span class="transit-phase">${escapeHTML(p.phase)}</span><span class="transit-phase-labels">${p.kind.toUpperCase()}</span><span class="transit-phase-time">${p.durationHours.toFixed(1)} h</span><span class="transit-phase-time">${fmtUTC(p.startUTC)}</span></div>`).join('')}
+     </div>
+     <p class="transit-limitation">${escapeHTML(estimate.limitation)}</p>`;
+}
+$('#transit-run').addEventListener('click',runTransitEstimate);
+$('#transit-sync').addEventListener('click',()=>{syncTransitFromMission();toast('Transit inputs synced to the current mission configuration');});
+$('#transit-mode').addEventListener('change',()=>{if(transitEstimate)runTransitEstimate();});
+$('#transit-profile').addEventListener('change',()=>{
+  $('#transit-custom-hours').disabled=$('#transit-profile').value!=='custom';
+  const profile=$('#transit-profile').value;
+  $('#transit-profile-tag').textContent={
+    direct:'REFERENCE ~3.5 DAYS · NOT A TRAJECTORY SOLVER',
+    extended:'REFERENCE ~7.5 DAYS · LOW-ENERGY FAMILY',
+    custom:'CUSTOM DURATION · OPERATOR-SUPPLIED'
+  }[profile]||'REFERENCE DURATIONS';
+  if(transitEstimate)runTransitEstimate();
+});
+$('#transit-custom-hours').addEventListener('input',()=>{if(transitEstimate&&$('#transit-profile').value==='custom')runTransitEstimate();});
+$('#transit-date').addEventListener('change',()=>{if(transitEstimate)runTransitEstimate();});
+$('#transit-time').addEventListener('change',()=>{if(transitEstimate)runTransitEstimate();});
+syncTransitFromMission();
+$('#transit-hint').textContent='Direct transfer reference ~3.5 days. Extended low-energy references ~7.5 days. Destination auto-uses your selected landing site.';
+
 // Events
 siteSelect.addEventListener('change',()=>{const s=SITES.find(x=>x.id===siteSelect.value);if(s)selectSite(s);});
 document.querySelectorAll('#duration button').forEach(b=>b.addEventListener('click',()=>{state.days=Number(b.dataset.days);document.querySelectorAll('#duration button').forEach(x=>x.classList.toggle('selected',x===b));stopPlay();updateAnalysis();}));
@@ -624,4 +836,56 @@ initOnboarding({
   navigateView:page=>showPage(page,{scroll:true}),
   getPage:()=>currentPage
 });
+
+// ---- Gemini mission assistant ----
+function assistantContext(){
+  const inspectionUTC = state.base
+    ? new Date(state.base.getTime() + state.offset * 3600000).toISOString()
+    : null;
+  const stats = (state && state.samples && state.samples.length)
+    ? summarize(state.samples)
+    : null;
+  const best = (state && state.samples && state.samples.length)
+    ? longestDualWindow(state.samples)
+    : null;
+  return {
+    site: state.site || null,
+    date: state.date, time: state.time, days: state.days, offset: state.offset,
+    inspectionUTC, route: currentPage, isCustom: Boolean(state.site?.custom),
+    terrain: state.terrain || null,
+    simulation: state.simulation || null,
+    missionSummary: stats ? {
+      sunPct: stats.sun, earthPct: stats.earth, dualPct: stats.dual,
+      longestBlackoutHours: stats.longestBlackoutHours,
+      bestDualHours: best && best.hours ? best.hours : 0
+    } : null,
+    finder: state.finder || null,
+    terrainProfiles: Object.fromEntries(terrainProfiles.entries()),
+    transit: (typeof transitEstimate !== 'undefined' && transitEstimate) ? {
+      model: transitEstimate.model,
+      profile: transitEstimate.profile,
+      profileLabel: transitEstimate.profileLabel,
+      destination: transitEstimate.destination,
+      totalTransitHours: transitEstimate.totalTransitHours,
+      departureUTC: transitEstimate.departureUTC,
+      arrivalUTC: transitEstimate.arrivalUTC,
+      scheduleMode: transitEstimate.scheduleMode
+    } : null
+  };
+}
+initMissionAssistant({
+  root: $('#assistant-root'),
+  fab: $('#assistant-fab'),
+  panel: $('#assistant-panel'),
+  messages: $('#assistant-messages'),
+  input: $('#assistant-input'),
+  send: $('#assistant-send'),
+  close: $('#assistant-close'),
+  newConversation: $('#assistant-new'),
+  context: $('#assistant-context'),
+  toolsEl: $('#assistant-tools'),
+  contextText: $('#assistant-context-text'),
+  getContext: assistantContext
+});
+refreshAssistantContext();
 

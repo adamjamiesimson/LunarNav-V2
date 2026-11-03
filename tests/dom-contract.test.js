@@ -58,6 +58,42 @@ test('Multipage workspace keeps all live tool DOM nodes while showing one view a
  assert.match(app,/navigatePage\('engineering'\)/);
 });
 
+test('Earth-to-Moon transit estimator lives once, inside the Mission Windows page',()=>{
+  // Exactly one journey section exists and it is a descendant of the windows app-view.
+  assert.equal(html.split('id=\"transit\"').length-1,1,'exactly one transit section is allowed in the DOM');
+  const views=['home','explore','engineering','windows','compare','science'];
+  const transitSection=html.indexOf('id=\"transit\"');
+  for(const view of views){
+    const start=html.indexOf('data-view=\"'+view+'\"');
+    assert.ok(start>0, 'view exists: '+view);
+    let end;
+    if(view==='home')end=html.indexOf('data-view=\"explore\"');
+    else if(view==='explore')end=html.indexOf('data-view=\"engineering\"');
+    else if(view==='engineering')end=html.indexOf('data-view=\"windows\"');
+    else if(view==='windows')end=html.indexOf('data-view=\"compare\"');
+    else if(view==='compare')end=html.indexOf('data-view=\"science\"');
+    else end=html.length;
+    if(view!=='windows'){
+      assert.ok(transitSection<start||transitSection>=end,view+' must not contain the transit section');
+    }else{
+      assert.ok(transitSection>start&&transitSection<end,'transit section must be inside the Mission Windows view');
+    }
+  }
+  // It sits immediately after the windows page heading and before the finder shell.
+  assert.ok(transitSection>html.indexOf('data-view=\"windows\"'),'transit section is inside the windows view');
+  assert.ok(transitSection<html.indexOf('finder-shell'),'transit section appears before the finder analysis tools');
+  assert.ok(transitSection<html.indexOf('data-view=\"compare\"'),'transit section never leaks into the comparison page');
+  assert.match(html,/Plan your journey to the Moon/i);
+  assert.match(html,/02B \/ JOURNEY/,'journey numbering follows the Mission Windows section sequence');
+  for(const id of ['transit-mode','transit-date','transit-time','transit-profile','transit-custom-hours',
+    'transit-run','transit-sync','transit-results','transit-hint','transit-destination-tag','transit-profile-tag']){
+    assert.ok(html.includes('id="'+id+'"'),'Missing transit control: '+id);
+    assert.ok(app.includes("'#"+id+"'"),'Missing transit JS integration for: '+id);
+  }
+  assert.match(app,/estimateEarthMoonTransit/);
+  assert.match(build,/src\/transit\.js/);
+});
+
 test('Earth and Sun are part of the existing Moon globe, not a separate 3D scene',()=>{
  const globe=readFileSync(new URL('../src/globe.js',import.meta.url),'utf8');
  for(const id of ['celestial-view','celestial-scrubber','celestial-play','celestial-speed','celestial-clock','celestial-reset']){
