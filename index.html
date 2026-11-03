@@ -136,33 +136,7 @@
       </section>
 
       </div>
-<section class="transit-section" id="transit" aria-label="Earth-to-Moon transit planning">
-        <div class="section-title-row transit-heading">
-          <div><span class="section-n">06 / JOURNEY</span><h2>Plan your journey to the Moon<span class="accent-stop">.</span></h2><p>Estimate the spacecraft's journey from Earth to your selected lunar landing site. This planning estimate uses reference transfer durations — it is not a trajectory or delta-v solver.</p></div>
-          <span class="sim-tag" id="transit-profile-tag">REFERENCE DURATIONS · NOT A TRAJECTORY SOLVER</span>
-        </div>
-        <div class="panel transit-panel">
-          <div class="panel-head compact"><div><span class="section-n">EARTH → MOON</span><h3>Transit estimator</h3></div><span class="sim-tag" id="transit-destination-tag">DESTINATION: MONS MOUTON</span></div>
-          <p class="terrain-intro">Estimate how long the spacecraft takes to travel from Earth to your <strong>currently selected landing site</strong>. You can anchor the estimate on an Earth departure time or on a desired lunar landing time.</p>
-          <div class="transit-fields">
-            <label>ANCHOR<select id="transit-mode"><option value="depart">Earth departure time</option><option value="land">Desired landing time</option></select></label>
-            <label>UTC DATE<input type="date" id="transit-date" min="2025-01-01" max="2040-12-31" /></label>
-            <label>UTC TIME<input type="time" id="transit-time" step="3600" /></label>
-            <label>TRANSFER PROFILE<select id="transit-profile">
-              <option value="direct">Direct transfer (~3–4 days)</option>
-              <option value="extended">Extended / fuel-efficient (~7.5 days)</option>
-              <option value="custom">Custom transit duration</option>
-            </select></label>
-            <label>CUSTOM DURATION · h<input type="number" id="transit-custom-hours" min="48" max="720" step="1" value="100" disabled /></label>
-          </div>
-          <div class="transit-actions">
-            <button id="transit-run" class="top-primary" type="button">Estimate transit →</button>
-            <button id="transit-sync" class="outline-button" type="button">Sync to mission</button>
-            <span class="transit-hint" id="transit-hint">Direct transfer reference ~3.5 days. Destination auto-uses your selected landing site.</span>
-          </div>
-          <div id="transit-results" class="transit-results" aria-live="polite"></div>
-        </div>
-      </section>
+
       <section class="engineering-section app-view" data-view="engineering" id="engineering" hidden aria-label="Lunar mission feasibility">
         <div class="context-bar"><span>ACTIVE MISSION</span><strong id="engineering-context">Selected lunar study site</strong><a data-route="explore" href="/explore">Change site & date in Explorer ↗</a></div>
         <div class="section-title-row engineering-heading">
@@ -227,6 +201,33 @@
 
       <section class="finder-section app-view" data-view="windows" id="finder" hidden aria-label="Find mission windows across sites and dates">
         <div class="section-title-row finder-heading"><div><span class="section-n">02 / MISSION WINDOWS</span><h2>The right place. <em>The right time.</em></h2><p>Compare candidate lunar sites and start dates together. Discover when geometric sunlight and direct-to-Earth opportunities overlap.</p></div><span class="sim-tag" id="finder-model-badge">GEOMETRIC HORIZON · EXPERIMENTAL</span></div>
+        <section class="transit-section" id="transit" aria-label="Earth-to-Moon transit planning">
+        <div class="section-title-row transit-heading">
+          <div><span class="section-n">02B / JOURNEY</span><h2>Plan your journey to the Moon<span class="accent-stop">.</span></h2><p>Estimate the spacecraft's journey from Earth to your selected lunar landing site. This planning estimate uses reference transfer durations — it is not a trajectory or delta-v solver.</p></div>
+          <span class="sim-tag" id="transit-profile-tag">REFERENCE DURATIONS · NOT A TRAJECTORY SOLVER</span>
+        </div>
+        <div class="panel transit-panel">
+          <div class="panel-head compact"><div><span class="section-n">EARTH → MOON</span><h3>Transit estimator</h3></div><span class="sim-tag" id="transit-destination-tag">DESTINATION: MONS MOUTON</span></div>
+          <p class="terrain-intro">Estimate how long the spacecraft takes to travel from Earth to your <strong>currently selected landing site</strong>. You can anchor the estimate on an Earth departure time or on a desired lunar landing time.</p>
+          <div class="transit-fields">
+            <label>ANCHOR<select id="transit-mode"><option value="depart">Earth departure time</option><option value="land">Desired landing time</option></select></label>
+            <label>UTC DATE<input type="date" id="transit-date" min="2025-01-01" max="2040-12-31" /></label>
+            <label>UTC TIME<input type="time" id="transit-time" step="3600" /></label>
+            <label>TRANSFER PROFILE<select id="transit-profile">
+              <option value="direct">Direct transfer (~3–4 days)</option>
+              <option value="extended">Extended / fuel-efficient (~7.5 days)</option>
+              <option value="custom">Custom transit duration</option>
+            </select></label>
+            <label>CUSTOM DURATION · h<input type="number" id="transit-custom-hours" min="48" max="720" step="1" value="100" disabled /></label>
+          </div>
+          <div class="transit-actions">
+            <button id="transit-run" class="top-primary" type="button">Estimate transit →</button>
+            <button id="transit-sync" class="outline-button" type="button">Sync to mission</button>
+            <span class="transit-hint" id="transit-hint">Direct transfer reference ~3.5 days. Destination auto-uses your selected landing site.</span>
+          </div>
+          <div id="transit-results" class="transit-results" aria-live="polite"></div>
+        </div>
+      </section>
         <div class="panel finder-shell">
           <div class="finder-toolbar">
             <label>SCAN START · UTC<input type="date" id="finder-date" value="2026-11-14" min="2025-01-01" max="2036-12-31" /></label>

@@ -257,7 +257,7 @@ The Engineering page includes a surface traverse estimator: pick an origin (defa
 
 ## Earth-to-Moon transit estimator (Phase 8)
 
-The Explore tab closes with a **Plan your journey to the Moon** section. It estimates how long the spacecraft takes to travel from Earth to the currently selected lunar landing site. This is deliberately **not** a trajectory solver: it uses transparent, configurable reference transfer durations so no false precision is presented.
+The Mission Windows page opens with a **Plan your journey to the Moon** section, right below the page introduction and before the mission-window analysis tools. It estimates how long the spacecraft takes to travel from Earth to the currently selected lunar landing site. This is deliberately **not** a trajectory solver: it uses transparent, configurable reference transfer durations so no false precision is presented.
 
 - **Transfer profiles**: `direct` (reference ~3.5 days, 3–4 day direct family), `extended` (low-energy / fuel-efficient family, ~7.5 days), and `custom` (operator-supplied hours).
 - **Anchoring**: estimate either forward from an Earth departure UTC time, or *backward* from a desired lunar landing UTC time (departure is back-calculated by subtracting the transit duration).

@@ -722,9 +722,9 @@ body.tour-is-active{overscroll-behavior:none}
 @media(max-width:760px){.travel-fields{grid-template-columns:1fr 1fr}.travel-summary{grid-template-columns:1fr 1fr}.travel-schedule,.travel-visibility{grid-template-columns:1fr}}
 @media(max-width:420px){.travel-fields{grid-template-columns:1fr}.travel-summary{grid-template-columns:1fr}}
 
-/* ---- Earth-to-Moon transit estimator (bottom of Explorer) ---- */
-.transit-section{margin:0 28px 42px}
-.transit-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin:34px 0 16px}
+/* ---- Earth-to-Moon transit estimator (top of Mission Windows) ---- */
+.transit-section{margin:6px 28px 18px}
+.transit-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin:8px 0 16px}
 .transit-panel{padding:21px;border-top:1px solid var(--line)}
 .transit-fields{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin:14px 0 16px}
 .transit-fields select:disabled,.transit-fields input:disabled{opacity:.45;cursor:not-allowed}

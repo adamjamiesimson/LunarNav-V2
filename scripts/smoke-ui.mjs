@@ -59,21 +59,22 @@ try{
   await page.select('#site-select','malapert');
   await page.waitForFunction(()=>document.querySelector('#mission-source')?.textContent?.includes('Malapert'));
   if(!(await page.$eval('#sky-plot',node=>node.innerHTML.includes('LOCAL LOLA HORIZON'))))throw Error('Real NASA terrain skyline did not render');
-  // Earth-to-Moon transit estimator: visible on Explore, defaults to selected site, responds to CTA.
-  await page.waitForSelector('#transit',{timeout:15000});
+  // Earth-to-Moon transit estimator: lives on Mission Windows, defaults to
+  // the selected site, and responds to the CTA.
+  await page.click('a[data-route="windows"]');
+  await page.waitForFunction(()=>document.body.dataset.page==='windows',{timeout:15000});
+  await page.waitForFunction(()=>!!document.querySelector('#transit:not([hidden])'),{timeout:15000});
   const transitDestTag=await page.$eval('#transit-destination-tag',node=>node.textContent);
   if(!/MALAPERT/i.test(transitDestTag))throw Error('Transit destination did not follow selected site: '+transitDestTag);
   await page.click('#transit-run');
   await page.waitForFunction(()=>document.querySelector('#transit-results')?.innerHTML?.includes('LUNAR ARRIVAL'),{timeout:10000});
   const transitRun=await page.$eval('#transit-results',node=>node.textContent);
   if(!/Malapert/i.test(transitRun)&&!/Malapert/i.test(transitDestTag))throw Error('Transit result did not reference the selected destination');
-  await page.click('#hero-find');
   await page.select('#finder-mode','terrain');
   await page.waitForFunction(()=>!document.querySelector('#finder-impact')?.hidden,{timeout:25000});
   const cards=await page.$$eval('#finder-impact-items .finder-impact-card',els=>els.length);
   if(cards!==5)throw Error('Terrain finder should show five matched site cards; found '+cards);
-  // Measure the Explorer view — the surface this smoke run exercises (and the
-  // one that hosts the traverse + transit planners).
+  // Measure the Explorer view at mobile width for horizontal-overflow checks.
   await page.click('a[data-route="explore"]');
   await page.waitForFunction(()=>document.body.dataset.page==='explore'&&document.querySelector('#hud-sun')?.textContent!=='—',{timeout:20000});
   await page.setViewport({width:390,height:844,isMobile:true,hasTouch:true});
