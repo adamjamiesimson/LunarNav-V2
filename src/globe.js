@@ -15,6 +15,11 @@ import {skyBodies,hitCelestialBody,celestialSpin,horizontalToLunarVector} from '
 const D=Math.PI/180;
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const wrap=n=>((n%360)+360)%360;
+// Earth's spin axis is tilted 23.44° (obliquity) from the orbital-plane normal.
+// The shader maps the texture pole to (0,cos(pitch),-sin(pitch)), whose pitch=0
+// position lies in the orbital plane; obliquity-90° puts the pole 23.44° from
+// the orbital normal (+z, the lunar pole axis of this Moon-fixed scene).
+const EARTH_BASE_PITCH=(23.44-90)*D;
 const spherical=(lat,lon)=>[Math.cos(lat*D)*Math.cos(lon*D),Math.cos(lat*D)*Math.sin(lon*D),Math.sin(lat*D)];
 const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
 const norm=a=>{const d=Math.hypot(...a)||1;return a.map(x=>x/d);};
@@ -232,7 +237,7 @@ export function createMap(canvas,{onPick,onHover}){
    gl.uniform1f(u.elapsedDays,simulatedUTC/86400000);
    const bodies=['sun','earth','moon'],rotation=celestialSpin(simulatedUTC);
    gl.uniform3fv(u.spinYaw,bodies.map(name=>rotation[name]+manualSpin[name].yaw));
-   gl.uniform3fv(u.spinPitch,bodies.map(name=>manualSpin[name].pitch));
+   gl.uniform3fv(u.spinPitch,bodies.map(name=>(name==='earth'?EARTH_BASE_PITCH:0)+manualSpin[name].pitch));
    layout=skyBodies(a,sunlight,earthlight,w,h,0.87*zoom);
    for(const [name,key] of [['sun','sunSphere'],['earth','earthSphere']]){
      const sphere=layout[name];gl.uniform4f(u[key],...sphere.world,showSkyBodies&&sphere.visible?sphere.worldRadius:0);
