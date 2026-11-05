@@ -547,8 +547,8 @@ html[data-intro-loading] #intro-loader{visibility:visible;opacity:1;pointer-even
 body.tour-is-active{overflow:hidden}
 
 /* Mission assistant */
-.assistant-fab{position:fixed;right:16px;bottom:16px;z-index:64;display:flex;align-items:center;gap:6px;
-  background:var(--accent);color:var(--on-accent);border:0;border-radius:18px;padding:9px 15px;font-size:13px;font-weight:600}
+.assistant-fab{position:fixed;right:16px;bottom:16px;z-index:64;display:flex;align-items:center;gap:9px;
+  background:var(--accent);color:var(--on-accent);border:0;border-radius:27px;padding:14px 23px;font-size:20px;font-weight:600}
 .assistant-fab:hover{background:#74B28A}
 .assistant-root{position:fixed;inset:0;z-index:70;display:flex;justify-content:flex-end;pointer-events:none}
 .assistant-root[hidden]{display:none}
