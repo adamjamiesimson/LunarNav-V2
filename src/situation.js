@@ -33,7 +33,7 @@ export function buildSkyDiagram(obs,profile=null){
     const point=plotPosition(body.azimuth,body.elevation);
     const opacity=visible?1:0.48;
     return '<g opacity="'+opacity+'"><circle cx="'+point.x.toFixed(3)+'" cy="'+point.y.toFixed(3)+
-      '" r="9" fill="'+(visible?color:'#FFFFFF')+'" stroke="'+color+
+      '" r="9" fill="'+(visible?color:'#2A3137')+'" stroke="'+color+
       '" stroke-width="2" stroke-dasharray="'+(visible?'none':'3 3')+'"/>'+
       '<text x="'+(point.x+14).toFixed(3)+'" y="'+(point.y+3).toFixed(3)+
       '" fill="'+color+'" font-family="DM Mono,monospace" font-size="9">'+label+'</text>'+
@@ -46,23 +46,23 @@ export function buildSkyDiagram(obs,profile=null){
       const point=plotPosition(az,horizonAt(profile,az));
       return point.x.toFixed(2)+','+point.y.toFixed(2);
     }).join(' ');
-    skyline='<polygon points="'+points+'" fill="rgba(185,139,62,.08)" stroke="#B98B3E" stroke-width="2" stroke-linejoin="round"/>'+
-      '<text x="140" y="285" text-anchor="middle" fill="#8A6A2F" font-family="monospace" font-size="8">'+
+    skyline='<polygon points="'+points+'" fill="rgba(201,155,82,.10)" stroke="#C99B52" stroke-width="2" stroke-linejoin="round"/>'+
+      '<text x="140" y="285" text-anchor="middle" fill="#D9A85F" font-family="monospace" font-size="8">'+
       (profile.verifiedSource===true?'GOLD = LOCAL LOLA HORIZON':'GOLD = UNVERIFIED DEM HORIZON')+'</text>';
   }
-  const grid='<circle cx="140" cy="140" r="102" fill="#F2F3F2" stroke="#CCCCCC"/>'+
-    '<circle cx="140" cy="140" r="68" fill="none" stroke="#CCCCCC" stroke-dasharray="3 6"/>'+
-    '<circle cx="140" cy="140" r="34" fill="none" stroke="#CCCCCC" stroke-dasharray="3 6"/>'+
-    '<path d="M140 38V242 M38 140H242" stroke="#CCCCCC" stroke-dasharray="3 6"/>'+
-    '<text x="140" y="24" text-anchor="middle" fill="#666666" font-size="10">N</text>'+
-    '<text x="140" y="262" text-anchor="middle" fill="#666666" font-size="10">S</text>'+
-    '<text x="24" y="143" text-anchor="middle" fill="#666666" font-size="10">W</text>'+
-    '<text x="256" y="143" text-anchor="middle" fill="#666666" font-size="10">E</text>';
+  const grid='<circle cx="140" cy="140" r="102" fill="#22282C" stroke="#3A424A"/>'+
+    '<circle cx="140" cy="140" r="68" fill="none" stroke="#3A424A" stroke-dasharray="3 6"/>'+
+    '<circle cx="140" cy="140" r="34" fill="none" stroke="#3A424A" stroke-dasharray="3 6"/>'+
+    '<path d="M140 38V242 M38 140H242" stroke="#3A424A" stroke-dasharray="3 6"/>'+
+    '<text x="140" y="24" text-anchor="middle" fill="#98A2A8" font-size="10">N</text>'+
+    '<text x="140" y="262" text-anchor="middle" fill="#98A2A8" font-size="10">S</text>'+
+    '<text x="24" y="143" text-anchor="middle" fill="#98A2A8" font-size="10">W</text>'+
+    '<text x="256" y="143" text-anchor="middle" fill="#98A2A8" font-size="10">E</text>';
   return '<svg viewBox="0 0 280 290" role="img" aria-label="Local sky visibility, with Sun and Earth positions'+
     (profile?(profile.verifiedSource===true?' and NASA-derived local terrain horizon':' and user-supplied unverified terrain horizon'):' and geometric horizon')+'">'+grid+skyline+
-    trace(obs.sun,'#B98B3E','SUN',situation.sunVisible,situation.sunBarrier)+
-    trace(obs.earth,'#41707D','EARTH',situation.earthVisible,situation.earthBarrier)+
-    '<circle cx="140" cy="140" r="3" fill="#666666"/></svg>';
+    trace(obs.sun,'#C99B52','SUN',situation.sunVisible,situation.sunBarrier)+
+    trace(obs.earth,'#6FA6B5','EARTH',situation.earthVisible,situation.earthBarrier)+
+    '<circle cx="140" cy="140" r="3" fill="#98A2A8"/></svg>';
 }
 
 /** Find the next sampled transition of local Sun or Earth horizon visibility.

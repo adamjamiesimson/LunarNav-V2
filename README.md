@@ -197,7 +197,7 @@ The primary LunarNav interface now focuses on two immediate mission questions: *
 
 ### Experience and interactions
 
-- A compact, light-themed landing page puts **Open the lunar explorer** and **Find a mission window** first.
+- A compact, dark-themed landing page puts **Open the lunar explorer** and **Find a mission window** first.
 - The previously hard-coded \`86.7°S\` mission-context card is replaced by **actual selected-site Sun/Earth local-horizon clearance angles** and a synchronized UTC mission HUD. Positive margins mean that body is above the currently selected local horizon; negative margins mean an obstruction under the approximate model. A warning appears when either margin is within 0.5° of the modeled horizon. This warning threshold is advisory, **not** a universal error guarantee.
 - The **local sky diagram** renders the azimuth-dependent horizon from the bundled NASA LOLA 80m-derived 20km horizon profiles as a gold boundary, with Sun/Earth markers showing whether each is above that horizon. When terrain isn't available, the diagram explicitly labels its fallback **0° geometric horizon**; manually uploaded, unverified DEM data is labeled as unverified rather than NASA.
 - The globe adds **Focus on site**, **Reset**, zoom, drag/keyboard orbit, and an immersive overlay with an **Esc** shortcut. When WebGL is unsupported, it keeps the schematic polar-map fallback. The image badge identifies whether NASA LROC imagery actually loaded; otherwise a procedural placeholder or schematic is shown.
