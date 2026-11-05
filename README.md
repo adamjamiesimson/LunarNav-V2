@@ -36,6 +36,8 @@ Deploy with Vercel (`vercel.json` builds to `dist/`). All client code is native 
 
 **Horizon models.** The timeline, site cards and comparison use the flat 0° horizon. Live site readouts, the sky plot, engineering screening and the Finder's terrain mode can use azimuth-dependent horizons derived from NASA LOLA 80 m DEM (20 km radius, 5° bins). Percentages from different horizon models are labelled and should not be compared as if identical.
 
+**Globe surface.** The Moon's texture is the NASA SVS LROC color global mosaic (`lroc_color_2k.jpg`, equirectangular projection), served same-origin through the Vercel rewrite and the local preview-server proxy because NASA's raw response carries no CORS headers. Without it the globe draws a procedural fallback surface and the image badge says so. To bundle the texture for offline use, save that file as `assets/lroc-color.jpg`; the build copies it when present.
+
 **Power model.** First-order only: horizontal fixed array, 1361 W/m², constant load, ideal battery, no thermal or RF link budget. Earth "access" is a geometric antenna mask, not a communications guarantee.
 
 ### Independent JPL Horizons benchmark

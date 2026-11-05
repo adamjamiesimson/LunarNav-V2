@@ -12,4 +12,10 @@ for(const file of ['index.html','src/app.js','src/astro.js','src/finder.js','src
 }
 mkdirSync(join(dist,'data'),{recursive:true});
 cpSync(join(base,'data/lola-horizons.json'),join(dist,'data/lola-horizons.json'));
+// Optional bundled NASA LROC surface texture (see README); the preview server
+// and the Vercel rewrite proxy it when the file is not present.
+if(existsSync(join(base,'assets/lroc-color.jpg'))){
+  mkdirSync(join(dist,'assets'),{recursive:true});
+  cpSync(join(base,'assets/lroc-color.jpg'),join(dist,'assets/lroc-color.jpg'));
+}
 console.log('Static production build created in dist/');
