@@ -77,7 +77,7 @@ A floating chat panel receives a compact snapshot of the live mission state and 
 
 ## Onboarding
 
-A skippable six-second loading screen (once per tab session) and an optional ten-step tour across the six pages (once per browser profile, replayable from the header **?** or the footer). Both can be skipped without losing access to any tool.
+A skippable six-second loading screen (once per tab session) and an optional ten-step tour across the six pages (once per browser profile, replayable from the **Take a tour** buttons in the header and on the overview page, or from the footer). Both can be skipped without losing access to any tool.
 
 ## Tests and CI
 

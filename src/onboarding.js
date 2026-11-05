@@ -159,7 +159,7 @@ export function initOnboarding({
   });
   tourSkip.addEventListener('click',stopTour);
   loaderSkip?.addEventListener('click',completeIntro);
-  for(const id of ['tour-help','restart-tour']){
+  for(const id of ['tour-help','restart-tour','home-tour']){
     doc.getElementById(id)?.addEventListener('click',startTour);
   }
   function handleKey(event){

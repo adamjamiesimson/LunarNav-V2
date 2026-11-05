@@ -28,6 +28,7 @@ test('tutorial is one time for each browser profile and replay remains available
   assert.equal(tourNeeded(storage),false);
   assert.match(html,/id="restart-tour"/);
   assert.match(html,/id="tour-help"/);
+  assert.match(html,/id="home-tour"/);
 });
 test('storage-denied browsers fail open and remain skippable',()=>{
   const unavailable={getItem(){throw Error('blocked')},setItem(){throw Error('blocked')}};

@@ -68,10 +68,10 @@ main{padding:0 clamp(14px,3vw,32px);min-height:calc(100vh - 140px)}
 .home-intro h1{font-size:26px}
 .home-lead{color:var(--muted);max-width:640px}
 .home-actions{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 12px}
-.home-actions a{padding:9px 14px;border-radius:4px;font-size:13px;font-weight:600;text-decoration:none}
+.home-actions a,.home-actions button{padding:9px 14px;border-radius:4px;font-size:13px;font-weight:600;text-decoration:none}
 .home-action-primary{background:var(--accent);color:var(--on-accent)}
 .home-action-secondary{background:var(--panel-alt);color:var(--text);border:1px solid var(--line)}
-.home-actions a:hover{filter:brightness(1.12)}
+.home-actions a:hover,.home-actions button:hover{filter:brightness(1.12)}
 .home-caveat{margin:0;font-size:12px;color:var(--muted)}
 .home-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:16px 0}
 .home-tool-card{display:block;background:var(--panel);border:1px solid var(--line);border-radius:4px;
