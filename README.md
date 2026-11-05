@@ -11,7 +11,7 @@ An independently built, transparent lunar south-pole mission-planning experience
 - Same-window ranked comparison of five study points (with individual coordinate provenance)
 - Simultaneous availability %, solar access %, Earth visibility %, longest continuous dual-access period, and longest sampled Earth blackout
 - Export sampled observations as CSV; generate/copy/print mission briefing; share URL state
-- Responsive, high-contrast UI without build-time client dependencies
+- Responsive UI without build-time client dependencies
 - Explicit scientific disclaimers and linked primary references
 
 ## Run locally
@@ -197,7 +197,7 @@ The primary LunarNav interface now focuses on two immediate mission questions: *
 
 ### Experience and interactions
 
-- A streamlined, high-contrast dark landing experience puts **Explore the Moon** and **Find the best window** first.
+- A compact, light-themed landing page puts **Open the lunar explorer** and **Find a mission window** first.
 - The previously hard-coded \`86.7°S\` mission-context card is replaced by **actual selected-site Sun/Earth local-horizon clearance angles** and a synchronized UTC mission HUD. Positive margins mean that body is above the currently selected local horizon; negative margins mean an obstruction under the approximate model. A warning appears when either margin is within 0.5° of the modeled horizon. This warning threshold is advisory, **not** a universal error guarantee.
 - The **local sky diagram** renders the azimuth-dependent horizon from the bundled NASA LOLA 80m-derived 20km horizon profiles as a gold boundary, with Sun/Earth markers showing whether each is above that horizon. When terrain isn't available, the diagram explicitly labels its fallback **0° geometric horizon**; manually uploaded, unverified DEM data is labeled as unverified rather than NASA.
 - The globe adds **Focus on site**, **Reset**, zoom, drag/keyboard orbit, and an immersive overlay with an **Esc** shortcut. When WebGL is unsupported, it keeps the schematic polar-map fallback. The image badge identifies whether NASA LROC imagery actually loaded; otherwise a procedural placeholder or schematic is shown.
@@ -287,12 +287,12 @@ Callable tools reuse the existing modules directly (`src/tools.js` on the server
 
 Because the API key stays server-side, the static preview without `GEMINI_API_KEY` degrades gracefully: the assistant opens and shows a clear configuration message instead of crashing.
 
-## Branded welcome and first-visit tutorial
+## Welcome and first-visit tutorial
 
-LunarNav features a skippable **six-second branded lunar intro** once per browser tab session. It is a cinematic welcome animation (not a claim that NASA data is downloading), with a CSS progress track, orbital visuals, and an immediately accessible **Skip intro** button. Reopening another page within that tab, or refreshing it, does not repeat the splash. A 9.5-second emergency CSS fallback removes the screen if the main application fails to start.
+LunarNav shows a skippable **six-second loading screen** once per browser tab session: a plain title, a CSS progress track and an immediately accessible **Skip** button. It is not a claim that NASA data is downloading. Reopening another page within that tab, or refreshing it, does not repeat it. A 9.5-second emergency CSS fallback removes the screen if the main application fails to start.
 
 On a **new visitor's first visit**, the intro is followed by a guided ten-step tour that highlights real interface elements across the six pages: overview, lunar globe, mission parameters, Sun/Earth visibility and local terrain, timeline, mission window discovery, terrain-aware Finder mode, engineering lab, site comparison, and scientific sources. The steps preview different pages **without replacing the current URL or modifying the selected site/date**. They display contextual explanations, step progress, Next/Back/Skip buttons, keyboard Left/Right navigation and Escape, a focus-contained dialog, a dimmed spotlight, and a mobile-specific layout.
 
-The tutorial completion/skip state is kept in browser **localStorage**. Users who completed or skipped the tour do not see it again automatically on the same browser profile; they can launch it again using the header **?** button or footer **Take a tour** action. The loading screen uses **sessionStorage** so it appears only once in each tab session. When browser storage is denied, the experience remains skippable and does not crash. No login, personal information upload or tracking is required.
+The tutorial completion/skip state is kept in browser **localStorage**. Users who completed or skipped the tour do not see it again automatically on the same browser profile; they can launch it again using the header **?** button or footer **Take the tour** action. The loading screen uses **sessionStorage** so it appears only once in each tab session. When browser storage is denied, the experience remains skippable and does not crash. No login, personal information upload or tracking is required.
 
 Automated tests cover all ten steps, storage failures, the first six-second intro, persistence, reload, replay, mobile skip and a full browser navigation pass. The splash and tour can be skipped without losing access to the underlying analytical model.

@@ -9,26 +9,26 @@ export const TOUR_DONE_KEY='lunarnav:onboarding:complete:v1';
 export const INTRO_DURATION_MS=6000;
 
 export const TOUR_STEPS=Object.freeze([
-  {page:'home',target:'.home-intro',title:'Welcome to mission control.',
-   description:'LunarNav is your home for exploring the Moon’s south pole. Each mission tool now has its own page, so you can focus on one decision at a time.'},
-  {page:'explore',target:'.map-panel',title:'Explore the lunar globe.',
-   description:'Drag to orbit, zoom into the south polar region, select study sites, and focus or expand the interactive Moon. The globe image is illustrative, not a terrain hazard map.'},
-  {page:'explore',target:'.control-panel',title:'Choose your mission.',
-   description:'Select a site, set your start date in UTC, and choose a 3–28 day mission window. These choices carry across all the tools.'},
+  {page:'home',target:'.home-intro',title:'Welcome to LunarNav.',
+   description:'Each tool has its own page: explorer, mission windows, engineering, comparison and science.'},
+  {page:'explore',target:'.map-panel',title:'Explore the globe.',
+   description:'Drag to rotate the Moon, pick a study site, and use the focus and zoom controls.'},
+  {page:'explore',target:'.control-panel',title:'Set the mission.',
+   description:'Choose a site, a UTC start date and a 3–28 day window; these carry across all tools.'},
   {page:'explore',target:'.status-panel',title:'Follow the Sun and Earth.',
-   description:'See the local sky, Sun and Earth elevation, and the modeled horizon. Where NASA-derived terrain is loaded, the gold skyline shows approximate local obstructions.'},
-  {page:'explore',target:'.timeline-panel',title:'Rewind, replay, and find transitions.',
-   description:'Explore the visibility timeline, move time forward or back six hours, and jump to the next modeled Sun/Earth horizon event.'},
-  {page:'windows',target:'.finder-shell',title:'Discover better mission windows.',
-   description:'Scan potential dates across lunar sites. The heatmap ranks opportunities; selecting a result opens that same location and window in the Explorer.'},
-  {page:'windows',target:'.finder-toolbar',title:'Account for local terrain.',
-   description:'Switch between geometric and loaded LOLA horizon models, adjust ranking priorities, and export candidate windows with terrain-impact comparisons.'},
-  {page:'engineering',target:'.engineering-controls',title:'Test surface system designs.',
-   description:'Adjust solar panel area, conversion efficiency, battery capacity, and power demand. View the modeled energy balance and load elevation data when needed.'},
-  {page:'compare',target:'#site-comparison',title:'Compare candidate sites.',
-   description:'Review five lunar study locations under consistent UTC assumptions. Open a site to inspect it or export the comparison as a CSV.'},
-  {page:'science',target:'.science-feature',title:'Explore the methods and limitations.',
-   description:'Inspect NASA data provenance, independent JPL reference checks, and where our simplified models stop. The results are screening estimates, not flight-ready recommendations.'}
+   description:'Elevations, the local sky plot and horizon margins update for the selected time.'},
+  {page:'explore',target:'.timeline-panel',title:'Move through time.',
+   description:'Drag the timeline or step six hours at a time to inspect visibility changes.'},
+  {page:'windows',target:'.finder-shell',title:'Find mission windows.',
+   description:'The heatmap ranks candidate start dates across sites for your mission length.'},
+  {page:'windows',target:'.finder-toolbar',title:'Compare horizon models.',
+   description:'Switch between geometric and loaded LOLA terrain screening, then export results.'},
+  {page:'engineering',target:'.engineering-controls',title:'Screen the power budget.',
+   description:'Adjust solar array, battery and load assumptions to test surface feasibility.'},
+  {page:'compare',target:'#site-comparison',title:'Compare study sites.',
+   description:'All five locations are scored for the same UTC window; open one to inspect it.'},
+  {page:'science',target:'.science-feature',title:'Read the limitations.',
+   description:'Data sources, JPL benchmark results and model limits are documented here.'}
 ]);
 
 function readStorage(storage,key){
