@@ -213,10 +213,10 @@ try{
   const duration=Date.now()-start;
   assert(duration>=5500&&duration<=11000,'intro timing outside expected six-second range: '+duration+'ms');
   await visitor.locator('#tour-root').waitFor({state:'visible',timeout:4000});
-  assert(await visitor.locator('#tour-title').textContent()==='Welcome to mission control.',
+  assert(await visitor.locator('#tour-title').textContent()==='Step 1 — select a location.',
     'welcome tutorial step missing');
   await visitor.screenshot({path:'smoke-artifacts/tutorial.png',fullPage:false});
-  const expectedPages=['home','explore','explore','explore','explore','windows','windows','engineering','compare','science'];
+  const expectedPages=['explore','explore','explore'];
   for(let i=0;i<expectedPages.length;i++){
     assert((await visitor.locator('body').getAttribute('data-page'))===expectedPages[i],
       'tour step '+(i+1)+' failed to highlight '+expectedPages[i]);

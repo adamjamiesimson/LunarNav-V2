@@ -37,10 +37,9 @@ test('storage-denied browsers fail open and remain skippable',()=>{
   assert.match(html,/id="intro-skip"/);
   assert.match(html,/id="tour-skip"/);
 });
-test('guided tour explains every major module in the six-page workspace',()=>{
-  assert.equal(TOUR_STEPS.length,10);
-  assert.deepEqual([...new Set(TOUR_STEPS.map(s=>s.page))],
-    ['home','explore','windows','engineering','compare','science']);
+test('guided tour teaches the three-step planning workflow',()=>{
+  assert.equal(TOUR_STEPS.length,3);
+  assert.deepEqual([...new Set(TOUR_STEPS.map(s=>s.page))],['explore']);
   for(const step of TOUR_STEPS){
     assert.ok(PAGE_ROUTES[step.page]);
     assert.ok(step.title.length>=9);

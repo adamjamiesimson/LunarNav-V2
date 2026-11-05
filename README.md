@@ -6,14 +6,15 @@ An independently built, transparent lunar south-pole mission-planning prototype 
 
 - Interactive lunar south-pole globe (WebGL, NASA LROC texture when available, schematic fallback) with five study coordinates plus custom map-selected waypoints
 - UTC start date/time and 3/7/14/28-day mission windows; analytical Sun and Earth azimuth/elevation in a Moon-fixed frame, updated as time moves
-- Visibility timeline (sunlight / Earth link / both), draggable inspection clock, next-horizon-event search, local sky-dome plot
-- Same-window comparison of the five study points; simultaneous access %, solar access %, Earth visibility %, longest dual-access period, longest sampled Earth blackout
-- Mission Window Finder: 30/60 candidate start dates × sites heatmap, ranked windows, geometric or terrain-aware horizon modes, terrain-effect comparison, CSV export
+- Visibility timeline (sunlight / geometric Earth view / both), draggable inspection clock, next-horizon-event search, local sky-dome plot
+- Same-window comparison of the five study points plus a side-by-side comparison table (illumination, darkness, longest darkness, solar elevation, geometric Earth view, estimated solar energy), a shared per-site timeline, computed difference summaries, and a two-date mission-date comparison
+- Every results panel states which horizon model produced its numbers (NASA LOLA terrain horizon or an explicitly labelled flat 0° approximation)
+- Mission Window Finder: 30/60 candidate start dates × sites heatmap, ranked windows, geometric or terrain-aware horizon modes (terrain is the default when profiles are available), terrain-effect comparison, CSV export
 - Engineering screening: fixed solar array + battery simulation, Earth antenna elevation mask, state-of-charge chart, engineering CSV export
 - NASA LOLA terrain: bundled 20 km derived horizon profiles for all five study sites, on-demand GeoTIFF byte-range loading, local `.tif` import
 - Surface traverse estimator (geodesic distance, drive time, sampled visibility en route) and Earth-to-Moon transit estimator (reference-duration scheduling, not a trajectory solver)
 - Mission briefing (copy/print), shareable URLs, Gemini-powered mission assistant (optional)
-- Six-page workspace (overview / explore / windows / engineering / compare / science) with a small History API router
+- Six-page workspace (overview / explore / mission windows / compare / engineering / science) with a small History API router
 
 ## Running locally
 
@@ -34,7 +35,7 @@ Deploy with Vercel (`vercel.json` builds to `dist/`). All client code is native 
 
 **Ephemeris.** `src/astro.js` implements a truncated lunar/solar geocentric series (Meeus/NOAA style) with the IAU 2015 lunar rotation model, converted to local azimuth/elevation over a spherical Moon with a level 0° geometric horizon. Sun/Earth visibility counts the body's *center* above the horizon, sampled every two hours (four hours in the Finder and comparator). No eclipses, limb corrections, light-time, spacecraft shadows or surface hazards are modelled.
 
-**Horizon models.** The timeline, site cards and comparison use the flat 0° horizon. Live site readouts, the sky plot, engineering screening and the Finder's terrain mode can use azimuth-dependent horizons derived from NASA LOLA 80 m DEM (20 km radius, 5° bins). Percentages from different horizon models are labelled and should not be compared as if identical.
+**Horizon models.** One visibility rule runs everywhere: a body counts as visible when its center is above the terrain horizon in that azimuth, where a NASA LOLA profile exists (20 km radius, 5° bins), and above the 0° geometric horizon otherwise — in which case every panel labels the result as a simplified flat-horizon approximation. Timeline, live readouts, comparison, engineering and the Finder all sample through this rule, so no two sections can disagree. Percentages from different horizon models are labelled and should not be compared as if identical.
 
 **Globe surface.** The Moon's texture is the NASA SVS LROC color global mosaic (`lroc_color_2k.jpg`, equirectangular projection), served same-origin through the Vercel rewrite and the local preview-server proxy because NASA's raw response carries no CORS headers. Without it the globe draws a procedural fallback surface and the image badge says so. To bundle the texture for offline use, save that file as `assets/lroc-color.jpg`; the build copies it when present.
 
@@ -75,11 +76,11 @@ npm run check:lola                                          # NASA DEM availabil
 
 ## Mission assistant (Gemini)
 
-A floating chat panel receives a compact snapshot of the live mission state and answers questions through Gemini function calling. `api/chat.js` (Vercel function) holds the API key (`GEMINI_API_KEY`, optional `GEMINI_MODEL`, default `gemini-3.8-flash`, optional `GEMINI_FALLBACK_MODELS`), sanitises all context, and runs a bounded tool loop (25 s per-call timeout, fallback model chain, per-model circuit breaker) against `src/tools.js` — the same calculation modules the planner uses (`src/tool-executor.js` is a thin browser-side entry point to that same implementation). The assistant can only call the ten declared tools; it cannot execute arbitrary code. Without a key it opens and shows a configuration message. History stays in browser memory/sessionStorage.
+A **AI assistant** link in the footer opens a chat panel that receives a compact snapshot of the live mission state and answers questions through Gemini function calling. `api/chat.js` (Vercel function) holds the API key (`GEMINI_API_KEY`, optional `GEMINI_MODEL`, default `gemini-3.8-flash`, optional `GEMINI_FALLBACK_MODELS`), sanitises all context, and runs a bounded tool loop (25 s per-call timeout, fallback model chain, per-model circuit breaker) against `src/tools.js` — the same calculation modules the planner uses (`src/tool-executor.js` is a thin browser-side entry point to that same implementation). The assistant can only call the ten declared tools; it cannot execute arbitrary code. Without a key it opens and shows a configuration message. History stays in browser memory/sessionStorage.
 
 ## Onboarding
 
-A skippable six-second loading screen (once per tab session) and an optional ten-step tour across the six pages (once per browser profile, replayable from the **Take a tour** buttons in the header and on the overview page, or from the footer). Both can be skipped without losing access to any tool.
+A skippable six-second loading screen (once per tab session) and an optional three-step tour of the core workflow — select a location, select a mission date, explore mission conditions (once per browser profile, replayable from the **Take the tour** buttons or the footer). Both can be skipped without losing access to any tool.
 
 ## Tests and CI
 

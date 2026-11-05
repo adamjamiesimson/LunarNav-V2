@@ -180,20 +180,21 @@ function runCalculateCelestialConditions(args,context){
     caveat:'Analytical ephemeris ±~0.5° samples; decisions near the horizon are uncertain; geometric visibility, not a link budget.'
   };
 }
-function runAnalyzeMissionWindow(args){
+function runAnalyzeMissionWindow(args,context){
   const days=num(args.days,'days');
   const start=new Date(str(args.startUTC));
   if(Number.isNaN(start.getTime())||days<1||days>31)throw new Error('Invalid mission window start/duration');
   const stepHours=args.stepHours?num(args.stepHours,'stepHours'):2;
-  const samples=sampleWindow({start,days,stepHours,lat:num(args.lat,'lat'),lon:num(args.lon,'lon')});
+  const profile=contextProfile(context);
+  const samples=sampleWindow({start,days,stepHours,lat:num(args.lat,'lat'),lon:num(args.lon,'lon'),profile});
   const stats=summarize(samples);
   const best=longestDualWindow(samples);
   return {startUTC:start.toISOString(),days,stepHours,
     solarAvailabilityPct:stats.sun,earthVisibilityPct:stats.earth,simultaneousVisibilityPct:stats.dual,
     longestEarthBlackoutHours:stats.longestBlackoutHours,
     longestDualWindowHours:best.hours,bestDualStartUTC:best.start,bestDualEndUTC:best.end,
-    model:'analytical-screening-v1, '+stepHours+'h samples, 0° geometric horizon',
-    caveat:'Two-hour sample-based estimates selected.'};
+    model:'analytical-screening-v1, '+stepHours+'h samples, '+(profile?'NASA LOLA terrain horizon':'0° geometric horizon'),
+    caveat:profile?'Terrain-aware sample estimates.':'Two-hour flat-horizon sample estimates (no terrain profile in context).'};
 }
 function runCompareLocations(args, context){
   const base=contextBaseUTC(context);

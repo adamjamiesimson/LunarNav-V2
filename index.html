@@ -38,7 +38,7 @@
     <div id="tour-backdrop" aria-hidden="true"></div>
     <div id="tour-spotlight" aria-hidden="true"></div>
     <div id="tour-dialog" role="dialog" aria-modal="true" aria-labelledby="tour-title" aria-describedby="tour-description" tabindex="-1">
-      <div class="tour-topline"><span class="tour-counter" id="tour-counter">01 / 10</span><button id="tour-skip" type="button">Skip tour</button></div>
+      <div class="tour-topline"><span class="tour-counter" id="tour-counter">01 / 03</span><button id="tour-skip" type="button">Skip tour</button></div>
       <h2 id="tour-title">Welcome to LunarNav.</h2>
       <p id="tour-description">A short tour of the main tools.</p>
       <div class="tour-progress" id="tour-progress" aria-hidden="true"></div>
@@ -51,10 +51,10 @@
       <a class="brand" href="/" data-route="home"><strong>LunarNav</strong></a>
       <nav class="main-nav" aria-label="Primary navigation">
         <a class="nav-link" data-route="home" href="/">Overview</a>
-        <a class="nav-link" data-route="explore" href="/explore">Explore</a>
-        <a class="nav-link" data-route="windows" href="/windows">Mission windows</a>
+        <a class="nav-link" data-route="explore" href="/explore">Explore Locations</a>
+        <a class="nav-link" data-route="windows" href="/windows">Mission Windows</a>
+        <a class="nav-link" data-route="compare" href="/compare">Compare Sites</a>
         <a class="nav-link" data-route="engineering" href="/engineering">Engineering</a>
-        <a class="nav-link" data-route="compare" href="/compare">Compare sites</a>
         <a class="nav-link" data-route="science" href="/science">Science</a>
       </nav>
       <div class="top-actions">
@@ -209,9 +209,9 @@
             <div class="panel timeline-panel">
               <div class="panel-head compact">
                 <h2>Operational visibility</h2>
-                <div class="time-legend"><span><i class="sun-color"></i> Sunlight</span><span><i class="earth-color"></i> Earth link</span><span><i class="dual-color"></i> Both</span></div>
+                <div class="time-legend"><span><i class="sun-color"></i> Sun above horizon</span><span><i class="earth-color"></i> Geometric Earth view</span><span><i class="dual-color"></i> Both</span></div>
               </div>
-              <div class="timeline-hint">Drag or click to change the UTC inspection time. The timeline uses the geometric horizon; loaded terrain affects live readouts and the Window Finder.</div>
+              <div class="timeline-hint">Drag or click to change the UTC inspection time. <span class="model-badge" id="timeline-model">—</span></div>
               <div class="timeline-graph" id="timeline-graph" role="group" aria-label="Sunlight, Earth and simultaneous operational visibility over time"></div>
               <div class="timeline-bottom"><span id="timeline-start">14 NOV 2026</span><span>TIME (UTC) →</span><span id="timeline-end">21 NOV 2026</span></div>
             </div>
@@ -236,9 +236,9 @@
                 <div><span>SIMULTANEOUS ACCESS</span><div class="hero-value"><strong id="dual-value">—</strong><span>%</span></div></div>
                 <div class="metric-ring" id="metric-ring"><span>☀<br/>◉</span></div>
               </div>
-              <p class="primary-metric-note">Estimated time with both the Sun and Earth above a smooth horizon.</p>
+              <p class="primary-metric-note">Estimated time with both the Sun and Earth above the model horizon. <span class="model-badge" id="metrics-model">—</span></p>
               <div class="metric-line"><div><span>SOLAR ACCESS</span><strong id="sun-value">—</strong></div><div class="progress"><span id="sun-bar"></span></div></div>
-              <div class="metric-line"><div><span>EARTH VISIBILITY</span><strong id="earth-value">—</strong></div><div class="progress earth-progress"><span id="earth-bar"></span></div></div>
+              <div class="metric-line"><div><span>GEOMETRIC EARTH VIS.</span><strong id="earth-value">—</strong></div><div class="progress earth-progress"><span id="earth-bar"></span></div></div>
               <div class="metric-foot"><span>LONGEST EARTH BLACKOUT</span><strong id="blackout-value">—</strong></div>
               <div class="best-window"><span>BEST CONTINUOUS DUAL-ACCESS WINDOW</span><strong id="best-window-length">—</strong><small id="best-window-dates">Within selected mission window</small></div>
             </div>
@@ -398,7 +398,28 @@
           <button class="outline-button" id="download-csv">Export CSV</button>
         </div>
         <div id="site-comparison" class="comparison-grid"></div>
-        <div class="comparison-note">Rankings are based on flat-horizon simultaneous visibility, not landing safety. The comparison is intentionally flat-horizon only; terrain and engineering assumptions apply to the selected-site feasibility panels, not these rankings.</div>
+        <div class="compare-picker" role="group" aria-label="Sites to compare">
+          <span class="picker-label">SITES TO COMPARE</span>
+          <div id="compare-picks" class="compare-picks"></div>
+        </div>
+        <div class="panel compare-detail">
+          <div class="panel-head"><h3>Side-by-side comparison</h3><span class="model-badge" id="compare-model">—</span></div>
+          <div id="compare-table" class="compare-table" aria-live="polite"></div>
+          <div id="compare-timeline" class="compare-timeline" role="img" aria-label="Shared illumination and geometric Earth visibility timeline for the compared sites"></div>
+          <div id="compare-notes" class="compare-notes" aria-live="polite"></div>
+        </div>
+        <div class="panel compare-detail">
+          <div class="panel-head"><h3>Mission-date comparison</h3><span class="model-badge" id="date-compare-model">—</span></div>
+          <div class="date-compare-fields">
+            <label>SITE<select id="date-compare-site"></select></label>
+            <label>DATE A<input type="date" id="date-compare-a" min="2025-01-01" max="2036-12-31" /></label>
+            <label>DATE B<input type="date" id="date-compare-b" min="2025-01-01" max="2036-12-31" /></label>
+            <button id="date-compare-run" class="top-primary" type="button">Compare dates</button>
+          </div>
+          <div id="date-compare-table" class="compare-table" aria-live="polite"></div>
+          <div id="date-compare-notes" class="compare-notes" aria-live="polite"></div>
+        </div>
+        <div class="comparison-note">All figures are sampled estimates from one shared model — comparative planning information, not landing certification. Site labels distinguish historical landing locations, published reference coordinates and illustrative study points; illustrative points are not surveyed landing sites.</div>
       </section>
 
       <section class="science-page app-view" data-view="science" id="science-page" hidden>
@@ -426,6 +447,32 @@
           <article class="science-card"><h3>Window rankings</h3><p>The balanced heuristic weights simultaneous access 70%, sunlight 15%, and Earth visibility 15%. It isn't an operational site-safety score.</p><a href="/windows" data-route="windows">Open the Window Finder</a></article>
           <article class="science-card"><h3>Engineering estimates</h3><p>Power calculations assume a simplified fixed solar array, constant load, and idealized battery storage. Earth visibility is not an RF link budget.</p><a href="/engineering" data-route="engineering">Open engineering</a></article>
         </div>
+        <div class="panel science-detail-panel">
+          <div class="panel-head"><h3>Model assumptions</h3></div>
+          <ul class="assumption-list">
+            <li>Solar array: fixed and horizontal, no tracking; sunlight constant at 1361 W/m².</li>
+            <li>Electrical load is constant and the battery is idealised (no chemistry, no thermal behaviour, charge clamped to capacity).</li>
+            <li>No RF link budget: “geometric Earth visibility” is line-of-sight geometry only — not confirmed communication availability.</li>
+            <li>Visibility counts a body's <em>center</em> above the horizon; disc radius, refraction, eclipses and spacecraft shadows are not modelled.</li>
+            <li>Horizon precision is limited by terrain sampling (5° azimuth bins, 200 m ray steps): narrow occlusions can be missed.</li>
+            <li>Ephemeris is a truncated analytical series (±~0.5° verified sample errors), not JPL/SPICE.</li>
+          </ul>
+        </div>
+        <div class="panel science-detail-panel">
+          <div class="panel-head"><h3>Terrain data (NASA LOLA)</h3></div>
+          <p>Elevation source: NASA GSFC PGDA south-polar LOLA DEM (<a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener noreferrer">Barker et al. 2023</a>), 80 m/pixel, covering 80°S–90°S in MOON_ME south-polar stereographic coordinates. For each site the app reads a ~40 km patch and converts elevation to a local horizon profile: along 72 azimuth directions (5° bins), out to a 20 km radius in 200 m steps, the highest terrain elevation angle — including a spherical lunar curvature correction — becomes the horizon for that azimuth. Profiles are bundled per study site (exported by CI directly from the NASA COG); on-demand and local GeoTIFF loading cover custom coordinates. Coarse 80 m pixels and 5° bins cannot resolve small hazards or narrow gaps.</p>
+        </div>
+        <div class="panel science-detail-panel">
+          <div class="panel-head"><h3>Ephemeris validation</h3><span class="sim-tag">JPL HORIZONS REFERENCE</span></div>
+          <div class="validation-grid">
+            <div><small>REFERENCE SOURCE</small><strong>NASA JPL Horizons</strong></div>
+            <div><small>OBSERVATIONS</small><strong>90</strong></div>
+            <div><small>MAX AZIMUTH ERROR</small><strong>0.480°</strong></div>
+            <div><small>MAX ELEVATION ERROR</small><strong>0.285°</strong></div>
+            <div><small>MEAN ELEVATION ERROR</small><strong>0.141°</strong></div>
+          </div>
+          <p>90 independently queried Sun and Earth angles (45 site/UTC epochs across three sites and three seasons, archived in <a href="https://github.com/adamjamiesimson/LunarNav-V2/tree/main/tests/fixtures" target="_blank" rel="noopener noreferrer">tests/fixtures</a>) were compared with the analytical model; the figures above are the measured maxima and mean elevation error of that comparison. This validates the Sun/Earth position calculations only — not the terrain horizons, power model or any mission-planning conclusion. Errors near the horizon can still flip a visible/hidden decision.</p>
+        </div>
         <div class="science-disclaimer">
           <p>LunarNav does not certify landing safety, continuous power, or communications. The tool is not affiliated with or endorsed by NASA.</p>
           <button type="button" class="outline-button" id="science-detail">Full technical methodology</button>
@@ -437,6 +484,7 @@
         <div>
           <button type="button" id="restart-tour">Take the tour</button>
           <button id="footer-method">Data &amp; methodology</button>
+          <button type="button" id="assistant-fab" aria-label="Open the LunarNav mission assistant" aria-expanded="false" title="Ask the mission assistant (Gemini)">AI assistant</button>
           <a href="https://www.spaceappschallenge.org/2026/find-a-team/1st-lunarnav/" target="_blank" rel="noopener noreferrer">Team page</a>
         </div>
       </footer>
@@ -497,6 +545,5 @@
       </div>
     </section>
   </div>
-  <button type="button" id="assistant-fab" class="assistant-fab" aria-label="Open the LunarNav AI mission assistant" aria-expanded="false" title="Ask the AI mission assistant"><span class="assistant-fab-label">✨ Ask AI</span></button>
 </body>
 </html>

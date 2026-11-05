@@ -5,7 +5,7 @@
  * traversability model, so a straight-line distance is not a safe route.
  */
 import {ephemeris} from './astro.js';
-import {horizonAt} from './mission.js';
+import {horizonAt,bodyVisible} from './mission.js';
 
 export const MOON_RADIUS_KM = 1737.4;
 export const HAVERSINE_MODEL = 'great-circle-spherical-lunar-surface-v1';
@@ -54,9 +54,9 @@ export function visibilityAlongTraverse({departureUTC, distanceKm, speedKph, del
       offsetHours: hours,
       time: obs.time,
       sun: {azimuth: obs.sun.azimuth, elevation: obs.sun.elevation,
-        visible: obs.sun.elevation > sunBarrier, exposedToSun: obs.sun.elevation > 0, horizonDeg: sunBarrier},
+        visible: bodyVisible(profile,obs.sun.azimuth,obs.sun.elevation), exposedToSun: obs.sun.elevation > 0, horizonDeg: sunBarrier},
       earth:{azimuth: obs.earth.azimuth, elevation: obs.earth.elevation,
-        visible: obs.earth.elevation > earthBarrier, geometricVisible: obs.earth.elevation > 0, horizonDeg: earthBarrier}
+        visible: bodyVisible(profile,obs.earth.azimuth,obs.earth.elevation), geometricVisible: obs.earth.elevation > 0, horizonDeg: earthBarrier}
     });
   }
   return result;

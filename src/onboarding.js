@@ -1,34 +1,21 @@
 /**
  * LunarNav first-visit experience.
  * Intro: six seconds once per browser tab session, skippable.
- * Tour: once per browser profile unless replayed or storage is unavailable.
- * All tour page changes are previews; they do NOT change URL or selected site.
+ * Tour: a short three-step workflow explanation, once per browser profile
+ * unless replayed. All tour page changes are previews; they do NOT change URL
+ * or selected site.
  */
 export const INTRO_SESSION_KEY='lunarnav:intro:session:v1';
 export const TOUR_DONE_KEY='lunarnav:onboarding:complete:v1';
 export const INTRO_DURATION_MS=6000;
 
 export const TOUR_STEPS=Object.freeze([
-  {page:'home',target:'.home-intro',title:'Welcome to LunarNav.',
-   description:'Each tool has its own page: explorer, mission windows, engineering, comparison and science.'},
-  {page:'explore',target:'.map-panel',title:'Explore the globe.',
-   description:'Drag to rotate the Moon, pick a study site, and use the focus and zoom controls.'},
-  {page:'explore',target:'.control-panel',title:'Set the mission.',
-   description:'Choose a site, a UTC start date and a 3–28 day window; these carry across all tools.'},
-  {page:'explore',target:'.status-panel',title:'Follow the Sun and Earth.',
-   description:'Elevations, the local sky plot and horizon margins update for the selected time.'},
-  {page:'explore',target:'.timeline-panel',title:'Move through time.',
-   description:'Drag the timeline or step six hours at a time to inspect visibility changes.'},
-  {page:'windows',target:'.finder-shell',title:'Find mission windows.',
-   description:'The heatmap ranks candidate start dates across sites for your mission length.'},
-  {page:'windows',target:'.finder-toolbar',title:'Compare horizon models.',
-   description:'Switch between geometric and loaded LOLA terrain screening, then export results.'},
-  {page:'engineering',target:'.engineering-controls',title:'Screen the power budget.',
-   description:'Adjust solar array, battery and load assumptions to test surface feasibility.'},
-  {page:'compare',target:'#site-comparison',title:'Compare study sites.',
-   description:'All five locations are scored for the same UTC window; open one to inspect it.'},
-  {page:'science',target:'.science-feature',title:'Read the limitations.',
-   description:'Data sources, JPL benchmark results and model limits are documented here.'}
+  {page:'explore',target:'.control-panel',title:'Step 1 — select a location.',
+   description:'Pick a lunar south-pole study site, or click any point on the globe to use a custom coordinate.'},
+  {page:'explore',target:'.field-row',title:'Step 2 — select a mission date.',
+   description:'Set a UTC start date and a 3–28 day mission window; every tool uses the same period.'},
+  {page:'explore',target:'.status-panel',title:'Step 3 — explore mission conditions.',
+   description:'Read sunlight, terrain obstruction, geometric Earth visibility and estimated power for that site and date.'}
 ]);
 
 function readStorage(storage,key){
