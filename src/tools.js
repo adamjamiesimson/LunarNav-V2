@@ -1,11 +1,7 @@
 /**
- * LunarNav Gemini tool layer.
- *
- * The same analytical modules that power the browser planner (astro.js,
- * finder.js, mission.js, situation.js, travel.js) are imported directly into
- * the Vercel serverless function and executed through Gemini function calling.
- * No duplicate or simplified astronomy is introduced here: every tool either
- * returns live application state or calls the existing calculation functions.
+ * Gemini tool layer for the mission assistant. Tools call the same modules as
+ * the browser planner (astro.js, finder.js, mission.js, situation.js, travel.js,
+ * transit.js); no separate astronomy lives here.
  */
 import {ephemeris,sampleWindow,summarize,longestDualWindow,rankedSites} from './astro.js';
 import {SITES} from './sites.js';
@@ -18,7 +14,7 @@ import {toolSummary} from './tool-summary.js';
 
 const MAX_WINDOW_WINDOWS=20;
 const str=v=>typeof v==='string'?v.trim():'';
-const num=(v,fallback,name)=>{
+const num=(v,name)=>{
   const n=Number(v);
   if(!Number.isFinite(n))throw new Error(`Missing or invalid ${name}`);
   return n;
@@ -123,8 +119,8 @@ export const TOOL_DECLARATIONS=Object.freeze([
 }
 ]);
 
-/** Look up a site reference (id string or coordinate object) from context. */
-function resolveSite(ref,context){
+/** Look up a site reference (id string or coordinate object). */
+function resolveSite(ref){
   if(typeof ref==='string'){
     const known=SITES.find(s=>s.id===ref);
     if(known)return known;
@@ -141,8 +137,6 @@ function contextSite(context){
   return {id:site.id, name:site.name||'Selected site', lat:Number(site.lat), lon:Number(site.lon), custom:Boolean(context.isCustom)};
 }
 function contextBaseUTC(context){
-  const site=contextSite(context);
-  const parts=[context.date, context.time];
   if(context.date&&context.time&&/^\d{4}-\d{2}-\d{2}$/.test(str(context.date))&&/^\d\d:\d\d$/.test(str(context.time))){
     return new Date(`${context.date}T${context.time}:00Z`);
   }
@@ -172,7 +166,7 @@ function runGetMissionContext(args, context){
 function runCalculateCelestialConditions(args,context){
   const utc=new Date(str(args.utcTimestamp));
   if(Number.isNaN(utc.getTime()))throw new Error('Invalid utcTimestamp');
-  const lat=num(args.lat,0,'lat'),lon=num(args.lon,0,'lon');
+  const lat=num(args.lat,'lat'),lon=num(args.lon,'lon');
   if(Math.abs(lat)>90)throw new Error('Latitude must be between -90 and 90');
   const obs=ephemeris(utc,lat,lon);
   const profile=contextProfile(context);
@@ -187,11 +181,11 @@ function runCalculateCelestialConditions(args,context){
   };
 }
 function runAnalyzeMissionWindow(args){
-  const days=num(args.days,7,'days');
+  const days=num(args.days,'days');
   const start=new Date(str(args.startUTC));
   if(Number.isNaN(start.getTime())||days<1||days>31)throw new Error('Invalid mission window start/duration');
-  const stepHours=args.stepHours?num(args.stepHours,2,'stepHours'):2;
-  const samples=sampleWindow({start,days,stepHours,lat:num(args.lat,0,'lat'),lon:num(args.lon,0,'lon')});
+  const stepHours=args.stepHours?num(args.stepHours,'stepHours'):2;
+  const samples=sampleWindow({start,days,stepHours,lat:num(args.lat,'lat'),lon:num(args.lon,'lon')});
   const stats=summarize(samples);
   const best=longestDualWindow(samples);
   return {startUTC:start.toISOString(),days,stepHours,
@@ -218,7 +212,7 @@ function runCompareLocations(args, context){
 function runFindOptimalWindows(args,context){
   const siteRefs=Array.isArray(args.sites)?args.sites:[];
   if(!siteRefs.length)throw new Error('Provide at least one site id or coordinate object to search');
-  const sites=siteRefs.map(ref=>resolveSite(ref,context)).slice(0,MAX_WINDOW_WINDOWS);
+  const sites=siteRefs.map(ref=>resolveSite(ref)).slice(0,MAX_WINDOW_WINDOWS);
   const startDate=str(args.startDate);
   if(!/^\d{4}-\d{2}-\d{2}$/.test(startDate))throw new Error('Invalid finder startDate (expected YYYY-MM-DD)');
   const terrainMode=args.terrainMode==='terrain'?'terrain':'flat';
@@ -281,8 +275,8 @@ function runInspectOperations(args,context){
   const base=contextBaseUTC(context);
   const utc=args.utcTimestamp?new Date(str(args.utcTimestamp)):new Date(base.getTime()+((context.offsetHours||0))*3600000);
   if(Number.isNaN(utc.getTime()))throw new Error('Invalid utcTimestamp');
-  const lat=args.lat!==undefined?num(args.lat,0,'lat'):site.lat;
-  const lon=args.lon!==undefined?num(args.lon,0,'lon'):site.lon;
+  const lat=args.lat!==undefined?num(args.lat,'lat'):site.lat;
+  const lon=args.lon!==undefined?num(args.lon,'lon'):site.lon;
   const obs=ephemeris(utc,lat,lon);
   const profile=contextProfile(context);
   const view=inspectSituation(obs,profile);
@@ -295,8 +289,8 @@ function runInspectOperations(args,context){
 }
 function runFindNextHorizonEvent(args){
   const start=new Date(str(args.startUTC));
-  const lat=num(args.lat,0,'lat'),lon=num(args.lon,0,'lon');
-  const durationHours=num(args.durationHours,0,'durationHours');
+  const lat=num(args.lat,'lat'),lon=num(args.lon,'lon');
+  const durationHours=num(args.durationHours,'durationHours');
   if(Number.isNaN(start.getTime())||!(durationHours>0&&durationHours<=24*60))throw new Error('Invalid horizon-search window');
   const event=findNextHorizonEvent({
     startUTC:start.toISOString(),site:{lat,lon},
@@ -307,8 +301,8 @@ function runFindNextHorizonEvent(args){
 }
 function runEstimateSurfaceTraverse(args,context){
   const r=estimateSurfaceTraverse({
-    originLat:num(args.originLat,0,'originLat'),originLon:num(args.originLon,0,'originLon'),
-    destinationLat:num(args.destinationLat,0,'destinationLat'),destinationLon:num(args.destinationLon,0,'destinationLon'),
+    originLat:num(args.originLat,'originLat'),originLon:num(args.originLon,'originLon'),
+    destinationLat:num(args.destinationLat,'destinationLat'),destinationLon:num(args.destinationLon,'destinationLon'),
     departUTC:str(args.departUTC),speedKph:Number(args.speedKph)||10,
     delayHours:Number(args.delayHours)||0,profile:contextProfile(context)
   });
@@ -336,7 +330,7 @@ function runEstimateEarthMoonTransit(args, context){
     if (!site) throw new Error('Unknown LunarNav site id for destination: ' + args.destinationSiteId);
     destination = {id: site.id, name: site.name, lat: site.lat, lon: site.lon};
   } else if (args.destinationLat !== undefined && args.destinationLon !== undefined){
-    destination = {id: args.destinationSiteId || 'custom', name: args.destinationName || 'Custom destination', lat: num(args.destinationLat, 0, 'destinationLat'), lon: num(args.destinationLon, 0, 'destinationLon')};
+    destination = {id: args.destinationSiteId || 'custom', name: args.destinationName || 'Custom destination', lat: num(args.destinationLat,'destinationLat'), lon: num(args.destinationLon,'destinationLon')};
   } else {
     // Default to the currently selected mission landing site.
     const site = contextSite(context);

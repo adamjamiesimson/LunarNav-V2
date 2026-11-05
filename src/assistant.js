@@ -2,16 +2,14 @@
  * LunarNav Gemini mission-assistant front-end.
  *
  * Renders the floating chat panel and sends messages to /api/chat with a
- * compact, sanitised snapshot of the live mission configuration. Tool calls
- * that reference current application data execute locally through
- * executeBrowserTool (the same modules the planner uses); the server runs the
- * identical tools through Gemini function calling. Conversation history stays
- * in browser memory (unless sessionStorage persistence is available).
+ * compact, sanitised snapshot of the live mission configuration. Gemini
+ * function calling runs on the server (src/tools.js) and the executed tool
+ * chips come back with the reply. Conversation history stays in browser
+ * memory (plus sessionStorage when available).
  *
- * IMPORTANT: the Gemini API key is never present in this or any other
- * front-end file; it only exists as the server-side GEMINI_API_KEY env var.
+ * The Gemini API key is never present in any front-end file; it only exists
+ * as the server-side GEMINI_API_KEY env var.
  */
-import {executeBrowserTool} from './tool-executor.js';
 
 const WELCOME = `### Mission analyst online
 I'm working from your **live LunarNav configuration** and the same calculation engine as the planner. Ask me about:
@@ -174,7 +172,6 @@ function renderHistory(){
 }
 function pushMessage(role, text, tools = []){
   history.push({role, text, tools});
-  // Keep only the most recent messages for the API round trip.
   ui.messages.appendChild(buildMessageNode(role, text, tools));
   ui.messages.scrollTop = ui.messages.scrollHeight;
   persistHistory();
@@ -278,9 +275,4 @@ function restoreHistory(){
       ui.messages.scrollTop = ui.messages.scrollHeight;
     }
   } catch { /* Corrupt or inaccessible storage is ignored. */ }
-}
-
-/** Route a Gemini tool name through the shared browser executor. */
-export function runAssistantTool(name, args, context){
-  return executeBrowserTool(name, args, context);
 }

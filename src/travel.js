@@ -1,14 +1,8 @@
 /**
- * Lunar surface traverse estimator.
- *
- * Sphere-of-radius-R great-circle distance (haversine) between two lunar
- * coordinates, combined with the mission planner's analytical ephemeris to
- * sample expected Sun/Earth visibility along the journey.
- *
- * This is a geodesic distance estimate, NOT a terrain-aware route model: no
- * slope, obstacle or traversability network is available. The current map is
- * schematic, so the straight-line distance must not be read as an obstacle-free
- * path. No claim about safe rover movement is implied.
+ * Lunar surface traverse estimator. Great-circle (haversine) distance on a
+ * sphere of radius 1737.4 km, with the planner's analytical ephemeris sampled
+ * along the journey. Geodesic distance only — no slope, obstacle or
+ * traversability model, so a straight-line distance is not a safe route.
  */
 import {ephemeris} from './astro.js';
 import {horizonAt} from './mission.js';
@@ -17,10 +11,8 @@ export const MOON_RADIUS_KM = 1737.4;
 export const HAVERSINE_MODEL = 'great-circle-spherical-lunar-surface-v1';
 const DEG = Math.PI / 180;
 
-/**
- * Great-circle surface distance in kilometres between two lunar coordinates.
- * Coordinates are east-positive longitude, latitude in degrees.
- */
+/** Great-circle surface distance in kilometres between two lunar coordinates
+ * (east-positive longitude, degrees). */
 export function greatCircleDistanceKm(lat1, lon1, lat2, lon2){
   const valid = v => Number.isFinite(v) && Math.abs(v) <= 90;
   const validLon = v => Number.isFinite(v) && Math.abs(v) <= 360;
@@ -43,11 +35,8 @@ export function totalDurationHours(distanceKm, speedKph, delayHours = 0){
   return distanceKm / speedKph + delayHours;
 }
 
-/**
- * Sample the journey every sampleHours between departure and arrival and
- * evaluate Sun/Earth elevation and visibility (optionally against a loaded
- * terrain profile at the origin). Returns one entry per sample.
- */
+/** Sample Sun/Earth visibility along the journey every sampleHours,
+ * optionally against a loaded terrain profile at the origin. */
 export function visibilityAlongTraverse({departureUTC, distanceKm, speedKph, delayHours = 0, lat, lon, profile = null, sampleHours = 1} = {}){
   const departure = new Date(departureUTC);
   if(Number.isNaN(departure.getTime())) throw new Error('Invalid traverse departure UTC time');
@@ -89,10 +78,7 @@ export function summarizeTraverseVisibility(samples){
   };
 }
 
-/**
- * Full traverse estimate used by both the travel panel UI and the Gemini
- * estimate_surface_traverse tool, so planner and assistant never diverge.
- */
+/** Full traverse estimate shared by the travel panel and the assistant tool. */
 export function estimateSurfaceTraverse({
   originLat, originLon, destinationLat, destinationLon,
   departUTC, speedKph = 10, delayHours = 0, profile = null, sampleHours = 1

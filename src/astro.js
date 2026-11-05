@@ -125,5 +125,3 @@ export function rankedSites(sites,start,days) {
   return sites.map(site=>({site,stats:summarize(sampleWindow({start,days,stepHours:4,lat:site.lat,lon:site.lon}))}))
     .sort((a,b)=>b.stats.dual-a.stats.dual || b.stats.sun-a.stats.sun);
 }
-
-export const D2R=R;
