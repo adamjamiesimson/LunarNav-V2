@@ -32,15 +32,20 @@ export function polarXY(lat,lon){
   const radius=2*RMOON*Math.tan((90+lat)*DEG/2);
   return {x:radius*Math.sin(lon*DEG),y:radius*Math.cos(lon*DEG)};
 }
-/** Compute horizon profile against real elevation pixels already supplied in metres.
+/** Compute horizon profile against real elevation pixels supplied in metres.
  * Grid starts at originX/originY; pixel size resolutionX/resolutionY in metres.
- * Values outside the source window are deliberately NOT extrapolated.
+ * Radial sampling adapts to the DEM pixel size unless overridden. Values
+ * outside the source window are deliberately NOT extrapolated; radial coverage
+ * is reported per profile and insufficient coverage rejects the profile.
  */
 export function deriveHorizonFromRaster({data,width,height,originX,originY,resolutionX,resolutionY,noData},site,{
-  azimuthBins=72,radiusKm=20,stepMeters=200
+  azimuthBins=72,radiusKm=20,stepMeters=null
 }={}){
   if(!data||data.length!==width*height||!resolutionX||!resolutionY)throw Error('Invalid DEM raster');
-  if(azimuthBins<8||azimuthBins>720||radiusKm<1||radiusKm>60||stepMeters<10)throw Error('Invalid horizon sampling');
+  if(azimuthBins<8||azimuthBins>720||radiusKm<1||radiusKm>60)throw Error('Invalid horizon sampling');
+  const pixelM=Math.max(Math.abs(resolutionX),Math.abs(resolutionY));
+  const step=(stepMeters===null?Math.max(20,pixelM):stepMeters);
+  if(!(step>=10))throw Error('Invalid horizon sampling');
   const center=polarXY(site.lat,site.lon);
   const read=(x,y)=>{
     const col=Math.floor((x-originX)/resolutionX),row=Math.floor((y-originY)/resolutionY);
@@ -55,35 +60,49 @@ export function deriveHorizonFromRaster({data,width,height,originX,originY,resol
   const north=[Math.sin(longitude),Math.cos(longitude)];
   const east=[Math.cos(longitude),-Math.sin(longitude)];
   const elevationDeg=[],azimuthDeg=[];
-  let covered=0,required=0;
+  let covered=0,required=0,minLastRange=Infinity;
   for(let i=0;i<azimuthBins;i++){
     const az=360*i/azimuthBins,angle=az*DEG;
     const dir=[north[0]*Math.cos(angle)+east[0]*Math.sin(angle),
                north[1]*Math.cos(angle)+east[1]*Math.sin(angle)];
-    let maxAngle=0,observed=0,samples=0;
+    let maxAngle=0,lastRange=0;
     // At fixed latitude the raster scale differs slightly from lunar ground
     // distance; a spherical stereographic correction is used here.
     const groundScale=1+Math.pow(Math.hypot(center.x,center.y)/(2*RMOON),2);
-    for(let distance=stepMeters;distance<=radiusKm*1000;distance+=stepMeters){
+    for(let distance=step;distance<=radiusKm*1000;distance+=step){
       required++;
       const projected=distance/groundScale;
       const z=read(center.x+dir[0]*projected,center.y+dir[1]*projected);
       if(z===null)continue;
-      covered++;observed++;samples++;
+      covered++;lastRange=distance;
       // Spherical lunar curvature relative to the observer's tangent plane.
       const apparent=(z-observer-distance*distance/(2*RMOON))/distance;
       const angleDeg=Math.atan(apparent)/DEG;
       if(angleDeg>maxAngle)maxAngle=angleDeg;
     }
+    minLastRange=Math.min(minLastRange,lastRange);
     azimuthDeg.push(az);elevationDeg.push(Math.max(0,maxAngle));
   }
   if(covered<required*0.8)throw Error('Insufficient valid DEM coverage for reliable horizon profile');
   return {
     azimuthDeg,elevationDeg,observerHeightM:observer,
-    coveragePct:100*covered/required,radiusKm,stepMeters,
-    resolutionM:Math.max(Math.abs(resolutionX),Math.abs(resolutionY)),
-    lat:site.lat,lon:site.lon,source:'NASA GSFC PGDA LOLA south-polar DEM 80 m/pixel (Barker et al. 2023)',
-    caveat:'Coarse 80 m/pixel, 20 km radius, 5° azimuth bins, no limb correction; not flight validated.'
+    coveragePct:100*covered/required,radiusKm,stepMeters:step,
+    maxReliableRangeKm:minLastRange/1000,azimuthBins,
+    resolutionM:pixelM,
+    lat:site.lat,lon:site.lon,source:'NASA GSFC PGDA LOLA south-polar DEM (Barker et al. 2023)',
+    caveat:`${pixelM} m/pixel DEM, ${radiusKm} km radius, ${azimuthBins} azimuth bins, ${step} m radial steps; `+
+      'no limb or disc corrections; not flight validated.'
+  };
+}
+
+/** Bounded LRU cache for loaded DEM patches (Float32 samples are heavy). */
+export function createPatchCache(limit=6){
+  const store=new Map();
+  return {
+    get(key){if(!store.has(key))return undefined;const v=store.get(key);store.delete(key);store.set(key,v);return v;},
+    set(key,value){store.set(key,value);while(store.size>limit)store.delete(store.keys().next().value);return value;},
+    has(key){return store.has(key);},
+    get size(){return store.size;}
   };
 }
 let loaderPromise;
@@ -111,7 +130,7 @@ function subsetWindow(image,site,radiusKm){
   const left=clamp(Math.floor(Math.min(...cols)),0,image.getWidth()),right=clamp(Math.ceil(Math.max(...cols)),0,image.getWidth());
   const top=clamp(Math.floor(Math.min(...rows)),0,image.getHeight()),bottom=clamp(Math.ceil(Math.max(...rows)),0,image.getHeight());
   const pixelSize=Math.max(Math.abs(resolutionX),Math.abs(resolutionY));
-  if(pixelSize<60||pixelSize>100)throw Error('Expected NASA 80 m/pixel DEM; found '+pixelSize.toFixed(1)+' m/pixel');
+  if(pixelSize<60||pixelSize>100)throw Error('Expected NASA 60–100 m/pixel DEM; found '+pixelSize.toFixed(1)+' m/pixel');
   if(Math.abs(Math.abs(resolutionX)-Math.abs(resolutionY))>1)
     throw Error('DEM pixels are not square; cannot use stereographic horizon assumptions');
   if(right-left<3||bottom-top<3)throw Error('Site outside the selected LOLA raster');
@@ -138,10 +157,12 @@ export async function selectSafeLolaSource(productKey='80s'){
       errors.push(url+': HTTP '+response.status+' (requires 206 Partial Content)');
     }catch(error){errors.push(url+': '+error.message);}
   }
-  throw Error('NASA terrain byte-range access is unavailable. '+errors.join(' | ')+'. Use a local compatible 80m GeoTIFF.');
+  throw Error('NASA terrain byte-range access is unavailable. '+errors.join(' | ')+'. Use a local compatible 60–100 m GeoTIFF.');
 }
 
-/** Explicit user-triggered loading. No invisible automatic network requests. */
+/** Load a terrain patch and derive its horizon profile. The full Float32
+ * elevation samples are retained on the result (profile.patch) so the same
+ * source data can feed geometry, visualisation and future surface views. */
 export async function loadLolaTerrain(site,{file=null,onProgress=()=>{}}={}){
   const g=await ensureGeoTIFF();
   onProgress('Opening NASA LOLA elevation metadata…');
@@ -154,8 +175,8 @@ export async function loadLolaTerrain(site,{file=null,onProgress=()=>{}}={}){
   const tiff=file?await g.fromBlob(file):await g.fromUrl(remoteUrl);
   const image=await tiff.getImage();
   // Coordinate conventions are explicit: MOON_ME south-polar stereographic,
-  // metres and 80m/pixel. GeoTIFF projection metadata is often custom for
-  // planetary CRS, so we validate measurable bounds/resolution instead of
+  // metres. GeoTIFF projection metadata is often custom for planetary CRS, so
+  // we validate measurable bounds/resolution instead of
   // quietly assuming an Earth EPSG identifier.
   const box=image.getBoundingBox();
   const center=polarXY(site.lat,site.lon);
@@ -167,11 +188,18 @@ export async function loadLolaTerrain(site,{file=null,onProgress=()=>{}}={}){
   onProgress('Reading a local 40 km DEM patch (may take a moment)…');
   const r=await image.readRasters({window,samples:[0]});
   const data=r[0];if(!data)throw Error('Could not decode NASA elevation pixels');
-  onProgress('Computing the terrain horizon at 5° azimuth intervals…');
-  const result=deriveHorizonFromRaster({
-    data,width:r.width,height:r.height,...geo,
-    noData:typeof image.getGDALNoData==='function'?image.getGDALNoData():null
-  },site,{radiusKm,azimuthBins:72,stepMeters:200});
+  const noData=typeof image.getGDALNoData==='function'?image.getGDALNoData():null;
+  onProgress('Computing the terrain horizon at 1° azimuth intervals…');
+  const result=deriveHorizonFromRaster({data,width:r.width,height:r.height,...geo,noData},site,{radiusKm,azimuthBins:360});
+  // Retain the original numerical raster (never an 8-bit reduction).
+  let min=Infinity,max=-Infinity;
+  for(const v of data){const n=Number(v);if(Number.isFinite(n)&&!(noData!==null&&n===Number(noData))){if(n<min)min=n;if(n>max)max=n;}}
+  result.patch={data,width:r.width,height:r.height,...geo,noData,
+    minM:Number.isFinite(min)?min:null,maxM:Number.isFinite(max)?max:null,
+    groundSampleM:result.resolutionM,units:'metres',
+    projection:'MOON_ME south-polar stereographic, centered 90°S / 0°E'};
+  result.azimuthStepDeg=360/result.azimuthBins;
+  result.verticalDatum='LOLA elevations relative to the 1737.4 km mean lunar radius';
   result.loadedFrom=file?'Local GeoTIFF supplied by user':(productKey==='60s'?'NASA LOLA 60m COG via byte-range reads':'NASA LOLA COG via byte-range reads');
   result.provenance=file?'User-provided GeoTIFF: its origin is NOT independently verified':(remoteUrl.startsWith('/')?'Vercel same-origin NASA COG proxy':'NASA PGDA direct COG URL');
   result.source=file?'User-supplied GeoTIFF, asserted compatible with LOLA MOON_ME projection':product.label;

@@ -83,7 +83,7 @@
           <a href="/engineering" data-route="engineering" class="home-tool-card"><h3>Engineering lab</h3><p>Estimate solar energy, battery endurance and local terrain horizons.</p></a>
           <a href="/compare" data-route="compare" class="home-tool-card"><h3>Site comparison</h3><p>Compare candidate locations for the same UTC window and export the results.</p></a>
         </div>
-        <p class="home-note">Terrain screening uses NASA LOLA-derived 80 m elevation profiles. Solar and Earth positions were checked against 90 JPL Horizons reference samples. <a href="/science" data-route="science">Methods and limitations</a></p>
+        <p class="home-note">Terrain screening uses NASA LOLA-derived 60–80 m elevation profiles. Solar and Earth positions were checked against 90 JPL Horizons reference samples. <a href="/science" data-route="science">Methods and limitations</a></p>
       </section>
 
       <div class="app-view explore-page" data-view="explore" hidden>
@@ -161,6 +161,10 @@
                   <span id="zoom-label">100%</span>
                   <button id="zoom-in" class="map-tool" aria-label="Zoom in">+</button>
                   <button id="expand-globe" class="map-tool view-expand" aria-label="Expand lunar globe" aria-pressed="false" title="Enter immersive globe view">⛶</button>
+                  <label class="relief-control" for="relief-exaggeration">RELIEF
+                    <select id="relief-exaggeration" aria-label="Terrain relief exaggeration (visual only)">
+                      <option value="1">×1</option><option value="2">×2</option><option value="5" selected>×5</option><option value="10">×10</option>
+                    </select></label>
                 </div>
               </div>
               <div class="map-stage" id="map-stage">
@@ -290,7 +294,7 @@
             </div>
             <p id="terrain-status" class="terrain-status" role="status" aria-live="polite">No DEM applied. Feasibility estimates currently use a level geometric horizon.</p>
             <div id="terrain-plot" class="terrain-plot" role="img" aria-label="Terrain horizon elevation by azimuth"></div>
-            <p class="terrain-foot">Experimental coarse ~80 m DEM; 20 km horizon radius. No slope certification, small obstacles, optical limb, or flight qualification. <a href="https://doi.org/10.3847/PSJ/acf3e1" target="_blank" rel="noopener noreferrer">Barker et al. 2023</a></p>
+            <p class="terrain-foot">Experimental ~60–80 m DEM; 20 km horizon radius. No slope certification, small obstacles, optical limb, or flight qualification. <a href="https://doi.org/10.3847/PSJ/acf3e1" target="_blank" rel="noopener noreferrer">Barker et al. 2023</a></p>
           </div>
 
           <div class="panel travel-panel" id="travel-panel">
@@ -443,7 +447,7 @@
         </div>
         <div class="science-grid">
           <article class="science-card"><h3>Geometry</h3><p>An analytical model estimates local Sun and Earth azimuth and elevation in UTC. Small errors near the horizon can change a visible/hidden decision.</p><a href="https://ssd.jpl.nasa.gov/horizons/" target="_blank" rel="noopener noreferrer">JPL Horizons</a></article>
-          <article class="science-card"><h3>Elevation data</h3><p>Derived 80 m/pixel profiles reach 20 km around five illustrative sites. They do not assess slopes, small hazards, or independently validated terrain shadows.</p><a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener noreferrer">NASA elevation source</a></article>
+          <article class="science-card"><h3>Elevation data</h3><p>Derived 60–80 m/pixel profiles reach 20 km around the supported sites and custom waypoints. They do not assess slopes, small hazards, or independently validated terrain shadows.</p><a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener noreferrer">NASA elevation source</a></article>
           <article class="science-card"><h3>Window rankings</h3><p>The balanced heuristic weights simultaneous access 70%, sunlight 15%, and Earth visibility 15%. It isn't an operational site-safety score.</p><a href="/windows" data-route="windows">Open the Window Finder</a></article>
           <article class="science-card"><h3>Engineering estimates</h3><p>Power calculations assume a simplified fixed solar array, constant load, and idealized battery storage. Earth visibility is not an RF link budget.</p><a href="/engineering" data-route="engineering">Open engineering</a></article>
         </div>
@@ -454,13 +458,13 @@
             <li>Electrical load is constant and the battery is idealised (no chemistry, no thermal behaviour, charge clamped to capacity).</li>
             <li>No RF link budget: “geometric Earth visibility” is line-of-sight geometry only — not confirmed communication availability.</li>
             <li>Visibility counts a body's <em>center</em> above the horizon; disc radius, refraction, eclipses and spacecraft shadows are not modelled.</li>
-            <li>Horizon precision is limited by terrain sampling (5° azimuth bins, 200 m ray steps): narrow occlusions can be missed.</li>
+            <li>Horizon precision is limited by terrain sampling (1° azimuth bins, DEM-resolution radial steps): very narrow occlusions can still be missed.</li>
             <li>Ephemeris is a truncated analytical series (±~0.5° verified sample errors), not JPL/SPICE.</li>
           </ul>
         </div>
         <div class="panel science-detail-panel">
           <div class="panel-head"><h3>Terrain data (NASA LOLA)</h3></div>
-          <p>Elevation source: NASA GSFC PGDA south-polar LOLA DEM (<a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener noreferrer">Barker et al. 2023</a>), 80 m/pixel, covering 80°S–90°S in MOON_ME south-polar stereographic coordinates. For each site the app reads a ~40 km patch and converts elevation to a local horizon profile: along 72 azimuth directions (5° bins), out to a 20 km radius in 200 m steps, the highest terrain elevation angle — including a spherical lunar curvature correction — becomes the horizon for that azimuth. Profiles are bundled per study site (exported by CI directly from the NASA COG); on-demand and local GeoTIFF loading cover custom coordinates. Coarse 80 m pixels and 5° bins cannot resolve small hazards or narrow gaps.</p>
+          <p>Elevation source: NASA GSFC PGDA south-polar LOLA DEMs (<a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener noreferrer">Barker et al. 2023</a>), 60–80 m/pixel, covering 60°S–90°S in MOON_ME south-polar stereographic coordinates. For each site or waypoint the app reads a ~40 km patch and converts elevation to a local horizon profile: along 360 azimuth directions (1° bins), out to a 20 km radius in steps matched to the DEM pixel size, the highest terrain elevation angle — including a spherical lunar curvature correction — becomes the horizon for that azimuth. The same patches feed the 3D globe's displaced terrain (a global LOLA/Kaguya SLDEM2015 grid covers 60°S–60°N for the wider overview; the north polar cap has no merged product and is labelled as uncovered). Relief exaggeration is a visual setting only and never affects calculations. Profiles are bundled per study site (exported by CI from the NASA COG); on-demand and local GeoTIFF loading cover custom coordinates. 60–80 m pixels and 1° bins cannot resolve small hazards or sub-degree gaps.</p>
         </div>
         <div class="panel science-detail-panel">
           <div class="panel-head"><h3>Ephemeris validation</h3><span class="sim-tag">JPL HORIZONS REFERENCE</span></div>
@@ -500,7 +504,7 @@
       <div class="method-line"><span>04</span><div><h3>Independent JPL benchmark</h3><p>The analytical Sun/Earth geometry was compared with 90 independently returned JPL Horizons azimuth/elevation measurements across Mons Mouton, Malapert and an approximate Shackleton Rim coordinate in November 2026, March 2027 and July 2027. Maximum sampled errors were 0.480° azimuth and 0.285° elevation. These are <em>not</em> worst-case error guarantees, especially around the horizon where a small error can change a visible/hidden decision. Reference measurements are archived in GitHub.</p></div></div>
       <div class="method-line"><span>05</span><div><h3>Further validation</h3><p>Increase the independent JPL/NAIF SPICE benchmark coverage, use shorter adaptive time steps at rise/set transitions, validate LOLA horizon projections, and add documented engineering uncertainty before representing these outputs as operational estimates.</p></div></div>
       <div class="reference-links">
-        <a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener noreferrer">NASA LOLA 80 m DEM</a>
+        <a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener noreferrer">NASA LOLA south-polar DEM</a>
         <a href="https://github.com/adamjamiesimson/LunarNav-V2/tree/main/tests/fixtures" target="_blank" rel="noopener noreferrer">Archived JPL observations</a>
         <a href="https://ssd.jpl.nasa.gov/horizons/manual.html" target="_blank" rel="noopener noreferrer">JPL Horizons</a>
         <a href="https://naif.jpl.nasa.gov/naif/" target="_blank" rel="noopener noreferrer">NAIF SPICE</a>

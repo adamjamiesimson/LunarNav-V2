@@ -163,6 +163,8 @@ main{padding:0 clamp(14px,3vw,32px);min-height:calc(100vh - 140px)}
   background:var(--accent-soft);border-color:var(--accent);color:#8FBFA0}
 .map-tool.view-focus{width:auto;padding:0 9px;gap:6px}
 #zoom-label{font:11px var(--mono);color:var(--muted);min-width:34px;text-align:center}
+.relief-control{display:flex;align-items:center;gap:5px;font:11px var(--mono);color:var(--muted);white-space:nowrap}
+.relief-control select{height:27px;border:1px solid var(--line);border-radius:4px;background:var(--panel-alt);color:var(--text);font-size:12px;padding:0 4px}
 .map-stage{position:relative;height:clamp(420px,42vw,560px);background:#0F1316;border:1px solid var(--line);
   border-radius:4px;overflow:hidden}
 .map-stage canvas{position:absolute;inset:0;display:block;touch-action:none}
