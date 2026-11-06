@@ -76,7 +76,7 @@ npm run check:lola                                          # NASA DEM availabil
 
 ## Mission assistant (Gemini)
 
-A **AI assistant** link in the footer opens a chat panel that receives a compact snapshot of the live mission state and answers questions through Gemini function calling. `api/chat.js` (Vercel function) holds the API key (`GEMINI_API_KEY`, optional `GEMINI_MODEL`, default `gemini-3.8-flash`, optional `GEMINI_FALLBACK_MODELS`), sanitises all context, and runs a bounded tool loop (25 s per-call timeout, fallback model chain, per-model circuit breaker) against `src/tools.js` — the same calculation modules the planner uses (`src/tool-executor.js` is a thin browser-side entry point to that same implementation). The assistant can only call the ten declared tools; it cannot execute arbitrary code. Without a key it opens and shows a configuration message. History stays in browser memory/sessionStorage.
+A floating **Ask AI** button (bottom-right corner) opens a chat panel that receives a compact snapshot of the live mission state and answers questions through Gemini function calling. `api/chat.js` (Vercel function) holds the API key (`GEMINI_API_KEY`, optional `GEMINI_MODEL`, default `gemini-3.8-flash`, optional `GEMINI_FALLBACK_MODELS`), sanitises all context, and runs a bounded tool loop (25 s per-call timeout, fallback model chain, per-model circuit breaker) against `src/tools.js` — the same calculation modules the planner uses (`src/tool-executor.js` is a thin browser-side entry point to that same implementation). The assistant can only call the ten declared tools; it cannot execute arbitrary code. Without a key it opens and shows a configuration message. History stays in browser memory/sessionStorage.
 
 ## Onboarding
 

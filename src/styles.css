@@ -590,7 +590,10 @@ html[data-intro-loading] #intro-loader{visibility:visible;opacity:1;pointer-even
 #tour-next{flex:1;background:var(--accent);border:0;color:var(--on-accent);font-weight:600}
 body.tour-is-active{overflow:hidden}
 
-/* Mission assistant (footer entry point) */
+/* Mission assistant (floating launcher) */
+.assistant-fab{position:fixed;right:28px;bottom:28px;z-index:64;display:flex;align-items:center;gap:9px;
+  background:var(--accent);color:var(--on-accent);border:0;border-radius:27px;padding:14px 23px;font-size:20px;font-weight:600}
+.assistant-fab:hover{background:#74B28A}
 .assistant-root{position:fixed;inset:0;z-index:70;display:flex;justify-content:flex-end;pointer-events:none}
 .assistant-root[hidden]{display:none}
 .assistant-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5);pointer-events:auto}
