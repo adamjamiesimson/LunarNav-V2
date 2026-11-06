@@ -41,6 +41,6 @@
     "sourceUrl": "http://imbrium.mit.edu/DATA/SLDEM2015/GLOBAL/FLOAT_IMG/SLDEM2015_128_60S_60N_000_360_FLOAT.IMG",
     "datum": "heights above/below the 1737.4 km mean lunar radius"
   },
-  "generatedUtc": "2026-11-06T18:15:35.523Z",
+  "generatedUtc": "2026-11-06T18:56:18.260Z",
   "note": "Visual relief for the 3D globe; horizon profiles are computed from native-resolution DEM patches instead."
 }

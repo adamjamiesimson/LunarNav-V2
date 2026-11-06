@@ -103,10 +103,6 @@ float heightAt(vec3 n){
  float lon=atan(n.y,n.x);
  float rS=2.0*1737400.0*tan((1.5707963+lat)*0.5);
  float rN=2.0*1737400.0*tan((1.5707963-lat)*0.5);
- if(patchCfg.w>0.5){
-   vec2 puv=vec2((rS*sin(lon)-patchGeo.x)/patchGeo.z,(patchGeo.y-rS*cos(lon))/patchGeo.w);
-   if(puv.x>0.002&&puv.x<0.998&&puv.y>0.002&&puv.y<0.998)return hDecode(texture2D(patchMap,puv).rgb,patchCfg);
- }
  float polarH=0.0,globalH=0.0,pr=0.0;
  bool hasPolar=false,hasGlobal=false;
  if(reliefCfg.w>0.5&&rS<=945000.0){
@@ -121,11 +117,23 @@ float heightAt(vec3 n){
    vec2 guv=vec2(fract((lon+3.14159265)/6.2831853),(1.5707963-lat)/3.14159265);
    globalH=hDecode(texture2D(globalMap,guv).rgb,globalCfg);hasGlobal=true;
  }
+ float base;
  if(hasPolar&&hasGlobal)
-   return mix(polarH,globalH,smoothstep(880000.0,945000.0,pr)); // cross-fade the grid boundary
- if(hasPolar)return polarH;
- if(hasGlobal)return globalH;
- return 0.0;
+   base=mix(polarH,globalH,smoothstep(915000.0,940000.0,pr)); // narrow fade over the grid edge
+ else if(hasPolar)base=polarH;
+ else if(hasGlobal)base=globalH;
+ else base=0.0;
+ if(patchCfg.w>0.5){
+   vec2 puv=vec2((rS*sin(lon)-patchGeo.x)/patchGeo.z,(patchGeo.y-rS*cos(lon))/patchGeo.w);
+   if(puv.x>0.0&&puv.x<1.0&&puv.y>0.0&&puv.y<1.0){
+     float patchH=hDecode(texture2D(patchMap,puv).rgb,patchCfg);
+     // Cross-fade the native-resolution patch into the coarser grid at its
+     // border, so the sub-grid relief difference cannot draw a seam.
+     float edge=min(min(puv.x,1.0-puv.x),min(puv.y,1.0-puv.y));
+     return mix(base,patchH,smoothstep(0.0,0.08,edge));
+   }
+ }
+ return base;
 }
 float reliefRadius(vec3 dir){return 1.0+reliefExag*heightAt(dir)/1737400.0;}
 /* Terrain-aware ray intersection (mirrors src/relief.js): walk in from an
