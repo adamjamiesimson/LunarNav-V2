@@ -138,7 +138,7 @@ for(let j=0;j<GLOBAL_H;j++){
   const buf=await withRetry(()=>sldemFetch(`bytes=${srow*rowBytes}-${srow*rowBytes+rowBytes-1}`));
   for(let i=0;i<GLOBAL_W;i++){
     const lon=-180+(i+0.5)*360/GLOBAL_W;
-    const scol=Math.round(((lon+180)%360)/360*(cols-1)); // column 0 = 180°E
+    const scol=Math.round(((lon%360)+360)%360/360*(cols-1)); // column 0 = 0 deg E (verified empirically)
     const v=buf.readFloatLE(scol*4);                  // km above R=1737.4 (verified from LBL)
     if(Number.isFinite(v)){gValues[j*GLOBAL_W+i]=v*1000;if(v*1000<gMin)gMin=v*1000;if(v*1000>gMax)gMax=v*1000;}
   }
@@ -155,7 +155,7 @@ const polarSample=(lat,lon)=>{
   const x1=Math.min(size-1,x0+1),y1=Math.min(size-1,y0+1);
   const h=(a,b)=>{
     const code=polarCodes[b*size+a];
-    return code?pMin+code/65535*polarRange:NaN;      // 0 encodes nodata
+    return code?pMin+code/4095*polarRange:NaN;        // 0 encodes nodata (12-bit codes)
   };
   const vals=[h(x0,y0),h(x1,y0),h(x0,y1),h(x1,y1)];
   if(vals.some(v=>!Number.isFinite(v)))return NaN;

@@ -98,13 +98,20 @@ float heightAt(vec3 n){
    vec2 puv=vec2((r*sin(lon)-patchGeo.x)/patchGeo.z,(patchGeo.y-r*cos(lon))/patchGeo.w);
    if(puv.x>0.002&&puv.x<0.998&&puv.y>0.002&&puv.y<0.998)return hDecode(texture2D(patchMap,puv).rgb,patchCfg);
  }
+ float polarH=0.0,globalH=0.0;
+ bool hasPolar=false,hasGlobal=false;
  vec2 uv=polarUV(n);
- if(reliefCfg.w>0.5&&r<=932000.0&&uv.x>0.002&&uv.x<0.998&&uv.y>0.002&&uv.y<0.998)
-   return hDecode(texture2D(reliefMap,uv).rgb,reliefCfg);
+ if(reliefCfg.w>0.5&&r<=945000.0&&uv.x>0.002&&uv.x<0.998&&uv.y>0.002&&uv.y<0.998){
+   polarH=hDecode(texture2D(reliefMap,uv).rgb,reliefCfg);hasPolar=true;
+ }
  if(globalCfg.z>0.5&&lat>-1.052&&lat<1.0472){
    vec2 guv=vec2(fract((lon+3.14159265)/6.2831853),(1.5707963-lat)/3.14159265);
-   return hDecode(texture2D(globalMap,guv).rgb,globalCfg);
+   globalH=hDecode(texture2D(globalMap,guv).rgb,globalCfg);hasGlobal=true;
  }
+ if(hasPolar&&hasGlobal)
+   return mix(polarH,globalH,smoothstep(880000.0,945000.0,r)); // cross-fade the grid boundary
+ if(hasPolar)return polarH;
+ if(hasGlobal)return globalH;
  return 0.0;
 }
 float reliefRadius(vec3 dir){return 1.0+reliefExag*heightAt(dir)/1737400.0;}
