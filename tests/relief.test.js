@@ -40,6 +40,13 @@ test('baked relief texture matches its NASA metadata',()=>{
   assert.ok(meta.domainKm>1000&&meta.domainKm<2500,'stereographic domain matches the 60°S cut');
   assert.ok(meta.heightMinM<-1000&&meta.heightMaxM>1000,'height range matches real lunar topography');
   assert.ok(meta.heightMaxM-meta.heightMinM>10000,'full relief range preserved');
+  assert.equal(typeof meta.horizontalGroundSampleM,'number','horizontal GSD is reported separately');
+  assert.ok(Math.abs(meta.horizontalGroundSampleM-480)<2,'3880 px across the 1862 km domain is ~480 m/px');
+  assert.ok(meta.verticalQuantisationM<=5,'vertical quantisation is metres-level, not an 8-bit ramp');
+  assert.ok(!('metresPerPixel' in meta),'the ambiguous metresPerPixel misnomer is gone');
+  assert.equal(meta.global.coverageLat[1],60,'global grid honestly reports its coverage limit');
+  assert.match(meta.global.uncoveredRegion,/60°N–90°N/);
+  assert.ok(meta.global.verticalQuantisationM<=5);
   const png=readFileSync(new URL('../assets/moon-relief.png',import.meta.url));
   assert.deepEqual([...png.subarray(0,8)],[137,80,78,71,13,10,26,10],'valid PNG signature');
   assert.equal(png.readUInt32BE(16),meta.size,'PNG width matches metadata');
