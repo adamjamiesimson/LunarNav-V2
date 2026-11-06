@@ -14,6 +14,9 @@ import {skyBodies,hitCelestialBody,celestialSpin,horizontalToLunarVector} from '
 
 const D=Math.PI/180;
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+// Zoom floor of 0.35 fits the compressed Sun/Earth orbits (1.75 scene units)
+// inside the viewport so the full simulation loop is visible.
+const zoomLevel=v=>clamp(v,0.35,2.1);
 const wrap=n=>((n%360)+360)%360;
 // Earth's spin axis is tilted 23.44° (obliquity) from the orbital-plane normal.
 // The shader maps the texture pole to (0,cos(pitch),-sin(pitch)), whose pitch=0
@@ -381,7 +384,7 @@ export function createMap(canvas,{onPick,onHover}){
  });
  canvas.addEventListener('wheel',e=>{
    if(!worldAt(where(e).x,where(e).y))return;
-   e.preventDefault();zoom=clamp(zoom+(e.deltaY<0?0.1:-0.1),0.8,2.1);request();
+   e.preventDefault();zoom=zoomLevel(zoom+(e.deltaY<0?0.1:-0.1));request();
  },{passive:false});
  canvas.tabIndex=0;
  canvas.addEventListener('keydown',e=>{
@@ -399,7 +402,7 @@ export function createMap(canvas,{onPick,onHover}){
    }else{
      if(k==='ArrowLeft')lon=wrap(lon+8);if(k==='ArrowRight')lon=wrap(lon-8);
      if(k==='ArrowUp')lat=clamp(lat+6,-89,89);if(k==='ArrowDown')lat=clamp(lat-6,-89,89);
-     if(k==='+')zoom=clamp(zoom+0.1,0.8,2.1);if(k==='-')zoom=clamp(zoom-0.1,0.8,2.1);
+     if(k==='+')zoom=zoomLevel(zoom+0.1);if(k==='-')zoom=zoomLevel(zoom-0.1);
    }
    request();
  });
@@ -473,7 +476,7 @@ export function createMap(canvas,{onPick,onHover}){
      request();
    },
    focusSite(){viewMode='focus';lat=clamp(site.lat,-89,50);lon=wrap(site.lon);zoom=1.35;request();return Math.round(zoom*100);},
-   zoomBy(delta){zoom=clamp(zoom+delta,0.8,2.1);request();return Math.round(zoom*100);},
+   zoomBy(delta){zoom=zoomLevel(zoom+delta);request();return Math.round(zoom*100);},
    resetView(){viewMode='overview';lat=-73;lon=wrap(site.lon);zoom=1;request();return 100;},
    setSun(obs,focus=site){
      sunlight=horizontalToLunarVector(obs.sun,focus.lat,focus.lon);
