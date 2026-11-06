@@ -99,9 +99,9 @@ float heightAt(vec3 n){
    if(puv.x>0.002&&puv.x<0.998&&puv.y>0.002&&puv.y<0.998)return hDecode(texture2D(patchMap,puv).rgb,patchCfg);
  }
  vec2 uv=polarUV(n);
- if(uv.x>0.002&&uv.x<0.998&&uv.y>0.002&&uv.y<0.998&&reliefCfg.w>0.5)
+ if(reliefCfg.w>0.5&&r<=932000.0&&uv.x>0.002&&uv.x<0.998&&uv.y>0.002&&uv.y<0.998)
    return hDecode(texture2D(reliefMap,uv).rgb,reliefCfg);
- if(globalCfg.z>0.5&&lat>-1.0472&&lat<1.0472){
+ if(globalCfg.z>0.5&&lat>-1.052&&lat<1.0472){
    vec2 guv=vec2(fract((lon+3.14159265)/6.2831853),(1.5707963-lat)/3.14159265);
    return hDecode(texture2D(globalMap,guv).rgb,globalCfg);
  }
@@ -137,7 +137,7 @@ float moonHit(vec3 o,vec3 d){
 vec3 terrainNormal(vec3 n){
  vec3 east=normalize(cross(vec3(0.0,0.0,1.0),n));
  vec3 northv=cross(n,east);
- float e=0.0015;
+ float e=0.004;
  float g1=(heightAt(normalize(n+east*e))-heightAt(normalize(n-east*e)))/(2.0*e*1737400.0);
  float g2=(heightAt(normalize(n+northv*e))-heightAt(normalize(n-northv*e)))/(2.0*e*1737400.0);
  return normalize(n-(g1*east+g2*northv)*reliefExag);
@@ -225,10 +225,10 @@ void main(){
    albedo=mix(albedo,vec3(0.94,0.98,1.0),clamp(clouds,0.0,0.92));
    // Lighting is based on the Moon-fixed Sun direction, not screen-space dots.
    float daylight=max(0.0,dot(normal,normalize(sun)));
-   float reflected=pow(max(0.0,dot(reflect(-normalize(sun),normal),forward)),28.0);
-   vec3 earthColor=albedo*(0.045+0.98*pow(daylight,0.76));
+   float reflected=pow(max(0.0,dot(reflect(-normalize(sun),normal),forward))+0.002,28.0);
+   vec3 earthColor=albedo*(0.045+0.98*pow(daylight+0.002,0.76));
    earthColor+=vec3(0.13,0.39,0.70)*reflected*0.26*daylight;
-   float rim=pow(1.0-max(0.0,dot(normal,forward)),3.7);
+   float rim=pow(1.0-max(0.0,dot(normal,forward))+0.002,3.7);
    earthColor+=vec3(0.10,0.42,0.85)*rim*(0.17+0.61*daylight);
    float disk=1.0-smoothstep(0.987,1.013,length(screen-earthPos)/max(earthR,0.001));
    gl_FragColor=vec4(mix(space,earthColor,disk),1.0);
@@ -238,8 +238,8 @@ void main(){
  vec3 rock=moonAlbedo(n);
  vec3 nl=terrainNormal(n);
  float daylight=max(0.0,dot(nl,normalize(sun)));
- float shade=0.115+0.94*pow(daylight,0.78);
- float rim=pow(1.0-max(0.0,dot(n,forward)),4.0);
+ float shade=0.115+0.94*pow(daylight+0.002,0.78);
+ float rim=pow(1.0-max(0.0,dot(n,forward))+0.002,4.0);
  vec3 result=rock*shade*vec3(0.97,1.01,1.06);
  result+=vec3(0.18,0.28,0.32)*rim*0.19;
  gl_FragColor=vec4(result,1.0);
@@ -540,6 +540,7 @@ export function createMap(canvas,{onPick,onHover}){
  const uploadRelief=(unit,tex,img)=>{
    gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,tex);
    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+   gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,gl.NONE); // heights are data, not colour
    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);
  };
  fetch('data/relief.json').then(r=>r.ok?r.json():null).then(meta=>{

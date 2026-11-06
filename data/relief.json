@@ -20,14 +20,14 @@
       60
     ],
     "uncoveredRegion": "60°N–90°N (no merged LOLA/Kaguya product exists in this family)",
-    "heightMinM": -9117.775729347655,
+    "heightMinM": -9115.090567396988,
     "heightMaxM": 10615.538597106934,
     "horizontalGroundSampleMAtEquator": 5330.276441745026,
-    "verticalQuantisationM": 4.818880177400388,
+    "verticalQuantisationM": 4.818224460196318,
     "source": "SLDEM2015 (LRO LOLA + Kaguya SELENE coregistered) + LDEM_60S polar rows",
     "sourceUrl": "http://imbrium.mit.edu/DATA/SLDEM2015/GLOBAL/FLOAT_IMG/SLDEM2015_128_60S_60N_000_360_FLOAT.IMG",
     "datum": "heights above/below the 1737.4 km mean lunar radius"
   },
-  "generatedUtc": "2026-11-06T11:09:25.954Z",
+  "generatedUtc": "2026-11-06T13:08:49.418Z",
   "note": "Visual relief for the 3D globe; horizon profiles are computed from native-resolution DEM patches instead."
 }

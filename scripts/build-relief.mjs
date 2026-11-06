@@ -69,6 +69,28 @@ async function withRetry(fn,tries=4){
   }
 }
 
+// 3x3 box smoothing (mask-aware, NaN = missing) to remove decimation aliasing
+// before encoding; without it the height gradient turns point-sampling noise
+// into visible shading speckle on the globe.
+function smoothGrid(values,width,height,passes=2){
+  let src=Float32Array.from(values),dst=new Float32Array(values.length);
+  for(let p=0;p<passes;p++){
+    for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+      let sum=0,n=0;
+      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+        const xx=x+dx,yy=y+dy;
+        if(xx<0||xx>=width||yy<0||yy>=height)continue;
+        const v=src[yy*width+xx];
+        if(!Number.isFinite(v))continue;
+        sum+=v;n++;
+      }
+      dst[y*width+x]=n?sum/n:NaN;
+    }
+    const t=src;src=dst;dst=t;
+  }
+  values.set(src);
+}
+
 // ---- 1. south-polar grid from the LOLA COG overview ----
 console.log('polar: opening',POLAR_COG);
 const tif=await withRetry(()=>fromUrl(POLAR_COG,{allowFullFile:false}));
@@ -81,18 +103,20 @@ console.log(`polar: baking overview ${pick.i} (${size}x${size})`);
 const polarData=(await withRetry(()=>polarImg.readRasters({width:size,height:size})))[0];
 const polarNoData=typeof polarImg.getGDALNoData==='function'?polarImg.getGDALNoData():null;
 let pMin=Infinity,pMax=-Infinity;
+const polarVals=new Float32Array(size*size).fill(NaN);
 for(let i=0;i<polarData.length;i++){
-  const v=polarData[i];
+  const v=Number(polarData[i]);
   if(!Number.isFinite(v)||(polarNoData!==null&&v===Number(polarNoData)))continue;
+  polarVals[i]=v;
   if(v<pMin)pMin=v;if(v>pMax)pMax=v;
 }
+smoothGrid(polarVals,size,size,1); // light smoothing; geotiff already resamples
 const polarRange=pMax-pMin||1;
 const polarCodes=new Uint16Array(size*size);
 const polarQuantM=polarRange/4095; // 12-bit vertical quantisation
-for(let i=0;i<polarData.length;i++){
-  const v=polarData[i];
-  polarCodes[i]=(Number.isFinite(v)&&!(polarNoData!==null&&v===Number(polarNoData)))
-    ?Math.round((v-pMin)/polarRange*4095):0;
+for(let i=0;i<polarVals.length;i++){
+  const v=polarVals[i];
+  polarCodes[i]=Number.isFinite(v)?Math.round((v-pMin)/polarRange*4095):0;
 }
 
 // ---- 2. global equirectangular grid: SLDEM2015 rows + polar rows from the COG ----
@@ -147,6 +171,7 @@ for(let j=0;j<GLOBAL_H;j++){
   }
 }
 const gRange=gMax-gMin||1;
+smoothGrid(gValues,GLOBAL_W,GLOBAL_H,2); // SLDEM rows are point-decimated: smooth hard
 for(let i=0;i<gValues.length;i++)
   globalCodes[i]=Number.isFinite(gValues[i])?Math.round((gValues[i]-gMin)/gRange*4095):0;
 
