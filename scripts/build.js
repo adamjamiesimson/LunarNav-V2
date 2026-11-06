@@ -12,10 +12,12 @@ for(const file of ['index.html','src/app.js','src/astro.js','src/compare.js','sr
 }
 mkdirSync(join(dist,'data'),{recursive:true});
 cpSync(join(base,'data/lola-horizons.json'),join(dist,'data/lola-horizons.json'));
-// Optional bundled NASA LROC surface texture (see README); the preview server
-// and the Vercel rewrite proxy it when the file is not present.
-if(existsSync(join(base,'assets/lroc-color.jpg'))){
-  mkdirSync(join(dist,'assets'),{recursive:true});
-  cpSync(join(base,'assets/lroc-color.jpg'),join(dist,'assets/lroc-color.jpg'));
+// Optional bundled NASA surface textures (see README); the preview server and
+// the Vercel rewrites proxy them when the files are not present.
+for(const asset of ['assets/lroc-color.jpg','assets/bluemarble-1024.png']){
+  if(existsSync(join(base,asset))){
+    mkdirSync(join(dist,'assets'),{recursive:true});
+    cpSync(join(base,asset),join(dist,asset));
+  }
 }
 console.log('Static production build created in dist/');

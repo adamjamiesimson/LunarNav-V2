@@ -157,10 +157,11 @@ main{padding:0 clamp(14px,3vw,32px);min-height:calc(100vh - 140px)}
   border:1px solid var(--line);border-radius:4px;color:var(--text);font-size:14px}
 .map-tool:hover{background:#2C333A}
 .map-tool:disabled{opacity:.4;cursor:not-allowed}
-.map-tool.view-system{width:auto;min-width:92px;padding:0 8px;gap:5px;font-size:12px;white-space:nowrap}
+.map-tool.view-system,.map-tool.view-focus{display:inline-flex;align-items:center;justify-content:center;height:28px}
+.map-tool.view-system{width:auto;min-width:101px;padding:0 9px;gap:6px;font-size:12px;white-space:nowrap}
 .map-tool.view-system[aria-pressed="true"],.map-tool.view-focus[aria-pressed="true"]{
   background:var(--accent-soft);border-color:var(--accent);color:#8FBFA0}
-.map-tool.view-focus{width:auto;padding:0 9px;gap:5px}
+.map-tool.view-focus{width:auto;padding:0 9px;gap:6px}
 #zoom-label{font:11px var(--mono);color:var(--muted);min-width:34px;text-align:center}
 .map-stage{position:relative;height:clamp(420px,42vw,560px);background:#0F1316;border:1px solid var(--line);
   border-radius:4px;overflow:hidden}

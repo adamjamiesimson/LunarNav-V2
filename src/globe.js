@@ -424,8 +424,12 @@ export function createMap(canvas,{onPick,onHover}){
      earthLoaded=true;request();
    }catch(error){console.warn('Blue Marble unavailable; procedural Earth active',error);}
  };
- earthImg.onerror=()=>{console.info('NASA Blue Marble unavailable; using procedural Earth texture');};
- earthImg.src='https://svs.gsfc.nasa.gov/vis/a000000/a002900/a002915/bluemarble-1024.png';
+ let triedEarthDirect=false;
+ earthImg.onerror=()=>{
+   if(!triedEarthDirect){triedEarthDirect=true;earthImg.src='https://svs.gsfc.nasa.gov/vis/a000000/a002900/a002915/bluemarble-1024.png';}
+   else console.info('NASA Blue Marble unavailable; using procedural Earth texture');
+ };
+ earthImg.src='/assets/bluemarble-1024.png';
  const img=new Image();
  img.crossOrigin='anonymous';img.decoding='async';
  img.onload=()=>{

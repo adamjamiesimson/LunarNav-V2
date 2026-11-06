@@ -11,7 +11,10 @@ const port=Number(process.argv.find(x=>/^\d{3,5}$/.test(x))||4173);
 const pages=new Set(['/','/index.html','/explore','/windows','/engineering','/compare','/science','/planner','/finder','/methodology']);
 // Same-origin proxies as vercel.json, for assets that upstream hosts serve
 // without CORS headers. A local copy of the file always wins over the proxy.
-const remoteAssets={'/assets/lroc-color.jpg':'https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg'};
+const remoteAssets={
+  '/assets/lroc-color.jpg':'https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg',
+  '/assets/bluemarble-1024.png':'https://svs.gsfc.nasa.gov/vis/a000000/a002900/a002915/bluemarble-1024.png'
+};
 const contentTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.svg':'image/svg+xml','.jpg':'image/jpeg','.png':'image/png'};
 const server=createServer(async(req,res)=>{
  try{
@@ -27,12 +30,13 @@ const server=createServer(async(req,res)=>{
       'Cache-Control':'no-cache','X-Content-Type-Options':'nosniff'});
    res.end(req.method==='HEAD'?undefined:body);
  }catch{
-   const remote=remoteAssets[new URL(req.url,'http://localhost').pathname];
+   const pathname=new URL(req.url,'http://localhost').pathname;
+   const remote=remoteAssets[pathname];
    if(remote){
      try{
        const upstream=await fetch(remote,{signal:AbortSignal.timeout(15000)});
        if(upstream.ok){
-         res.writeHead(200,{'Content-Type':'image/jpeg','Cache-Control':'no-cache'});
+         res.writeHead(200,{'Content-Type':contentTypes[extname(pathname)]||'application/octet-stream','Cache-Control':'no-cache'});
          res.end(req.method==='HEAD'?undefined:Buffer.from(await upstream.arrayBuffer()));
          return;
        }
