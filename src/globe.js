@@ -116,17 +116,22 @@ float heightAt(vec3 n){
 }
 float reliefRadius(vec3 dir){return 1.0+reliefExag*heightAt(dir)/1737400.0;}
 /* Terrain-aware ray intersection (mirrors src/relief.js): walk in from an
-   outer bound and bisect the first crossing of the displaced surface, so
-   ridges and crater walls genuinely change the silhouette. */
+   outer bound and bisect the first crossing of the displaced surface. The
+   step adapts to the remaining distance so narrow exaggerated ridges near the
+   limb cannot be skipped (fixed steps left holes there at high exaggeration). */
 float moonHit(vec3 o,vec3 d){
- float bound=1.0+reliefExag*0.012;
+ float bound=1.0+reliefExag*0.0075;
  float t0=sphereHit(o,d,vec3(0.0),bound);
  if(t0>9.0e5)return 1.0e6;
  float t=t0;
- for(int i=0;i<96;i++){
-   float tn=t+0.002;
+ float f=length(o+t*d)-reliefRadius(normalize(o+t*d));
+ if(f<=0.0)return t;
+ for(int i=0;i<160;i++){
+   float st=clamp(f*0.35,0.0005,0.005);
+   float tn=t+st;
    float dn=length(o+tn*d);
-   if(dn-reliefRadius(normalize(o+tn*d))<=0.0){
+   float fn=dn-reliefRadius(normalize(o+tn*d));
+   if(fn<=0.0){
      float lo=t,hi=tn;
      for(int j=0;j<8;j++){
        float m=0.5*(lo+hi);
@@ -135,7 +140,8 @@ float moonHit(vec3 o,vec3 d){
      }
      return 0.5*(lo+hi);
    }
-   t=tn;
+   t=tn;f=fn;
+   if(dn<0.9)return t; // inside the deepest possible terrain: already crossed
  }
  return 1.0e6;
 }

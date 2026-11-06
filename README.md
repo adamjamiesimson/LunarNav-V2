@@ -72,6 +72,7 @@ npm run check:lola                                          # NASA DEM availabil
 - The full Float32 elevation patch is retained per waypoint (bounded LRU cache, stale-request cancellation) so horizon maths, the 3D surface and future surface views share one source. NoData is masked, never extrapolated.
 - Assumptions and limits: MOON_ME south-polar stereographic, 0° central meridian, spherical curvature correction, 80% minimum pixel coverage. 60–80 m pixels miss small hazards; far-field terrain beyond 20 km, slopes and limb effects are not modelled.
 - **Colour-map ingestion** (`src/color-dem.js`): colour-coded elevation maps can be decoded into heights *only* with a documented legend ramp and geographic reference; off-ramp pixels are masked. Native numerical DEMs always take precedence; hillshade images are not elevation sources.
+- **Evaluated and rejected as a quantitative source: USGS SIM 3316** (Hare et al., 2015, *Image mosaic and topographic map of the Moon*). Its legend (1 km bands, R−1737.4 km datum) and polar stereographic insets were decoded via the colour path and cross-validated against SLDEM2015 in the 55–60°N overlap ring: the sheet merges hypsometric colours with shaded relief, so pixels at known elevations matched the wrong bands (systematic −1.9 km bias, ±2.4 km RMS; e.g. a −844 m sample rendered as a grey +5 km-coloured pixel). It remains a cartographic reference only, and the north polar cap (60–90°N) stays an explicitly labelled uncovered region until a numerical DEM is integrated.
 
 ## 3D surface and relief
 
