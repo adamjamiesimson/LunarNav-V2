@@ -18,6 +18,10 @@
       "destination": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_80MPP_ADJ.TIF"
     },
     {
+      "source": "/assets/lola-60s-60m.tif",
+      "destination": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_60S_60MPP_ADJ.TIF"
+    },
+    {
       "source": "/explore",
       "destination": "/index.html"
     },

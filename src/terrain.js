@@ -1,21 +1,34 @@
 /**
  * Experimental NASA LOLA terrain support.
  *
- * Source: Barker et al. 2023 NASA GSFC PGDA, south-polar COG 80m/pixel
+ * Source: Barker et al. 2023 NASA GSFC PGDA, south-polar COG mosaics
  * https://pgda.gsfc.nasa.gov/products/90
  * https://doi.org/10.3847/PSJ/acf3e1
  *
  * Read only a local window through HTTP byte ranges; never download or unpack
- * the entire 181 MB GeoTIFF into browser memory. This profile is coarse,
- * limited to 20 km and assumes the file's south-polar MOON_ME stereographic
- * projection, centered on east longitude 0°. It is not a landing safety map.
+ * the entire GeoTIFF into browser memory. Profiles are limited to 20 km and
+ * assume the file's south-polar MOON_ME stereographic projection, centered on
+ * east longitude 0°. Not a landing safety map.
+ *
+ * Two products cover the mission region: LDEM_80S (80°S–90°S, 80 m/px) and
+ * the wider LDEM_60S (60°S–90°S, 60 m/px) which also serves custom waypoints.
  */
 export const LOLA_COG='https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_80MPP_ADJ.TIF';
+export const LOLA_COG_60S='https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_60S_60MPP_ADJ.TIF';
+export const LOLA_PRODUCTS=Object.freeze({
+  '80s':{cog:LOLA_COG,proxy:'/assets/lola-80m.tif',label:'NASA GSFC PGDA LOLA 80m south-polar DEM',minLat:-90,maxLat:-80},
+  '60s':{cog:LOLA_COG_60S,proxy:'/assets/lola-60s-60m.tif',label:'NASA GSFC PGDA LOLA 60m south-polar DEM (60°S–90°S)',minLat:-90,maxLat:-60}
+});
+/** Smallest product that covers a latitude (lighter COG wins where possible). */
+export function productFor(latitude){
+  if(!Number.isFinite(latitude)||latitude> -60||latitude< -90)throw Error('NASA LOLA south-polar DEMs only cover 60°S to 90°S');
+  return latitude> -80?'60s':'80s';
+}
 const DEG=Math.PI/180;
 const RMOON=1737400;
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 export function polarXY(lat,lon){
-  if(!Number.isFinite(lat)||!Number.isFinite(lon)||lat < -90 || lat> -80)throw Error('LOLA 80S terrain only covers 80°S to 90°S');
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)||lat < -90 || lat> -60)throw Error('LOLA south-polar terrain only covers 60°S to 90°S');
   const radius=2*RMOON*Math.tan((90+lat)*DEG/2);
   return {x:radius*Math.sin(lon*DEG),y:radius*Math.cos(lon*DEG)};
 }
@@ -108,9 +121,10 @@ function subsetWindow(image,site,radiusKm){
     resolutionX,resolutionY};
 }
 
-/** COGs require true 206 byte responses; reject proxies returning the entire 181 MB image. */
-export async function selectSafeLolaSource(){
-  const candidates=['/assets/lola-80m.tif',LOLA_COG];
+/** COGs require true 206 byte responses; reject proxies returning the entire image. */
+export async function selectSafeLolaSource(productKey='80s'){
+  const product=LOLA_PRODUCTS[productKey]||LOLA_PRODUCTS['80s'];
+  const candidates=[product.proxy,product.cog];
   const errors=[];
   for(const url of candidates){
     try{
@@ -133,7 +147,9 @@ export async function loadLolaTerrain(site,{file=null,onProgress=()=>{}}={}){
   onProgress('Opening NASA LOLA elevation metadata…');
   // fromUrl uses HTTP ranges for the cloud-optimized remote GeoTIFF.
   // Local .tif files remain an escape hatch when CORS or upstream access fails.
-  const remoteUrl=file?null:await selectSafeLolaSource();
+  const productKey=productFor(site.lat);
+  const product=LOLA_PRODUCTS[productKey];
+  const remoteUrl=file?null:await selectSafeLolaSource(productKey);
   if(remoteUrl)onProgress('Loading safe 206-byte-range NASA terrain source…');
   const tiff=file?await g.fromBlob(file):await g.fromUrl(remoteUrl);
   const image=await tiff.getImage();
@@ -156,9 +172,9 @@ export async function loadLolaTerrain(site,{file=null,onProgress=()=>{}}={}){
     data,width:r.width,height:r.height,...geo,
     noData:typeof image.getGDALNoData==='function'?image.getGDALNoData():null
   },site,{radiusKm,azimuthBins:72,stepMeters:200});
-  result.loadedFrom=file?'Local GeoTIFF supplied by user':'NASA LOLA COG via byte-range reads';
+  result.loadedFrom=file?'Local GeoTIFF supplied by user':(productKey==='60s'?'NASA LOLA 60m COG via byte-range reads':'NASA LOLA COG via byte-range reads');
   result.provenance=file?'User-provided GeoTIFF: its origin is NOT independently verified':(remoteUrl.startsWith('/')?'Vercel same-origin NASA COG proxy':'NASA PGDA direct COG URL');
-  result.source=file?'User-supplied 80m GeoTIFF, asserted compatible with LOLA MOON_ME projection':'NASA GSFC PGDA LOLA 80m south-polar DEM';
+  result.source=file?'User-supplied GeoTIFF, asserted compatible with LOLA MOON_ME projection':product.label;
   result.verifiedSource=!file;
   return result;
 }

@@ -35,7 +35,8 @@ uniform vec3 forward, right, up, sun;
 uniform float zoom, hasTexture, showSkyBodies, hasEarthTexture, elapsedDays;
 uniform vec3 spinYaw, spinPitch;
 uniform vec4 sunSphere, earthSphere;
-uniform sampler2D moon, earthImage;
+uniform sampler2D moon, earthImage, reliefMap;
+uniform vec4 reliefCfg; // full-scale metres, metres per texel, exaggeration, texel size
 float hash(vec2 x){return fract(sin(dot(x,vec2(127.1,311.7)))*43758.5453);}
 float noise(vec2 p){
   vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
@@ -68,6 +69,27 @@ vec3 moonAlbedo(vec3 n){
            +0.11*noise(uv*vec2(1200.0,600.0));
  float spots=pow(noise(uv*vec2(28.0,15.0)),2.7);
  return vec3(0.38+0.32*land-0.12*spots);
+}
+/* LOLA relief (data/relief.json): south-polar stereographic, pole at texture
+   centre, domain half-size 931.2 km. Only 60S-90S carries relief. */
+vec2 reliefUV(vec3 n){
+ float lat=asin(clamp(n.z,-1.0,1.0));
+ float lon=atan(n.y,n.x);
+ float r=2.0*1737400.0*tan((1.5707963+lat)*0.5);
+ float dom=931200.0;
+ return vec2((r*sin(lon)+dom)/(2.0*dom),(dom-r*cos(lon))/(2.0*dom));
+}
+vec3 reliefBump(vec3 n){
+ if(reliefCfg.z<=0.0)return n;
+ vec2 uv=reliefUV(n);
+ if(uv.x<0.002||uv.x>0.998||uv.y<0.002||uv.y>0.998)return n;
+ float t=reliefCfg.w;
+ float hx=texture2D(reliefMap,uv+vec2(t,0.0)).r-texture2D(reliefMap,uv-vec2(t,0.0)).r;
+ float hy=texture2D(reliefMap,uv+vec2(0.0,t)).r-texture2D(reliefMap,uv-vec2(0.0,t)).r;
+ float k=reliefCfg.x/(2.0*reliefCfg.y)*reliefCfg.z; // height gradient -> surface slope
+ vec3 east=normalize(cross(vec3(0.0,0.0,1.0),n));
+ vec3 northv=cross(n,east);
+ return normalize(n-(hx*east+hy*northv)*k);
 }
 /* Orthographic rays through one Moon-fixed 3D coordinate system.
    Depth selects the nearest sphere, rather than compositing three 2D disks. */
@@ -163,7 +185,8 @@ void main(){
  }
  vec3 n=normalize(hitPoint);
  vec3 rock=moonAlbedo(n);
- float daylight=max(0.0,dot(n,normalize(sun)));
+ vec3 nl=reliefBump(n);
+ float daylight=max(0.0,dot(nl,normalize(sun)));
  float shade=0.115+0.94*pow(daylight,0.78);
  float rim=pow(1.0-max(0.0,dot(n,forward)),4.0);
  vec3 result=rock*shade*vec3(0.97,1.01,1.06);
@@ -195,7 +218,7 @@ export function createMap(canvas,{onPick,onHover}){
  try{p=program(gl);}catch(error){console.warn(error);background.remove();const status=document.querySelector('#map-image-status');if(status)status.textContent='2D POLAR SCHEMATIC';return createPolarMap(canvas,{onPick,onHover});}
  gl.useProgram(p);
  const loc=name=>gl.getUniformLocation(p,name);
- const u={resolution:loc('resolution'),forward:loc('forward'),right:loc('right'),up:loc('up'),sun:loc('sun'),zoom:loc('zoom'),hasTexture:loc('hasTexture'),showSkyBodies:loc('showSkyBodies'),hasEarthTexture:loc('hasEarthTexture'),elapsedDays:loc('elapsedDays'),sunSphere:loc('sunSphere'),earthSphere:loc('earthSphere'),spinYaw:loc('spinYaw'),spinPitch:loc('spinPitch'),moon:loc('moon'),earthImage:loc('earthImage')};
+ const u={resolution:loc('resolution'),forward:loc('forward'),right:loc('right'),up:loc('up'),sun:loc('sun'),zoom:loc('zoom'),hasTexture:loc('hasTexture'),showSkyBodies:loc('showSkyBodies'),hasEarthTexture:loc('hasEarthTexture'),elapsedDays:loc('elapsedDays'),sunSphere:loc('sunSphere'),earthSphere:loc('earthSphere'),spinYaw:loc('spinYaw'),spinPitch:loc('spinPitch'),moon:loc('moon'),earthImage:loc('earthImage'),reliefMap:loc('reliefMap'),reliefCfg:loc('reliefCfg')};
  const quad=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,quad);
  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
  const position=gl.getAttribLocation(p,'position');gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
@@ -211,6 +234,7 @@ export function createMap(canvas,{onPick,onHover}){
 
  let loaded=false,earthLoaded=false,site=SITES[0],zoom=1,lat=-73,lon=25,viewMode='overview',showSkyBodies=true;
  let simulatedUTC=Date.parse('2026-11-14T12:00:00Z'),layout=null,activeBody='moon',celestialDrag=null;
+ let terrainRose=null;
  const manualSpin={sun:{yaw:0,pitch:0},earth:{yaw:0,pitch:0},moon:{yaw:0,pitch:0}};
  stage.classList.add('show-celestial-bodies');
  let imageStatus='GLOBE VISUALIZATION';
@@ -238,6 +262,7 @@ export function createMap(canvas,{onPick,onHover}){
    gl.uniform3fv(u.sun,sunlight);gl.uniform1f(u.zoom,zoom);gl.uniform1f(u.hasTexture,loaded?1:0);
    gl.uniform1f(u.showSkyBodies,showSkyBodies?1:0);gl.uniform1f(u.hasEarthTexture,earthLoaded?1:0);
    gl.uniform1f(u.elapsedDays,simulatedUTC/86400000);
+   gl.uniform4fv(u.reliefCfg,reliefCfg);
    const bodies=['sun','earth','moon'],rotation=celestialSpin(simulatedUTC);
    gl.uniform3fv(u.spinYaw,bodies.map(name=>rotation[name]+manualSpin[name].yaw));
    gl.uniform3fv(u.spinPitch,bodies.map(name=>(name==='earth'?EARTH_BASE_PITCH:0)+manualSpin[name].pitch));
@@ -287,7 +312,26 @@ export function createMap(canvas,{onPick,onHover}){
      }
      ctx.restore();
    }
-   ctx.save();ctx.textAlign='center';ctx.fillStyle='rgba(185,210,218,0.65)';ctx.font='10px "DM Mono",monospace';
+   // Terrain rose at the selected waypoint: line colour = terrain horizon height,
+  // line weight = local rate of change (slope) — high weight means strong blocking.
+  if(terrainRose&&Array.isArray(terrainRose.elevationDeg)){
+    const origin=project({lat:terrainRose.lat,lon:terrainRose.lon});
+    if(origin.visible){
+      const bins=terrainRose.elevationDeg.length,step=1.2*Math.PI/180;
+      const cosLat=Math.max(0.1,Math.cos(terrainRose.lat*Math.PI/180));
+      for(let i=0;i<bins;i++){
+        const az=terrainRose.azimuthDeg[i]*Math.PI/180;
+        const h=terrainRose.elevationDeg[i];
+        const slope=Math.abs(terrainRose.elevationDeg[(i+1)%bins]-terrainRose.elevationDeg[(i+bins-1)%bins]);
+        const tip=project({lat:terrainRose.lat+Math.cos(az)*step,lon:terrainRose.lon+Math.sin(az)*step/cosLat});
+        if(!tip.visible)continue;
+        ctx.strokeStyle='rgba(201,155,82,'+(0.22+0.55*Math.min(1,h/30)).toFixed(3)+')';
+        ctx.lineWidth=1+Math.min(2.5,slope/4);
+        ctx.beginPath();ctx.moveTo(origin.x,origin.y);ctx.lineTo(tip.x,tip.y);ctx.stroke();
+      }
+    }
+  }
+  ctx.save();ctx.textAlign='center';ctx.fillStyle='rgba(185,210,218,0.65)';ctx.font='10px "DM Mono",monospace';
    ctx.fillText('DRAG TO ORBIT  ·  CLICK TO INSPECT',w/2,h-23);ctx.restore();
  }
  function positionCelestialLabels(){
@@ -417,6 +461,30 @@ export function createMap(canvas,{onPick,onHover}){
  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
  gl.generateMipmap(gl.TEXTURE_2D);
  gl.uniform1i(u.earthImage,1);
+ // LOLA relief texture (baked by scripts/build-relief.mjs); disabled if absent.
+ const reliefTexture=gl.createTexture();
+ gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,reliefTexture);
+ gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([128,128,128,255]));
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+ gl.uniform1i(u.reliefMap,2);
+ let reliefCfg=[0,1,0,1];
+ const reliefImg=new Image();reliefImg.decoding='async';
+ reliefImg.onload=()=>{
+   gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,reliefTexture);
+   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,reliefImg);
+   fetch('data/relief.json').then(r=>r.ok?r.json():null).then(meta=>{
+     if(!meta)return;
+     const fullScale=(meta.heightMaxM-meta.heightMinM);   // 0..1 texture value → metres
+     const metresPerTexel=meta.domainKm*1000/meta.size;
+     reliefCfg=[fullScale,metresPerTexel,2.0,1/meta.size];
+     request();
+   }).catch(()=>{});
+ };
+ reliefImg.src='/assets/moon-relief.png';
  const earthImg=new Image();earthImg.crossOrigin='anonymous';earthImg.decoding='async';
  earthImg.onload=()=>{
    try{
@@ -485,6 +553,7 @@ export function createMap(canvas,{onPick,onHover}){
      const ms=Date.parse(obs.time);
      if(Number.isFinite(ms))simulatedUTC=ms;
      request();
-   }
+   },
+   setTerrainRose(profile){terrainRose=profile||null;request();}
  };
 }

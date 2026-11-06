@@ -1,0 +1,14 @@
+{
+  "version": "lola-polar-relief-v1",
+  "projection": "MOON_ME south-polar stereographic, centered 90°S / 0°E",
+  "size": 3880,
+  "domainKm": 1862.4,
+  "radiusKm": 931.2,
+  "heightMinM": -9122.10546875,
+  "heightMaxM": 7015.744140625,
+  "metresPerPixel": 63.28568474264706,
+  "source": "NASA GSFC PGDA LOLA south-polar DEM (Barker et al. 2023) LDEM_60S_60MPP_ADJ.TIF",
+  "sourceUrl": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_60S_60MPP_ADJ.TIF",
+  "generatedUtc": "2026-11-06T09:02:40.525Z",
+  "note": "Visual relief for the 3D globe; horizon profiles are computed from native-resolution DEM patches instead."
+}

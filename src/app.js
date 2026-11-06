@@ -31,6 +31,7 @@ const startDate=/^\d{4}-\d{2}-\d{2}$/.test(params.get('date')||'')?params.get('d
 const state={site:startSite,date:startDate,time:'12:00',days:startDays,offset:0,base:null,samples:[],ranking:[],playing:false,terrain:null,engineering:{...DEFAULT_ENGINEERING},simulation:null};
 let currentPage=routeFromURL(location.pathname,location.hash);
 const terrainProfiles=new Map();
+const terrainAttempted=new Set();
 const terrainKey=site=>site.id+'|'+site.lat.toFixed(6)+'|'+site.lon.toFixed(6);
 const getCachedTerrain=site=>terrainProfiles.get(terrainKey(site))||null;
 let terrainBatchLoading=false;
@@ -84,7 +85,19 @@ function toast(message){const el=$('#toast');el.textContent=message;el.classList
 function downloadCSV(filename,rows){const cell=v=>'"'+String(v).replaceAll('"','""')+'"';const text=rows.map(r=>r.map(cell).join(',')).join('\n');const url=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
 function updateURL(){if(state.site.custom||currentPage==='home')return;history.replaceState({page:currentPage},'',buildPageURL(currentPage,selectionQuery()));}
 const map=createMap($('#moon-map'),{onPick:selectSite,onHover:(site,e)=>{const tip=$('#map-tooltip');if(!site){tip.hidden=true;return;}tip.hidden=false;tip.textContent=`${site.name} · ${site.kind} · ${fmtCoord(site.lat,site.lon)}`;const rect=$('#map-stage').getBoundingClientRect();tip.style.left=`${Math.min(rect.width-235,Math.max(12,e.clientX-rect.left+16))}px`;tip.style.top=`${Math.max(12,e.clientY-rect.top-20)}px`;}});
-function selectSite(site){stopPlay();state.site=site;if(site.custom&&!siteSelect.querySelector('[value="custom"]'))siteSelect.add(new Option('Custom waypoint  ·  Map-selected','custom'));siteSelect.value=site.id;updateAnalysis();toast(`${site.name} selected`);}
+function selectSite(site){stopPlay();state.site=site;if(site.custom&&!siteSelect.querySelector('[value="custom"]'))siteSelect.add(new Option('Custom waypoint  ·  Map-selected','custom'));siteSelect.value=site.id;updateAnalysis();toast(`${site.name} selected`);maybeAutoTerrain();}
+/** Custom waypoints get real NASA terrain automatically: picking a point on the
+ * globe is an explicit request for its local horizon, so one DEM patch read is
+ * proportionate. Failures are remembered so the session never retries in vain. */
+function maybeAutoTerrain(){
+  const site=state.site;
+  if(getCachedTerrain(site)||$('#terrain-load').disabled)return;
+  if(site.lat> -60||site.lat< -90){toast('Outside NASA DEM coverage (60°S–90°S): flat-horizon model in use.');return;}
+  const key=terrainKey(site);
+  if(terrainAttempted.has(key))return;
+  terrainAttempted.add(key);
+  requestTerrain();
+}
 function refreshMissionContext(){
   const label=state.site.name+' · '+state.date+' '+state.time+' UTC · '+state.days+' days';
   $('#engineering-context').textContent=label;
@@ -370,6 +383,7 @@ function updateMissionPanels(){
 }
 function updateTerrainPanel(){
   const p=state.terrain;
+  map.setTerrainRose?.(p||null);
   $('#terrain-badge').textContent=p?'DEM APPLIED':'NOT LOADED';
   if(!p){
     $('#terrain-status').textContent='No DEM applied. Feasibility uses a level geometric horizon until NASA elevation data loads successfully.';

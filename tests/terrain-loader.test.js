@@ -41,5 +41,6 @@ test('incompatible raster pixel size is rejected, never silently presented as LO
 });
 test('polar stereographic latitude is bounded and finite',()=>{
  assert.ok(polarXY(site.lat,site.lon).x>0);
- assert.throws(()=>polarXY(-70,0),/covers/);
+ assert.ok(Number.isFinite(polarXY(-70,0).x),'mid-latitude waypoints project inside the 60°S domain');
+ assert.throws(()=>polarXY(-50,0),/covers/);
 });
