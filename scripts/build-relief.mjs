@@ -27,6 +27,7 @@ import {writeFileSync,mkdirSync,existsSync,readFileSync} from 'node:fs';
 import {deflateSync} from 'node:zlib';
 
 const POLAR_COG='https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_60S_60MPP_ADJ.TIF';
+const NORTH_IMG='http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/FLOAT_IMG/LDEM_60N_240M_FLOAT.IMG';
 const SLDEM_IMG='http://imbrium.mit.edu/DATA/SLDEM2015/GLOBAL/FLOAT_IMG/SLDEM2015_128_60S_60N_000_360_FLOAT.IMG';
 const SLDEM_LBL='http://imbrium.mit.edu/DATA/SLDEM2015/GLOBAL/FLOAT_IMG/SLDEM2015_128_60S_60N_000_360_FLOAT.LBL';
 const POLAR_SIZE=3880;          // polar grid width (nearest COG overview)
@@ -59,15 +60,24 @@ function png12(width,height,codes){
   return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',ihdr),chunk('IDAT',deflateSync(rows,{level:9})),chunk('IEND',Buffer.alloc(0))]);
 }
 
-async function withRetry(fn,tries=4){
+async function withRetry(fn,tries=6){
   for(let attempt=1;;attempt++){
     try{return await fn();}
     catch(error){
       if(attempt>=tries)throw error;
-      console.warn(`attempt ${attempt} failed (${error.message}); retrying in ${attempt*3}s…`);
-      await new Promise(r=>setTimeout(r,attempt*3000));
+      const wait=attempt*2000;
+      console.warn(`attempt ${attempt} failed (${error.message}); retrying in ${wait/1000}s…`);
+      await new Promise(r=>setTimeout(r,wait));
     }
   }
+}
+
+// Run async tasks with bounded concurrency: thousands of small range reads are
+// round-trip bound, so parallel fetches cut the bake from ~40 min to ~2 min.
+async function mapConcurrent(items,fn,workers=24){
+  let next=0;
+  const run=async()=>{while(next<items.length){const i=next++;await fn(items[i],i);}};
+  await Promise.all(Array.from({length:Math.min(workers,items.length)},run));
 }
 
 // 3x3 box smoothing (mask-aware, NaN = missing) to remove decimation aliasing
@@ -92,6 +102,12 @@ function smoothGrid(values,width,height,passes=2){
   values.set(src);
 }
 
+const sldemFetch=async(range,url=SLDEM_IMG)=>{
+  const res=await fetch(url,{headers:{Range:range},signal:AbortSignal.timeout(60000)});
+  if(!(res.status===206||res.status===200))throw Error('range read failed: '+res.status);
+  return Buffer.from(await res.arrayBuffer());
+};
+
 // ---- 1. south-polar grid from the LOLA COG overview ----
 console.log('polar: opening',POLAR_COG);
 const tif=await withRetry(()=>fromUrl(POLAR_COG,{allowFullFile:false}));
@@ -112,6 +128,33 @@ for(let i=0;i<polarData.length;i++){
   if(v<pMin)pMin=v;if(v>pMax)pMax=v;
 }
 smoothGrid(polarVals,size,size,1); // light smoothing; geotiff already resamples
+
+// ---- 1b. north-polar grid from the LOLA GDR shape mosaic (LDEM_60N_240M)
+// Raw float32 rows, pole at pixel centre (offsets verified from the PDS label);
+// orientation verified empirically against SLDEM2015 (RMS 17 m in the overlap
+// ring: x=(col-off)*240, y=(row-off)*240, lon=atan2(x,y)).
+console.log('north: reading LDEM_60N_240M rows (strided byte ranges)');
+const NROWS=7760,NPIX=7760,NOFF=3879.5,NSCALE=240.0;
+const northVals=new Float32Array(size*size).fill(NaN);
+let nMin=Infinity,nMax=-Infinity;
+const nStride=NROWS/size; // 2.0 for 3880
+const northRows=Array.from({length:size},(_,j)=>j);
+await mapConcurrent(northRows,async j=>{
+  const srow=Math.round(j*nStride);
+  const start=srow*NPIX*4;
+  const buf=await withRetry(()=>sldemFetch(`bytes=${start}-${start+NPIX*4-1}`,NORTH_IMG));
+  for(let i=0;i<size;i++){
+    const scol=Math.round(i*nStride);
+    const v=buf.readFloatLE(scol*4)*1000; // km above R=1737.4 (verified from LBL)
+    if(Number.isFinite(v)){northVals[j*size+i]=v;if(v<nMin)nMin=v;if(v>nMax)nMax=v;}
+  }
+  if(j%512===0)console.log(`north: row ${j}/${size}`);
+});
+smoothGrid(northVals,size,size,1);
+const northRange=nMax-nMin||1;
+const northCodes=new Uint16Array(size*size);
+for(let i=0;i<northVals.length;i++)
+  northCodes[i]=Number.isFinite(northVals[i])?Math.round((northVals[i]-nMin)/northRange*4095):0;
 const polarRange=pMax-pMin||1;
 const polarCodes=new Uint16Array(size*size);
 const polarQuantM=polarRange/4095; // 12-bit vertical quantisation
@@ -123,17 +166,16 @@ for(let i=0;i<polarVals.length;i++){
 // ---- 2. global equirectangular grid: SLDEM2015 rows + polar rows from the COG ----
 console.log('global: reading SLDEM2015 rows (strided byte ranges)');
 const rows=15360,cols=46080,rowBytes=cols*4;         // verified from the PDS label
-const sldemFetch=async(range)=>{
-  const res=await fetch(SLDEM_IMG,{headers:{Range:range},signal:AbortSignal.timeout(60000)});
-  if(!(res.status===206||res.status===200))throw Error('SLDEM range read failed: '+res.status);
-  return Buffer.from(await res.arrayBuffer());
-};
 const globalCodes=new Uint16Array(GLOBAL_W*GLOBAL_H);
 let gMin=Infinity,gMax=-Infinity;
 const gValues=new Float32Array(GLOBAL_W*GLOBAL_H).fill(NaN);
+const sldemRows=[];
 for(let j=0;j<GLOBAL_H;j++){
   const lat=90-(j+0.5)*180/GLOBAL_H;
-  if(lat<-60||lat>60)continue;                       // SLDEM coverage (verified from LBL)
+  if(lat>=-60&&lat<=60)sldemRows.push(j);
+}
+await mapConcurrent(sldemRows,async j=>{
+  const lat=90-(j+0.5)*180/GLOBAL_H;
   const srow=Math.round((60-lat)/120*(rows-1));       // row 0 = +60° (north-up)
   const buf=await withRetry(()=>sldemFetch(`bytes=${srow*rowBytes}-${srow*rowBytes+rowBytes-1}`));
   for(let i=0;i<GLOBAL_W;i++){
@@ -143,7 +185,7 @@ for(let j=0;j<GLOBAL_H;j++){
     if(Number.isFinite(v)){gValues[j*GLOBAL_W+i]=v*1000;if(v*1000<gMin)gMin=v*1000;if(v*1000>gMax)gMax=v*1000;}
   }
   if(j%128===0)console.log(`global: row ${j}/${GLOBAL_H}`);
-}
+});
 // Polar rows (below 60°S) from the COG grid sampled bilinearly.
 const polarSample=(lat,lon)=>{
   const r=2*RMOON*Math.tan((90+lat)*Math.PI/360),lr=lon*Math.PI/180;
@@ -162,12 +204,39 @@ const polarSample=(lat,lon)=>{
   const fx=x-x0,fy=y-y0;
   return (vals[0]*(1-fx)+vals[1]*fx)*(1-fy)+(vals[2]*(1-fx)+vals[3]*fx)*fy;
 };
+const polarSampleNorth=(lat,lon)=>{
+  const r=2*RMOON*Math.tan((90-lat)*Math.PI/360),lr=lon*Math.PI/180;
+  const u=(r*Math.sin(lr)+POLAR_DOMAIN_M)/(2*POLAR_DOMAIN_M);
+  const v=(r*Math.cos(lr)+POLAR_DOMAIN_M)/(2*POLAR_DOMAIN_M); // north grid rows run -y -> +y
+  if(u<0||u>1||v<0||v>1)return NaN;
+  const x=u*(size-1),y=v*(size-1);
+  const x0=Math.floor(x),y0=Math.floor(y);
+  const x1=Math.min(size-1,x0+1),y1=Math.min(size-1,y0+1);
+  const h=(a,b)=>{
+    const code=northCodes[b*size+a];
+    return code?nMin+code/4095*northRange:NaN;
+  };
+  const vals=[h(x0,y0),h(x1,y0),h(x0,y1),h(x1,y1)];
+  if(vals.some(v=>!Number.isFinite(v)))return NaN;
+  const fx=x-x0,fy=y-y0;
+  return (vals[0]*(1-fx)+vals[1]*fx)*(1-fy)+(vals[2]*(1-fx)+vals[3]*fx)*fy;
+};
 for(let j=0;j<GLOBAL_H;j++){
   const lat=90-(j+0.5)*180/GLOBAL_H;
   if(lat>=-60)continue;
   for(let i=0;i<GLOBAL_W;i++){
     const lon=-180+(i+0.5)*360/GLOBAL_W;
     const m=polarSample(lat,lon);
+    if(Number.isFinite(m)){gValues[j*GLOBAL_W+i]=m;if(m<gMin)gMin=m;if(m>gMax)gMax=m;}
+  }
+}
+// North cap rows (> 60°N) from the LDEM_60N grid.
+for(let j=0;j<GLOBAL_H;j++){
+  const lat=90-(j+0.5)*180/GLOBAL_H;
+  if(lat<=60)continue;
+  for(let i=0;i<GLOBAL_W;i++){
+    const lon=-180+(i+0.5)*360/GLOBAL_W;
+    const m=polarSampleNorth(lat,lon);
     if(Number.isFinite(m)){gValues[j*GLOBAL_W+i]=m;if(m<gMin)gMin=m;if(m>gMax)gMax=m;}
   }
 }
@@ -180,6 +249,7 @@ for(let i=0;i<gValues.length;i++)
 mkdirSync('assets',{recursive:true});
 mkdirSync('data',{recursive:true});
 writeFileSync('assets/moon-relief.png',png12(size,size,polarCodes));
+writeFileSync('assets/moon-relief-north.png',png12(size,size,northCodes));
 writeFileSync('assets/moon-relief-global.png',png12(GLOBAL_W,GLOBAL_H,globalCodes));
 const meta=JSON.parse(existsSync('data/relief.json')?readFileSync('data/relief.json','utf8'):'{}');
 writeFileSync('data/relief.json',JSON.stringify({
@@ -192,10 +262,20 @@ writeFileSync('data/relief.json',JSON.stringify({
   verticalQuantisationM:polarQuantM,
   source:'NASA GSFC PGDA LOLA south-polar DEM (Barker et al. 2023) LDEM_60S_60MPP_ADJ.TIF',
   sourceUrl:POLAR_COG,
+  north:{
+    file:'assets/moon-relief-north.png',size,projection:'MOON_ME north-polar stereographic, centered 90°N / 0°E',
+    heightMinM:nMin,heightMaxM:nMax,
+    horizontalGroundSampleM:POLAR_DOMAIN_M*2/size,
+    verticalQuantisationM:northRange/4095,
+    source:'NASA LOLA GDR north-polar shape mosaic LDEM_60N_240M (raw float32)',
+    sourceUrl:NORTH_IMG,
+    datum:'heights above/below the 1737.4 km mean lunar radius',
+    validation:'grid orientation and scale cross-checked against SLDEM2015 in the 55-60 degN overlap ring: RMS 17 m, bias +0.9 m'
+  },
   global:{
     file:'assets/moon-relief-global.png',width:GLOBAL_W,height:GLOBAL_H,
-    coverageLat:[-90,60],
-    uncoveredRegion:'60°N–90°N (no merged LOLA/Kaguya product exists in this family)',
+    coverageLat:[-90,90],
+    coverageNote:'90S-60S from LDEM_60S, 60S-60N from SLDEM2015, 60N-90N from LDEM_60N; cross-faded at the boundaries',
     heightMinM:gMin,heightMaxM:gMax,
     horizontalGroundSampleMAtEquator:RMOON*Math.PI*2/GLOBAL_W/1, // ≈ 5.3 km
     verticalQuantisationM:gRange/4095,

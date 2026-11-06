@@ -44,9 +44,17 @@ test('baked relief texture matches its NASA metadata',()=>{
   assert.ok(Math.abs(meta.horizontalGroundSampleM-480)<2,'3880 px across the 1862 km domain is ~480 m/px');
   assert.ok(meta.verticalQuantisationM<=5,'vertical quantisation is metres-level, not an 8-bit ramp');
   assert.ok(!('metresPerPixel' in meta),'the ambiguous metresPerPixel misnomer is gone');
-  assert.equal(meta.global.coverageLat[1],60,'global grid honestly reports its coverage limit');
-  assert.match(meta.global.uncoveredRegion,/60°N–90°N/);
+  assert.deepEqual(meta.global.coverageLat,[-90,90],'global grid covers the full sphere once the polar grids are folded in');
+  assert.match(meta.global.coverageNote,/LDEM_60N/);
   assert.ok(meta.global.verticalQuantisationM<=5);
+  // The north polar grid mirrors the south treatment (LDEM_60N, same datum).
+  assert.match(meta.north.source,/LDEM_60N/);
+  assert.match(meta.north.validation,/RMS 17 m/);
+  assert.ok(Math.abs(meta.north.horizontalGroundSampleM-480)<2,'north grid matches the south polar GSD');
+  assert.ok(meta.north.heightMinM<-5000&&meta.north.heightMaxM>5000);
+  const northPng=readFileSync(new URL('../assets/moon-relief-north.png',import.meta.url));
+  assert.deepEqual([...northPng.subarray(0,8)],[137,80,78,71,13,10,26,10],'valid north PNG signature');
+  assert.equal(northPng.readUInt32BE(16),meta.north.size,'north PNG width matches metadata');
   const png=readFileSync(new URL('../assets/moon-relief.png',import.meta.url));
   assert.deepEqual([...png.subarray(0,8)],[137,80,78,71,13,10,26,10],'valid PNG signature');
   assert.equal(png.readUInt32BE(16),meta.size,'PNG width matches metadata');

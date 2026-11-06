@@ -15,7 +15,7 @@ cpSync(join(base,'data/lola-horizons.json'),join(dist,'data/lola-horizons.json')
 cpSync(join(base,'data/relief.json'),join(dist,'data/relief.json'));
 // Optional bundled NASA surface textures (see README); the preview server and
 // the Vercel rewrites proxy them when the files are not present.
-for(const asset of ['assets/lroc-color.jpg','assets/bluemarble-1024.png','assets/moon-relief.png','assets/moon-relief-global.png']){
+for(const asset of ['assets/lroc-color.jpg','assets/bluemarble-1024.png','assets/moon-relief.png','assets/moon-relief-global.png','assets/moon-relief-north.png']){
   if(existsSync(join(base,asset))){
     mkdirSync(join(dist,'assets'),{recursive:true});
     cpSync(join(base,asset),join(dist,asset));

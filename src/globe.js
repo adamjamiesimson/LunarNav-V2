@@ -35,8 +35,9 @@ uniform vec3 forward, right, up, sun;
 uniform float zoom, hasTexture, showSkyBodies, hasEarthTexture, elapsedDays;
 uniform vec3 spinYaw, spinPitch;
 uniform vec4 sunSphere, earthSphere;
-uniform sampler2D moon, earthImage, reliefMap, globalMap, patchMap;
+uniform sampler2D moon, earthImage, reliefMap, globalMap, patchMap, northMap;
 uniform vec4 reliefCfg; // polar: range m, min m, texel size, covered
+uniform vec4 northCfg;  // north polar: range m, min m, texel size, covered
 uniform vec4 globalCfg; // global: range m, min m, covered, unused
 uniform vec4 patchCfg;  // patch: range m, min m, texel size, covered
 uniform vec4 patchGeo;  // patch window: originX, originY, spanX, spanY (polar metres)
@@ -90,26 +91,38 @@ vec2 polarUV(vec3 n){
  float dom=931200.0;
  return vec2((r*sin(lon)+dom)/(2.0*dom),(dom-r*cos(lon))/(2.0*dom));
 }
+vec2 northUV(vec3 n){
+ float lat=asin(clamp(n.z,-1.0,1.0));
+ float lon=atan(n.y,n.x);
+ float r=2.0*1737400.0*tan((1.5707963-lat)*0.5);
+ float dom=931200.0;
+ return vec2((r*sin(lon)+dom)/(2.0*dom),(r*cos(lon)+dom)/(2.0*dom));
+}
 float heightAt(vec3 n){
  float lat=asin(clamp(n.z,-1.0,1.0));
  float lon=atan(n.y,n.x);
- float r=2.0*1737400.0*tan((1.5707963+lat)*0.5);
+ float rS=2.0*1737400.0*tan((1.5707963+lat)*0.5);
+ float rN=2.0*1737400.0*tan((1.5707963-lat)*0.5);
  if(patchCfg.w>0.5){
-   vec2 puv=vec2((r*sin(lon)-patchGeo.x)/patchGeo.z,(patchGeo.y-r*cos(lon))/patchGeo.w);
+   vec2 puv=vec2((rS*sin(lon)-patchGeo.x)/patchGeo.z,(patchGeo.y-rS*cos(lon))/patchGeo.w);
    if(puv.x>0.002&&puv.x<0.998&&puv.y>0.002&&puv.y<0.998)return hDecode(texture2D(patchMap,puv).rgb,patchCfg);
  }
- float polarH=0.0,globalH=0.0;
+ float polarH=0.0,globalH=0.0,pr=0.0;
  bool hasPolar=false,hasGlobal=false;
- vec2 uv=polarUV(n);
- if(reliefCfg.w>0.5&&r<=945000.0&&uv.x>0.002&&uv.x<0.998&&uv.y>0.002&&uv.y<0.998){
-   polarH=hDecode(texture2D(reliefMap,uv).rgb,reliefCfg);hasPolar=true;
+ if(reliefCfg.w>0.5&&rS<=945000.0){
+   vec2 uv=polarUV(n);
+   if(uv.x>0.002&&uv.x<0.998&&uv.y>0.002&&uv.y<0.998){polarH=hDecode(texture2D(reliefMap,uv).rgb,reliefCfg);hasPolar=true;pr=rS;}
  }
- if(globalCfg.z>0.5&&lat>-1.052&&lat<1.0472){
+ if(!hasPolar&&northCfg.w>0.5&&rN<=945000.0){
+   vec2 uv=northUV(n);
+   if(uv.x>0.002&&uv.x<0.998&&uv.y>0.002&&uv.y<0.998){polarH=hDecode(texture2D(northMap,uv).rgb,northCfg);hasPolar=true;pr=rN;}
+ }
+ if(globalCfg.z>0.5){
    vec2 guv=vec2(fract((lon+3.14159265)/6.2831853),(1.5707963-lat)/3.14159265);
    globalH=hDecode(texture2D(globalMap,guv).rgb,globalCfg);hasGlobal=true;
  }
  if(hasPolar&&hasGlobal)
-   return mix(polarH,globalH,smoothstep(880000.0,945000.0,r)); // cross-fade the grid boundary
+   return mix(polarH,globalH,smoothstep(880000.0,945000.0,pr)); // cross-fade the grid boundary
  if(hasPolar)return polarH;
  if(hasGlobal)return globalH;
  return 0.0;
@@ -282,7 +295,7 @@ export function createMap(canvas,{onPick,onHover}){
  try{p=program(gl);}catch(error){console.warn(error);background.remove();const status=document.querySelector('#map-image-status');if(status)status.textContent='2D POLAR SCHEMATIC';return createPolarMap(canvas,{onPick,onHover});}
  gl.useProgram(p);
  const loc=name=>gl.getUniformLocation(p,name);
- const u={resolution:loc('resolution'),forward:loc('forward'),right:loc('right'),up:loc('up'),sun:loc('sun'),zoom:loc('zoom'),hasTexture:loc('hasTexture'),showSkyBodies:loc('showSkyBodies'),hasEarthTexture:loc('hasEarthTexture'),elapsedDays:loc('elapsedDays'),sunSphere:loc('sunSphere'),earthSphere:loc('earthSphere'),spinYaw:loc('spinYaw'),spinPitch:loc('spinPitch'),moon:loc('moon'),earthImage:loc('earthImage'),reliefMap:loc('reliefMap'),globalMap:loc('globalMap'),patchMap:loc('patchMap'),reliefCfg:loc('reliefCfg'),globalCfg:loc('globalCfg'),patchCfg:loc('patchCfg'),patchGeo:loc('patchGeo'),reliefExag:loc('reliefExag')};
+ const u={resolution:loc('resolution'),forward:loc('forward'),right:loc('right'),up:loc('up'),sun:loc('sun'),zoom:loc('zoom'),hasTexture:loc('hasTexture'),showSkyBodies:loc('showSkyBodies'),hasEarthTexture:loc('hasEarthTexture'),elapsedDays:loc('elapsedDays'),sunSphere:loc('sunSphere'),earthSphere:loc('earthSphere'),spinYaw:loc('spinYaw'),spinPitch:loc('spinPitch'),moon:loc('moon'),earthImage:loc('earthImage'),reliefMap:loc('reliefMap'),globalMap:loc('globalMap'),patchMap:loc('patchMap'),northMap:loc('northMap'),reliefCfg:loc('reliefCfg'),globalCfg:loc('globalCfg'),patchCfg:loc('patchCfg'),patchGeo:loc('patchGeo'),northCfg:loc('northCfg'),reliefExag:loc('reliefExag')};
  const quad=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,quad);
  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
  const position=gl.getAttribLocation(p,'position');gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
@@ -330,6 +343,7 @@ export function createMap(canvas,{onPick,onHover}){
    gl.uniform4fv(u.globalCfg,globalCfg);
    gl.uniform4fv(u.patchCfg,patchCfg);
    gl.uniform4fv(u.patchGeo,patchGeo);
+   gl.uniform4fv(u.northCfg,northCfg);
    gl.uniform1f(u.reliefExag,reliefExag);
    const bodies=['sun','earth','moon'],rotation=celestialSpin(simulatedUTC);
    gl.uniform3fv(u.spinYaw,bodies.map(name=>rotation[name]+manualSpin[name].yaw));
@@ -546,9 +560,9 @@ export function createMap(canvas,{onPick,onHover}){
    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
    return tex;
  };
- const reliefTexture=makeDataTexture(2,false),globalTexture=makeDataTexture(3,true),patchTexture=makeDataTexture(4,false);
- gl.uniform1i(u.reliefMap,2);gl.uniform1i(u.globalMap,3);gl.uniform1i(u.patchMap,4);
- let reliefCfg=[0,1,1/3880,0],globalCfg=[0,1,0,0],patchCfg=[0,1,1,0],patchGeo=[0,0,1,1];
+ const reliefTexture=makeDataTexture(2,false),globalTexture=makeDataTexture(3,true),patchTexture=makeDataTexture(4,false),northTexture=makeDataTexture(5,false);
+ gl.uniform1i(u.reliefMap,2);gl.uniform1i(u.globalMap,3);gl.uniform1i(u.patchMap,4);gl.uniform1i(u.northMap,5);
+ let reliefCfg=[0,1,1/3880,0],globalCfg=[0,1,0,0],patchCfg=[0,1,1,0],patchGeo=[0,0,1,1],northCfg=[0,1,1/3880,0];
  let reliefExag=1;
  const uploadRelief=(unit,tex,img)=>{
    gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,tex);
@@ -560,11 +574,15 @@ export function createMap(canvas,{onPick,onHover}){
    if(!meta)return;
    reliefCfg[0]=meta.heightMaxM-meta.heightMinM;reliefCfg[1]=meta.heightMinM;reliefCfg[2]=1/meta.size;
    if(meta.global){globalCfg[0]=meta.global.heightMaxM-meta.global.heightMinM;globalCfg[1]=meta.global.heightMinM;}
+   if(meta.north){northCfg[0]=meta.north.heightMaxM-meta.north.heightMinM;northCfg[1]=meta.north.heightMinM;northCfg[2]=1/meta.north.size;}
    request();
  }).catch(()=>{});
  const globalImg=new Image();globalImg.decoding='async';
  globalImg.onload=()=>{uploadRelief(3,globalTexture,globalImg);globalCfg[2]=1;request();};
  globalImg.src='/assets/moon-relief-global.png';
+ const northImg=new Image();northImg.decoding='async';
+ northImg.onload=()=>{uploadRelief(5,northTexture,northImg);northCfg[3]=1;request();};
+ northImg.src='/assets/moon-relief-north.png';
  const reliefImg=new Image();reliefImg.decoding='async';
  reliefImg.onload=()=>{uploadRelief(2,reliefTexture,reliefImg);reliefCfg[3]=1;request();};
  reliefImg.src='/assets/moon-relief.png';
