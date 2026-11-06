@@ -46,12 +46,13 @@ function png12(width,height,codes){
   for(let y=0;y<height;y++){
     const off=y*stride;
     rows[off]=1; // filter: Sub — deltas stay small across each row
+    const prev=[0,0,0];
     for(let x=0;x<width;x++){
       const v=Math.max(0,Math.min(4095,codes[y*width+x]));
       const px=[v>>4,(v&15)<<4,0];
       for(let k=0;k<3;k++){
-        const left=x>0?rows[off+1+(x-1)*3+k]:0;
-        rows[off+1+x*3+k]=(px[k]-left)&255;
+        rows[off+1+x*3+k]=(px[k]-prev[k])&255; // PNG Sub deltas against the raw left pixel
+        prev[k]=px[k];
       }
     }
   }

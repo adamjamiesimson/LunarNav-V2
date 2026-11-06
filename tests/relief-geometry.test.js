@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {inflateSync} from 'node:zlib';
 import {MOON_RADIUS_M,POLAR_DOMAIN_M,polarReliefUV,globalReliefUV,decodeHeight,sampleGrid,
   displacedRadiusM,intersectDisplacedSphere,displacedNormal} from '../src/relief.js';
 
@@ -68,4 +70,37 @@ test('relief texture mappings are geographically consistent',()=>{
   const g=globalReliefUV(0,0);
   assert.ok(Math.abs(g.u-0.5)<1e-9&&Math.abs(g.v-0.5)<1e-9,'prime meridian and equator at the equirect centre');
   assert.ok(Math.abs(globalReliefUV(0,-180).u)<1e-9,'longitude wraps');
+});
+
+test('baked relief PNG decodes to smooth terrain, not encoding noise',()=>{
+  // Decode the actual shipped texture (PNG Sub filter) and verify real terrain:
+  // neighbouring heights must vary gently. This catches encoder/decoder bugs
+  // that header-only checks cannot see.
+  const png=readFileSync(new URL('../assets/moon-relief.png',import.meta.url));
+  let off=8;const idat=[];
+  while(off<png.length){
+    const len=png.readUInt32BE(off),type=png.toString('ascii',off+4,off+8);
+    if(type==='IDAT')idat.push(png.subarray(off+8,off+8+len));
+    off+=12+len;
+  }
+  const w=png.readUInt32BE(16),h=png.readUInt32BE(20);
+  const raw=inflateSync(Buffer.concat(idat));
+  const stride=w*3+1,out=Buffer.alloc(w*h*3);
+  for(let y=0;y<h;y++){
+    const f=raw[y*stride];
+    for(let x=0;x<stride-1;x++){
+      const left=x>=3?out[y*w*3+x-3]:0;
+      out[y*w*3+x]=(raw[y*stride+1+x]+(f===1?left:0))&255;
+    }
+  }
+  const code=(x,y)=>16*out[(y*w+x)*3]+out[(y*w+x)*3+1]/16;
+  let checked=0,harsh=0;
+  for(let y=300;y<340;y++)for(let x=300;x<600;x++){
+    const d=Math.abs(code(x,y)-code(x+1,y));
+    checked++;
+    if(d>200)harsh++; // >~760 m between 480 m texels is not real terrain
+  }
+  assert.ok(checked>1000);
+  assert.ok(harsh<checked*0.01,`relief texture looks noisy: ${harsh}/${checked} harsh jumps`);
+  assert.ok(Math.abs(code(301,301)-code(302,301))<201,'neighbouring heights are continuous');
 });
