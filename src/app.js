@@ -32,7 +32,6 @@ const state={site:startSite,date:startDate,time:'12:00',days:startDays,offset:0,
 let currentPage=routeFromURL(location.pathname,location.hash);
 const terrainProfiles=new Map();
 const terrainAttempted=new Set();
-let terrainRequestSeq=0;
 const terrainKey=site=>site.id+'|'+site.lat.toFixed(6)+'|'+site.lon.toFixed(6);
 const getCachedTerrain=site=>terrainProfiles.get(terrainKey(site))||null;
 let terrainBatchLoading=false;
@@ -236,7 +235,7 @@ function setOffset(v){state.offset=Math.max(0,Math.min(SUN_CIRCUIT_HOURS,Number(
 /** Every results panel states which horizon model produced its numbers. */
 function updateModelNotes(){
   const terrain=Boolean(state.terrain);
-  const text=terrain?'TERRAIN HORIZON · NASA LOLA 20 KM · '+(state.terrain?.azimuthDeg?.length||360)+' AZ BINS':'FLAT 0° HORIZON · SIMPLIFIED — NO TERRAIN PROFILE FOR THIS SITE';
+  const text=terrain?'TERRAIN HORIZON · NASA LOLA 20 KM · 72 AZ BINS':'FLAT 0° HORIZON · SIMPLIFIED — NO TERRAIN PROFILE FOR THIS SITE';
   for(const id of ['timeline-model','metrics-model']){const el=$('#'+id);if(el){el.textContent=text;el.classList.toggle('flat',!terrain);}}
 }
 
@@ -290,7 +289,7 @@ function renderComparePanel(){
   $('#compare-timeline').innerHTML=compareTimelineSVG(entries);
   $('#compare-notes').innerHTML=differenceNotes(entries).map(n=>'<p>'+escapeHTML(n)+'</p>').join('');
   const flat=entries.filter(e=>!e.metrics.terrainApplied);
-  badge.textContent=flat.length?`MIXED HORIZONS · ${flat.length} SITE(S) ON FLAT 0° (NO TERRAIN DATA)`:'TERRAIN HORIZON · NASA LOLA 20 KM · '+(state.terrain?.azimuthDeg?.length||360)+' AZ BINS';
+  badge.textContent=flat.length?`MIXED HORIZONS · ${flat.length} SITE(S) ON FLAT 0° (NO TERRAIN DATA)`:'TERRAIN HORIZON · NASA LOLA 20 KM · 72 AZ BINS';
   badge.classList.toggle('flat',flat.length>0);
 }
 function renderDateComparison(){
@@ -313,7 +312,7 @@ function renderDateComparison(){
 function drawComparison(){const entries=state.ranking;
   $('#site-comparison').innerHTML=entries.map((entry,i)=>{const {site,stats}=entry,active=site.id===state.site.id;return `<button type="button" class="compare-card ${active?'active':''}" data-site="${site.id}" aria-label="Inspect ${escapeHTML(site.name)}"><div class="compare-top"><span class="compare-rank">${String(i+1).padStart(2,'0')}</span><span class="compare-indicator" style="--site-color:${site.accent}"></span><span class="compare-type">${escapeHTML(site.kind.toUpperCase())}</span><span class="compare-arrow">↗</span></div><h3>${escapeHTML(site.name)}</h3><p>${escapeHTML(fmtCoord(site.lat,site.lon))}</p><div class="compare-score"><strong>${stats.dual.toFixed(1)}<span>%</span></strong><small>DUAL ACCESS</small></div><div class="compare-progress"><span style="width:${stats.dual}%"></span></div><div class="compare-meta"><span>Sun ${stats.sun.toFixed(0)}%</span><span>Earth ${stats.earth.toFixed(0)}%</span></div></button>`;}).join('');$$('.compare-card').forEach(b=>b.addEventListener('click',()=>{const s=SITES.find(x=>x.id===b.dataset.site);selectSite(s);navigatePage('explore');}));}
 function generateCSV(){const model=state.terrain?'NASA LOLA 20km terrain horizon':'flat 0deg geometric horizon';const rows=[['utc','site','latitude_deg','longitude_deg_east','horizon_model','sun_azimuth_deg','sun_elevation_deg','sun_visible_horizon','earth_azimuth_deg','earth_elevation_deg','earth_visible_horizon','both_visible']];state.samples.forEach(r=>rows.push([r.time,state.site.name,state.site.lat,state.site.lon,model,r.sun.azimuth.toFixed(4),r.sun.elevation.toFixed(4),r.sun.visible,r.earth.azimuth.toFixed(4),r.earth.elevation.toFixed(4),r.earth.visible,r.dual]));downloadCSV(`lunarnav-${state.site.id}-${state.date}-${state.days}d.csv`,rows);toast('Mission timeline CSV exported');}
-function briefText(){const {site,date,time,days}=state;const q=summarize(state.samples);const best=longestDualWindow(state.samples);const horizon=state.terrain?'NASA LOLA 20 km terrain horizon ('+(state.terrain.azimuthDeg.length)+' azimuth bins)':'flat 0 deg geometric horizon (no terrain profile loaded)';return `LUNARNAV V2 — LUNAR MISSION SCREENING BRIEF\nGenerated: ${new Date().toISOString()}\nSite: ${site.name} (${site.kind})\nCoordinates: ${fmtCoord(site.lat,site.lon)}\nPeriod: ${date} ${time} UTC + ${days} days\nHorizon model: ${horizon}\n\nSun visible: ${fmtPct(q.sun)}\nGeometric Earth visible: ${fmtPct(q.earth)}\nSun + Earth together: ${fmtPct(q.dual)}\nLongest sampled Earth blackout: ${q.longestBlackoutHours.toFixed(0)} hours\nLongest continuous dual-access period: ${best.hours.toFixed(0)} hours (${best.start||'none'} to ${best.end||'none'})\n\nMETHOD: analytical ephemeris; ${horizon}; two-hour samples. Geometric Earth visibility is line-of-sight geometry, NOT a radio link budget. No terrain occlusion beyond the sampled horizon, solar power guarantee or landing hazard validation. For research screening only — not for flight operations.\nSource reference: ${site.source||'User-selected coordinates'}\n`;}
+function briefText(){const {site,date,time,days}=state;const q=summarize(state.samples);const best=longestDualWindow(state.samples);const horizon=state.terrain?'NASA LOLA 20 km terrain horizon (72 azimuth bins)':'flat 0 deg geometric horizon (no terrain profile loaded)';return `LUNARNAV V2 — LUNAR MISSION SCREENING BRIEF\nGenerated: ${new Date().toISOString()}\nSite: ${site.name} (${site.kind})\nCoordinates: ${fmtCoord(site.lat,site.lon)}\nPeriod: ${date} ${time} UTC + ${days} days\nHorizon model: ${horizon}\n\nSun visible: ${fmtPct(q.sun)}\nGeometric Earth visible: ${fmtPct(q.earth)}\nSun + Earth together: ${fmtPct(q.dual)}\nLongest sampled Earth blackout: ${q.longestBlackoutHours.toFixed(0)} hours\nLongest continuous dual-access period: ${best.hours.toFixed(0)} hours (${best.start||'none'} to ${best.end||'none'})\n\nMETHOD: analytical ephemeris; ${horizon}; two-hour samples. Geometric Earth visibility is line-of-sight geometry, NOT a radio link budget. No terrain occlusion beyond the sampled horizon, solar power guarantee or landing hazard validation. For research screening only — not for flight operations.\nSource reference: ${site.source||'User-selected coordinates'}\n`;}
 function openBrief(){const q=summarize(state.samples);const best=longestDualWindow(state.samples);const horizon=state.terrain?'NASA LOLA terrain horizon':'Flat 0° geometric horizon';$('#brief-content').innerHTML=`<div class="report-kicker">LUNAR SOUTH POLE / PLANNING REPORT</div><h3>${escapeHTML(state.site.name)}</h3><p class="report-coordinates">${escapeHTML(fmtCoord(state.site.lat,state.site.lon))} · ${escapeHTML(state.site.kind)}</p><div class="report-grid"><div><small>MISSION WINDOW</small><strong>${state.days} days</strong></div><div><small>START TIME (UTC)</small><strong>${escapeHTML(state.date)} ${escapeHTML(state.time)}</strong></div><div><small>HORIZON MODEL</small><strong>${horizon}</strong></div><div><small>SUN VISIBILITY</small><strong>${fmtPct(q.sun)}</strong></div><div><small>GEOMETRIC EARTH VIS.</small><strong>${fmtPct(q.earth)}</strong></div><div><small>DUAL ACCESS</small><strong>${fmtPct(q.dual)}</strong></div><div><small>MAX EARTH BLACKOUT</small><strong>${q.longestBlackoutHours.toFixed(0)} h</strong></div><div><small>BEST CONTINUOUS OVERLAP</small><strong>${best.hours.toFixed(0)} h</strong></div></div><p class="report-warning">SCIENTIFIC LIMITATIONS — Analytical geometry with the stated horizon model. Geometric Earth visibility is line-of-sight geometry, not a communications guarantee. Does not account for lunar terrain shadows beyond the sampled horizon, spacecraft link margin, solar power budget, landing hazards or flight validation. Values are screening estimates only.</p>`;$('#brief-dialog').showModal();}
 function stopPlay(){
   state.playing=false;
@@ -385,7 +384,6 @@ function updateMissionPanels(){
 function updateTerrainPanel(){
   const p=state.terrain;
   map.setTerrainRose?.(p||null);
-  map.setTerrainPatch?.(p?.patch||null);
   $('#terrain-badge').textContent=p?'DEM APPLIED':'NOT LOADED';
   if(!p){
     $('#terrain-status').textContent='No DEM applied. Feasibility uses a level geometric horizon until NASA elevation data loads successfully.';
@@ -404,15 +402,14 @@ function updateTerrainPanel(){
 }
 async function requestTerrain(file=null){
   if($('#terrain-load').disabled)return;
-  const token=++terrainRequestSeq,site=state.site;
-  const lat=site.lat,lon=site.lon;
+  const lat=state.site.lat,lon=state.site.lon;
   $('#terrain-load').disabled=true;
   $('#terrain-badge').textContent='LOADING…';
-  $('#terrain-status').textContent='Preparing NASA LOLA GeoTIFF for '+site.name+' (40 km local patch)…';
+  $('#terrain-status').textContent='Preparing NASA LOLA GeoTIFF (40 km local patch)…';
   try{
-    const profile=await loadLolaTerrain(site,{file,onProgress:s=>{if(token===terrainRequestSeq)$('#terrain-status').textContent=site.name+' · '+s;}});
-    if(token!==terrainRequestSeq||state.site.lat!==lat||state.site.lon!==lon){
-      toast('A newer waypoint selection superseded that terrain load.');
+    const profile=await loadLolaTerrain(state.site,{file,onProgress:s=>$('#terrain-status').textContent=s});
+    if(state.site.lat!==lat||state.site.lon!==lon){
+      toast('Site changed while loading terrain; reload for the current site.');
       return;
     }
     terrainProfiles.set(terrainKey(state.site),profile);
@@ -422,10 +419,9 @@ async function requestTerrain(file=null){
     updateFinderCoverage();updateModelNotes();renderComparePanel();renderDateComparison();
     toast('Terrain loaded for '+state.site.name+' · '+profile.provenance);
   }catch(e){
-    if(token!==terrainRequestSeq)return; // a newer selection is already loading
     state.terrain=null;
     updateMissionPanels();updateModelNotes();renderComparePanel();renderDateComparison();
-    $('#terrain-status').textContent='Could not load DEM: '+e.message+'. Flat-horizon model remains in effect. Try a local LOLA 60–100 m GeoTIFF.';
+    $('#terrain-status').textContent='Could not load DEM: '+e.message+'. Flat-horizon model remains in effect. Try a local LOLA 80S GeoTIFF.';
     toast('Terrain unavailable; no simulated terrain was substituted.');
   }finally{
     $('#terrain-load').disabled=false;
@@ -463,7 +459,7 @@ async function tryLoadAllTerrain(){
   try{
     for(const site of SITES){
       if(getCachedTerrain(site))continue;
-      $('#finder-data-status').textContent='Requesting NASA LOLA DEM: '+site.name+'…';
+      $('#finder-data-status').textContent='Requesting NASA 80m LOLA DEM: '+site.name+'…';
       try{
         const profile=await loadLolaTerrain(site,{onProgress:message=>{
           $('#finder-data-status').textContent=site.name+' · '+message;
@@ -839,7 +835,6 @@ $('#celestial-play').addEventListener('click',()=>togglePlay(SUN_CIRCUIT_HOURS))
 $('#celestial-reset').addEventListener('click',()=>{map.resetBodies?.();toast('Earth and Sun spins reset');});
 $('#zoom-in').addEventListener('click',()=>$('#zoom-label').textContent=map.zoomBy(.2)+'%');
 $('#zoom-out').addEventListener('click',()=>$('#zoom-label').textContent=map.zoomBy(-.2)+'%');
-$('#relief-exaggeration').addEventListener('change',e=>map.setReliefExaggeration?.(e.target.value));
 
 $('#focus-site').addEventListener('click',()=>{
   const level=map.focusSite?.();
@@ -922,7 +917,7 @@ $('#finder-mode').addEventListener('change',()=>{finderModeTouched=true;updateFi
 $('#finder-load-all').addEventListener('click',tryLoadAllTerrain);
 $('#finder-open-terrain').addEventListener('click',()=>{
   navigatePage('engineering');
-  toast('Select a site above, then load NASA terrain or import its 60–100 m GeoTIFF.');
+  toast('Select a site above, then load NASA terrain or import its 80m GeoTIFF.');
 });
 $('#finder-export').addEventListener('click',exportFinderCSV);
 // Comparison controls: site picker plus an optional two-date comparison.

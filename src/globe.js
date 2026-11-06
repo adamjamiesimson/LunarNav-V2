@@ -35,12 +35,8 @@ uniform vec3 forward, right, up, sun;
 uniform float zoom, hasTexture, showSkyBodies, hasEarthTexture, elapsedDays;
 uniform vec3 spinYaw, spinPitch;
 uniform vec4 sunSphere, earthSphere;
-uniform sampler2D moon, earthImage, reliefMap, globalMap, patchMap;
-uniform vec4 reliefCfg; // polar: range m, min m, texel size, covered
-uniform vec4 globalCfg; // global: range m, min m, covered, unused
-uniform vec4 patchCfg;  // patch: range m, min m, texel size, covered
-uniform vec4 patchGeo;  // patch window: originX, originY, spanX, spanY (polar metres)
-uniform float reliefExag; // relief exaggeration (1.0 = physical scale)
+uniform sampler2D moon, earthImage, reliefMap;
+uniform vec4 reliefCfg; // full-scale metres, metres per texel, exaggeration, texel size
 float hash(vec2 x){return fract(sin(dot(x,vec2(127.1,311.7)))*43758.5453);}
 float noise(vec2 p){
   vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
@@ -74,72 +70,26 @@ vec3 moonAlbedo(vec3 n){
  float spots=pow(noise(uv*vec2(28.0,15.0)),2.7);
  return vec3(0.38+0.32*land-0.12*spots);
 }
-/* Terrain heights decode 12-bit values packed into PNG R (high) and the upper
-   nibble of G (low). Sources: NASA LOLA polar grid (data/relief.json) and the
-   native-resolution DEM patch at the selected waypoint. */
-float hDecode(vec2 uv,sampler2D map,vec4 cfg){
- vec3 c=texture2D(map,uv).rgb;
- float code=floor(c.r*255.0+0.5)*16.0+floor(c.g*255.0+0.5)/16.0;
- return cfg.y+code/4095.0*cfg.x;
-}
-vec2 polarUV(vec3 n){
+/* LOLA relief (data/relief.json): south-polar stereographic, pole at texture
+   centre, domain half-size 931.2 km. Only 60S-90S carries relief. */
+vec2 reliefUV(vec3 n){
  float lat=asin(clamp(n.z,-1.0,1.0));
  float lon=atan(n.y,n.x);
  float r=2.0*1737400.0*tan((1.5707963+lat)*0.5);
  float dom=931200.0;
  return vec2((r*sin(lon)+dom)/(2.0*dom),(dom-r*cos(lon))/(2.0*dom));
 }
-float heightAt(vec3 n){
- float lat=asin(clamp(n.z,-1.0,1.0));
- float lon=atan(n.y,n.x);
- float r=2.0*1737400.0*tan((1.5707963+lat)*0.5);
- if(patchCfg.w>0.5){
-   vec2 puv=vec2((r*sin(lon)-patchGeo.x)/patchGeo.z,(patchGeo.y-r*cos(lon))/patchGeo.w);
-   if(puv.x>0.002&&puv.x<0.998&&puv.y>0.002&&puv.y<0.998)return hDecode(puv,patchMap,patchCfg);
- }
- vec2 uv=polarUV(n);
- if(uv.x>0.002&&uv.x<0.998&&uv.y>0.002&&uv.y<0.998&&reliefCfg.w>0.5)
-   return hDecode(uv,reliefMap,reliefCfg);
- if(globalCfg.z>0.5&&lat>-1.0472&&lat<1.0472){
-   vec2 guv=vec2(fract((lon+3.14159265)/6.2831853),(1.5707963-lat)/3.14159265);
-   return hDecode(guv,globalMap,globalCfg);
- }
- return 0.0;
-}
-float reliefRadius(vec3 dir){return 1.0+reliefExag*heightAt(dir)/1737400.0;}
-/* Terrain-aware ray intersection (mirrors src/relief.js): walk in from an
-   outer bound and bisect the first crossing of the displaced surface, so
-   ridges and crater walls genuinely change the silhouette. */
-float moonHit(vec3 o,vec3 d){
- float bound=1.0+reliefExag*0.012;
- float t0=sphereHit(o,d,vec3(0.0),bound);
- if(t0>9.0e5)return 1.0e6;
- float t=t0;
- for(int i=0;i<96;i++){
-   float tn=t+0.002;
-   float dn=length(o+tn*d);
-   if(dn-reliefRadius(normalize(o+tn*d))<=0.0){
-     float lo=t,hi=tn;
-     for(int j=0;j<8;j++){
-       float m=0.5*(lo+hi);
-       float dm=length(o+m*d);
-       if(dm-reliefRadius(normalize(o+m*d))>0.0)lo=m;else hi=m;
-     }
-     return 0.5*(lo+hi);
-   }
-   t=tn;
- }
- return 1.0e6;
-}
-/* Normals reconstructed from the displaced height field (central differences),
-   so lighting follows the real surface shape. */
-vec3 terrainNormal(vec3 n){
+vec3 reliefBump(vec3 n){
+ if(reliefCfg.z<=0.0)return n;
+ vec2 uv=reliefUV(n);
+ if(uv.x<0.002||uv.x>0.998||uv.y<0.002||uv.y>0.998)return n;
+ float t=reliefCfg.w;
+ float hx=texture2D(reliefMap,uv+vec2(t,0.0)).r-texture2D(reliefMap,uv-vec2(t,0.0)).r;
+ float hy=texture2D(reliefMap,uv+vec2(0.0,t)).r-texture2D(reliefMap,uv-vec2(0.0,t)).r;
+ float k=reliefCfg.x/(2.0*reliefCfg.y)*reliefCfg.z; // height gradient -> surface slope
  vec3 east=normalize(cross(vec3(0.0,0.0,1.0),n));
  vec3 northv=cross(n,east);
- float e=0.0015;
- float g1=(heightAt(normalize(n+east*e))-heightAt(normalize(n-east*e)))/(2.0*e*1737400.0);
- float g2=(heightAt(normalize(n+northv*e))-heightAt(normalize(n-northv*e)))/(2.0*e*1737400.0);
- return normalize(n-(g1*east+g2*northv)*reliefExag);
+ return normalize(n-(hx*east+hy*northv)*k);
 }
 /* Orthographic rays through one Moon-fixed 3D coordinate system.
    Depth selects the nearest sphere, rather than compositing three 2D disks. */
@@ -165,7 +115,7 @@ void main(){
  float glow=pow(max(0.0,1.0-length(fract(gl_FragCoord.xy/22.0)-0.5)*2.0),8.0);
  space+=vec3(0.35,0.53,0.63)*star*glow*0.65;
 
- float moonT=moonHit(rayOrigin,ray);
+ float moonT=sphereHit(rayOrigin,ray,vec3(0.0),1.0);
  float sunT=1.0e6,earthT=1.0e6;
  vec2 sunPos=vec2(dot(sunSphere.xyz,right),dot(sunSphere.xyz,up))*scale;
  vec2 earthPos=vec2(dot(earthSphere.xyz,right),dot(earthSphere.xyz,up))*scale;
@@ -235,7 +185,7 @@ void main(){
  }
  vec3 n=normalize(hitPoint);
  vec3 rock=moonAlbedo(n);
- vec3 nl=terrainNormal(n);
+ vec3 nl=reliefBump(n);
  float daylight=max(0.0,dot(nl,normalize(sun)));
  float shade=0.115+0.94*pow(daylight,0.78);
  float rim=pow(1.0-max(0.0,dot(n,forward)),4.0);
@@ -268,7 +218,7 @@ export function createMap(canvas,{onPick,onHover}){
  try{p=program(gl);}catch(error){console.warn(error);background.remove();const status=document.querySelector('#map-image-status');if(status)status.textContent='2D POLAR SCHEMATIC';return createPolarMap(canvas,{onPick,onHover});}
  gl.useProgram(p);
  const loc=name=>gl.getUniformLocation(p,name);
- const u={resolution:loc('resolution'),forward:loc('forward'),right:loc('right'),up:loc('up'),sun:loc('sun'),zoom:loc('zoom'),hasTexture:loc('hasTexture'),showSkyBodies:loc('showSkyBodies'),hasEarthTexture:loc('hasEarthTexture'),elapsedDays:loc('elapsedDays'),sunSphere:loc('sunSphere'),earthSphere:loc('earthSphere'),spinYaw:loc('spinYaw'),spinPitch:loc('spinPitch'),moon:loc('moon'),earthImage:loc('earthImage'),reliefMap:loc('reliefMap'),globalMap:loc('globalMap'),patchMap:loc('patchMap'),reliefCfg:loc('reliefCfg'),globalCfg:loc('globalCfg'),patchCfg:loc('patchCfg'),patchGeo:loc('patchGeo'),reliefExag:loc('reliefExag')};
+ const u={resolution:loc('resolution'),forward:loc('forward'),right:loc('right'),up:loc('up'),sun:loc('sun'),zoom:loc('zoom'),hasTexture:loc('hasTexture'),showSkyBodies:loc('showSkyBodies'),hasEarthTexture:loc('hasEarthTexture'),elapsedDays:loc('elapsedDays'),sunSphere:loc('sunSphere'),earthSphere:loc('earthSphere'),spinYaw:loc('spinYaw'),spinPitch:loc('spinPitch'),moon:loc('moon'),earthImage:loc('earthImage'),reliefMap:loc('reliefMap'),reliefCfg:loc('reliefCfg')};
  const quad=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,quad);
  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
  const position=gl.getAttribLocation(p,'position');gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
@@ -297,9 +247,9 @@ export function createMap(canvas,{onPick,onHover}){
    const north=[-Math.sin(lat*D)*Math.cos(lon*D),-Math.sin(lat*D)*Math.sin(lon*D),Math.cos(lat*D)];
    return {center,east,north};
  };
- const project=(point,riseM=0)=>{
+ const project=(point)=>{
    const {center,east,north}=axes(),normal=spherical(point.lat,point.lon),visible=dot(normal,center)>0;
-   const r=h*0.5*0.87*zoom*(1+riseM/1737400);
+   const r=h*0.5*0.87*zoom;
    return {x:w/2+dot(normal,east)*r,y:h/2-dot(normal,north)*r,visible};
  };
  function redraw(){
@@ -313,10 +263,6 @@ export function createMap(canvas,{onPick,onHover}){
    gl.uniform1f(u.showSkyBodies,showSkyBodies?1:0);gl.uniform1f(u.hasEarthTexture,earthLoaded?1:0);
    gl.uniform1f(u.elapsedDays,simulatedUTC/86400000);
    gl.uniform4fv(u.reliefCfg,reliefCfg);
-   gl.uniform4fv(u.globalCfg,globalCfg);
-   gl.uniform4fv(u.patchCfg,patchCfg);
-   gl.uniform4fv(u.patchGeo,patchGeo);
-   gl.uniform1f(u.reliefExag,reliefExag);
    const bodies=['sun','earth','moon'],rotation=celestialSpin(simulatedUTC);
    gl.uniform3fv(u.spinYaw,bodies.map(name=>rotation[name]+manualSpin[name].yaw));
    gl.uniform3fv(u.spinPitch,bodies.map(name=>(name==='earth'?EARTH_BASE_PITCH:0)+manualSpin[name].pitch));
@@ -346,10 +292,7 @@ export function createMap(canvas,{onPick,onHover}){
    ctx.strokeStyle='rgba(148,199,218,0.36)';ctx.beginPath();ctx.arc(0,0,R,0,Math.PI*2);ctx.stroke();
    ctx.restore();
    const points=SITES.concat(site.custom?[site]:[]);
-   const overlays=points.map(point=>{
-     // The selected marker rides the displaced surface at its terrain height.
-     const rise=point.id===site.id&&terrainRose&&Number.isFinite(terrainRose.observerHeightM)?terrainRose.observerHeightM*reliefExag:0;
-     return {point,pos:project(point,rise)};}).filter(x=>x.pos.visible &&
+   const overlays=points.map(point=>({point,pos:project(point)})).filter(x=>x.pos.visible &&
      (!showSkyBodies||!layout||!['sun','earth'].includes(hitCelestialBody(layout,x.pos.x,x.pos.y,w,h))));
    for(const {point,pos} of overlays){
      const selected=point.id===site.id;
@@ -518,40 +461,29 @@ export function createMap(canvas,{onPick,onHover}){
  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
  gl.generateMipmap(gl.TEXTURE_2D);
  gl.uniform1i(u.earthImage,1);
- // NASA relief textures (baked by scripts/build-relief.mjs): the wide global
- // grid loads first and the finer polar grid upgrades it when ready; the
- // waypoint DEM patch uploads separately at native resolution. Heights are
- // 12-bit values packed into R/G (see data/relief.json).
- const makeDataTexture=(unit,repeat)=>{
-   const tex=gl.createTexture();
-   gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,tex);
-   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([0,0,0,255]));
-   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
-   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
-   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,repeat?gl.REPEAT:gl.CLAMP_TO_EDGE);
-   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
-   return tex;
- };
- const reliefTexture=makeDataTexture(2,false),globalTexture=makeDataTexture(3,true),patchTexture=makeDataTexture(4,false);
- gl.uniform1i(u.reliefMap,2);gl.uniform1i(u.globalMap,3);gl.uniform1i(u.patchMap,4);
- let reliefCfg=[0,1,1/3880,0],globalCfg=[0,1,0,0],patchCfg=[0,1,1,0],patchGeo=[0,0,1,1];
- let reliefExag=1;
- const uploadRelief=(unit,tex,img)=>{
-   gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,tex);
-   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
-   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);
- };
- fetch('data/relief.json').then(r=>r.ok?r.json():null).then(meta=>{
-   if(!meta)return;
-   reliefCfg[0]=meta.heightMaxM-meta.heightMinM;reliefCfg[1]=meta.heightMinM;reliefCfg[2]=1/meta.size;
-   if(meta.global){globalCfg[0]=meta.global.heightMaxM-meta.global.heightMinM;globalCfg[1]=meta.global.heightMinM;}
-   request();
- }).catch(()=>{});
- const globalImg=new Image();globalImg.decoding='async';
- globalImg.onload=()=>{uploadRelief(3,globalTexture,globalImg);globalCfg[2]=1;request();};
- globalImg.src='/assets/moon-relief-global.png';
+ // LOLA relief texture (baked by scripts/build-relief.mjs); disabled if absent.
+ const reliefTexture=gl.createTexture();
+ gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,reliefTexture);
+ gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([128,128,128,255]));
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+ gl.uniform1i(u.reliefMap,2);
+ let reliefCfg=[0,1,0,1];
  const reliefImg=new Image();reliefImg.decoding='async';
- reliefImg.onload=()=>{uploadRelief(2,reliefTexture,reliefImg);reliefCfg[3]=1;request();};
+ reliefImg.onload=()=>{
+   gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,reliefTexture);
+   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,reliefImg);
+   fetch('data/relief.json').then(r=>r.ok?r.json():null).then(meta=>{
+     if(!meta)return;
+     const fullScale=(meta.heightMaxM-meta.heightMinM);   // 0..1 texture value → metres
+     const metresPerTexel=meta.domainKm*1000/meta.size;
+     reliefCfg=[fullScale,metresPerTexel,2.0,1/meta.size];
+     request();
+   }).catch(()=>{});
+ };
  reliefImg.src='/assets/moon-relief.png';
  const earthImg=new Image();earthImg.crossOrigin='anonymous';earthImg.decoding='async';
  earthImg.onload=()=>{
@@ -622,23 +554,6 @@ export function createMap(canvas,{onPick,onHover}){
      if(Number.isFinite(ms))simulatedUTC=ms;
      request();
    },
-   setTerrainRose(profile){terrainRose=profile||null;request();},
-   setTerrainPatch(patch){
-     if(!patch||!patch.data){patchCfg[3]=0;request();return;}
-     const {data,width,height,originX,originY,resolutionX,resolutionY,minM,maxM}=patch;
-     const range=(maxM-minM)||1;
-     const codes=new Uint8Array(width*height*3);
-     for(let i=0;i<data.length;i++){
-       const v=Math.max(0,Math.min(4095,Math.round(((Number(data[i])||0)-minM)/range*4095)));
-       codes[i*3]=v>>4;codes[i*3+1]=(v&15)<<4;
-     }
-     gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,patchTexture);
-     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
-     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,width,height,0,gl.RGBA,gl.UNSIGNED_BYTE,codes);
-     patchCfg=[range,minM,1/Math.max(width,height),1];
-     patchGeo=[originX,originY,width*resolutionX,height*Math.abs(resolutionY)];
-     request();
-   },
-   setReliefExaggeration(v){reliefExag=Math.max(0.2,Math.min(12,Number(v)||1));request();}
+   setTerrainRose(profile){terrainRose=profile||null;request();}
  };
 }

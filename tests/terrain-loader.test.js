@@ -28,23 +28,15 @@ test('local GeoTIFF path computes horizons but NEVER claims NASA provenance is v
     assert.equal(profile.lon,site.lon);
     assert.equal(profile.verifiedSource,false);
     assert.match(profile.provenance,/NOT independently verified/);
-    assert.equal(profile.azimuthDeg.length,360,'horizons use 1° azimuth bins');
-    assert.equal(profile.azimuthStepDeg,1);
-    assert.equal(profile.stepMeters,80,'radial sampling adapts to the DEM pixel size');
+    assert.equal(profile.azimuthDeg.length,72);
     assert.ok(profile.coveragePct>99);
-    // The original Float32 elevation raster is retained, not reduced.
-    assert.ok(profile.patch&&profile.patch.data.length===profile.patch.width*profile.patch.height);
-    assert.ok(profile.patch.data instanceof Float32Array);
-    assert.equal(profile.patch.groundSampleM,80);
-    assert.ok(profile.patch.minM<=profile.patch.maxM);
-    assert.ok(Number.isFinite(profile.maxReliableRangeKm));
   }finally{globalThis.GeoTIFF=saved;}
 });
 test('incompatible raster pixel size is rejected, never silently presented as LOLA',async()=>{
   globalThis.GeoTIFF={fromUrl:async()=>{throw Error('should not be called');},
     fromBlob:async()=>({getImage:async()=>mockImage(250)})};
   try{
-    await assert.rejects(()=>loadLolaTerrain(site,{file:{name:'wrong.tif'}}),/Expected NASA 60–100 m\/pixel/);
+    await assert.rejects(()=>loadLolaTerrain(site,{file:{name:'wrong.tif'}}),/Expected NASA 80 m\/pixel/);
   }finally{globalThis.GeoTIFF=saved;}
 });
 test('polar stereographic latitude is bounded and finite',()=>{
