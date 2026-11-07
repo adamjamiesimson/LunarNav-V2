@@ -20,7 +20,7 @@ const FRAGMENT=`
 precision highp float;
 uniform vec2 uRes;
 uniform vec3 uCamDir,uCamRight,uCamUp,uSunDir,uEarthDir;
-uniform float uTanFov,uLat,uLon,uGridMode,uHasPatch,uHasEarth;
+uniform float uTanFov,uLat,uLon,uGridMode,uHasPatch,uHasEarth,uEyeHeight;
 uniform vec4 uGridCfg,uPatchCfg,uPatchGeo;
 uniform sampler2D uGrid,uPatch;
 
@@ -100,7 +100,7 @@ void main(){
   vec2 ndc=(gl_FragCoord.xy/uRes)*2.0-1.0;
   float aspect=uRes.x/uRes.y;
   vec3 dir=normalize(uCamDir+uCamRight*(ndc.x*uTanFov*aspect)+uCamUp*(ndc.y*uTanFov));
-  float eyeZ=terrainH(0.0,0.0)+1.7;
+  float eyeZ=terrainH(0.0,0.0)+uEyeHeight;
   vec3 eye=vec3(0.0,0.0,eyeZ);
   float t=0.3,last=0.3,hitT=-1.0,lastDz=1e9;
   for(int i=0;i<420;i++){
@@ -222,7 +222,7 @@ const GRID_FILES={
  * caller can fall back to the cylindrical panorama.
  */
 export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
-  onHeading=null,bodyLabel=null,maxDevicePixelRatio=1.25}={}){
+  onHeading=null,bodyLabel=null,observerHeightM=5,maxDevicePixelRatio=1.25}={}){
   const gl=canvas.getContext('webgl',{antialias:true,alpha:false});
   if(!gl)throw Error('WebGL unavailable for the surface view');
   const prog=program(gl);
@@ -238,7 +238,7 @@ export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
     sunDir:loc('uSunDir'),earthDir:loc('uEarthDir'),tanFov:loc('uTanFov'),lat:loc('uLat'),lon:loc('uLon'),
     gridMode:loc('uGridMode'),gridCfg:loc('uGridCfg'),grid:loc('uGrid'),
     hasPatch:loc('uHasPatch'),patchCfg:loc('uPatchCfg'),patchGeo:loc('uPatchGeo'),patch:loc('uPatch'),
-    hasEarth:loc('uHasEarth')};
+    hasEarth:loc('uHasEarth'),eyeHeight:loc('uEyeHeight')};
 
   const meta=await fetch('data/relief.json').then(r=>{
     if(!r.ok)throw Error('relief metadata unavailable');
@@ -257,15 +257,17 @@ export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
     if(!patch||!patch.data){patchCfg[3]=0;return;}
     const {data,width,height,originX,originY,resolutionX,resolutionY,minM,maxM}=patch;
     const range=(maxM-minM)||1;
-    const codes=new Uint8Array(width*height*3);
-    for(let i=0;i<data.length;i++){
-      const v=Math.max(0,Math.min(4095,Math.round(((Number(data[i])||0)-minM)/range*4095)));
-      codes[i*3]=v>>4;codes[i*3+1]=(v&15)<<4;
-    }
     if(!patchTexture)patchTexture=gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D,patchTexture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
-    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,width,height,0,gl.RGBA,gl.UNSIGNED_BYTE,codes);
+    // RGBA texels: 4 bytes per pixel (a 3-byte array with an RGBA upload is
+    // rejected by WebGL and leaves the texture black = flat at minM).
+    const texels=new Uint8Array(width*height*4);
+    for(let i=0;i<data.length;i++){
+      const v=Math.max(0,Math.min(4095,Math.round(((Number(data[i])||0)-minM)/range*4095)));
+      texels[i*4]=v>>4;texels[i*4+1]=(v&15)<<4;texels[i*4+3]=255;
+    }
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,width,height,0,gl.RGBA,gl.UNSIGNED_BYTE,texels);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
@@ -342,6 +344,7 @@ export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
     gl.uniform3f(u.camRight,right.x,right.y,right.z);
     gl.uniform3f(u.camUp,up.x,up.y,up.z);
     gl.uniform1f(u.tanFov,Math.tan(fov/2*RAD));
+    gl.uniform1f(u.eyeHeight,observerHeightM);
     gl.uniform1f(u.lat,site.lat*RAD);
     gl.uniform1f(u.lon,site.lon*RAD);
     gl.uniform1f(u.gridMode,gridMode);

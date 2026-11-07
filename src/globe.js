@@ -684,10 +684,10 @@ export function createMap(canvas,{onPick,onHover}){
      if(!patch||!patch.data){patchCfg[3]=0;request();return;}
      const {data,width,height,originX,originY,resolutionX,resolutionY,minM,maxM}=patch;
      const range=(maxM-minM)||1;
-     const codes=new Uint8Array(width*height*3);
+     const codes=new Uint8Array(width*height*4);
      for(let i=0;i<data.length;i++){
        const v=Math.max(0,Math.min(4095,Math.round(((Number(data[i])||0)-minM)/range*4095)));
-       codes[i*3]=v>>4;codes[i*3+1]=(v&15)<<4;
+       codes[i*4]=v>>4;codes[i*4+1]=(v&15)<<4;codes[i*4+3]=255;
      }
      gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,patchTexture);
      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);

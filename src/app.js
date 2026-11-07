@@ -255,7 +255,7 @@ async function openPanorama(){
     try{
       const site=state.site;
       const heights=await loadSiteHeights(site,{radiusKm:45,patch:state.terrain?.patch||null});
-      const pano=computePanoramaColumns({heightAt:heights.heightAt,site,azimuthBins:720,maxDistanceKm:45});
+      const pano=computePanoramaColumns({heightAt:heights.heightAt,site,azimuthBins:720,maxDistanceKm:45,observerHeightM:5});
       const obs=ephemeris(new Date(state.base.getTime()+state.offset*3600000),site.lat,site.lon);
       panoramaColumns=pano;
       const nativePatch=state.terrain?.patch||null;
