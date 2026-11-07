@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {inflateSync} from 'node:zlib';
 import {polarXY,deriveHorizonFromRaster} from '../src/terrain.js';
-import {gridRasterWindow} from '../src/grid-terrain.js';
+import {gridRasterWindow,globalRasterWindow} from '../src/grid-terrain.js';
 import {SITES} from '../src/sites.js';
 
 const meta=JSON.parse(readFileSync(new URL('../data/relief.json',import.meta.url),'utf8'));
@@ -81,6 +81,25 @@ test('grid-derived horizon matches the archived native-resolution profile',()=>{
   }
   assert.ok(sum/n<1.0,`mean horizon difference ${(sum/n).toFixed(2)} deg should be small`);
   assert.ok(max<4,`max horizon difference ${max.toFixed(2)} deg should stay bounded`);
+});
+
+test('mid-latitude waypoints derive a labelled coarse horizon from the global grid',()=>{
+  const g=meta.global;
+  const win=globalRasterWindow({width:g.width,height:g.height},20,145,{radiusKm:20});
+  // Site must land at the window's local origin (pixel halfX/halfY).
+  const px=((145%360+360)%360/360)*g.width,py=((90-20)/180)*g.height;
+  assert.ok(Math.abs((px-win.x0)-(win.w-1)/2)<2,'site horizontally centred');
+  assert.ok(Math.abs((py-win.y0)-(win.h-1)/2)<2,'site vertically centred');
+  assert.ok(win.lonGsd>3000&&win.latGsd>3000,'global grid is honestly coarse (~5 km)');
+  // Decode the real global PNG window and derive like the browser path does.
+  const data=pngWindow('moon-relief-global.png',win.x0,win.y0,win.w,win.h);
+  const profile=deriveHorizonFromRaster({data,width:win.w,height:win.h,
+    originX:win.originX,originY:win.originY,resolutionX:win.resolutionX,resolutionY:win.resolutionY,noData:null},
+    {lat:20,lon:145},{radiusKm:20,azimuthBins:360,centerXY:{x:0,y:0}});
+  assert.ok(profile.coveragePct>90,'window is inside the global grid');
+  assert.equal(profile.lat,20,'site coordinates preserved');
+  assert.ok(profile.elevationDeg.some(v=>v>0),'regional slopes produce a real skyline');
+  assert.ok(profile.elevationDeg.every(v=>Number.isFinite(v)));
 });
 
 test('profiles report their grid provenance for honest labelling',()=>{

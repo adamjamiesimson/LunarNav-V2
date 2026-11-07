@@ -93,12 +93,13 @@ function selectSite(site){stopPlay();state.site=site;if(site.custom&&!siteSelect
  * proportionate. Failures are remembered so the session never retries in vain. */
 function maybeAutoTerrain(){
   const site=state.site;
-  if(getCachedTerrain(site)||$('#terrain-load').disabled)return;
+  if(getCachedTerrain(site))return;
   const key=terrainKey(site);
   if(terrainAttempted.has(key))return;
   terrainAttempted.add(key);
-  // Instant horizon from the bundled NASA relief grid (offline, both
-  // hemispheres); the native-resolution DEM load then refines it.
+  // Instant horizon from the bundled NASA relief grids (offline, whole globe).
+  // No automatic network load: "Load NASA terrain" stays the explicit path for
+  // a native-resolution refinement, so rapid clicking can never race a download.
   deriveGridHorizon(site).then(profile=>{
     if(state.site.lat!==site.lat||state.site.lon!==site.lon)return;
     terrainProfiles.set(terrainKey(site),profile);
@@ -106,12 +107,12 @@ function maybeAutoTerrain(){
     updateMissionPanels();
     if(state.base)updateInspection();
     updateFinderCoverage();updateModelNotes();renderComparePanel();renderDateComparison();
-    $('#terrain-status').textContent='Local sky horizon derived from the baked NASA LOLA grid ('+profile.resolutionM+' m).';
-    toast('Terrain horizon derived for '+site.name);
-    requestTerrain(); // optional native-resolution refinement
+    $('#terrain-status').textContent='Local sky horizon derived from the baked NASA grid ('+
+      (profile.resolutionM>=1000?(profile.resolutionM/1000).toFixed(1)+' km':Math.round(profile.resolutionM)+' m')+').';
   }).catch(()=>{
-    if(site.lat<=-60)requestTerrain();
-    else{updateModelNotes();toast('No terrain grid covers this location; flat-horizon model in use.');}
+    terrainAttempted.delete(key);
+    updateModelNotes();
+    toast('No terrain grid covers this location; flat-horizon model in use.');
   });
 }
 function refreshMissionContext(){
@@ -249,10 +250,14 @@ function updateInspection(){
 }
 function setOffset(v){state.offset=Math.max(0,Math.min(SUN_CIRCUIT_HOURS,Number(v)||0));updateInspection();}
 /** Every results panel states which horizon model produced its numbers. */
+function horizonBadgeText(profile){
+  if(!profile)return 'FLAT 0° HORIZON · SIMPLIFIED — NO TERRAIN PROFILE FOR THIS SITE';
+  const res=profile.resolutionM>=1000?(profile.resolutionM/1000).toFixed(1)+' KM':Math.round(profile.resolutionM)+' M';
+  return 'TERRAIN HORIZON · NASA LOLA · '+res+' GRID'+(profile.azimuthDeg?` · ${profile.azimuthDeg.length} AZ BINS`:'');
+}
 function updateModelNotes(){
-  const terrain=Boolean(state.terrain);
-  const text=terrain?'TERRAIN HORIZON · NASA LOLA 20 KM · '+(state.terrain?.azimuthDeg?.length||360)+' AZ BINS':'FLAT 0° HORIZON · SIMPLIFIED — NO TERRAIN PROFILE FOR THIS SITE';
-  for(const id of ['timeline-model','metrics-model']){const el=$('#'+id);if(el){el.textContent=text;el.classList.toggle('flat',!terrain);}}
+  const text=horizonBadgeText(state.terrain);
+  for(const id of ['timeline-model','metrics-model']){const el=$('#'+id);if(el){el.textContent=text;el.classList.toggle('flat',!state.terrain);}}
 }
 
 // ---- Side-by-side comparison of sites and mission dates ----
@@ -305,7 +310,7 @@ function renderComparePanel(){
   $('#compare-timeline').innerHTML=compareTimelineSVG(entries);
   $('#compare-notes').innerHTML=differenceNotes(entries).map(n=>'<p>'+escapeHTML(n)+'</p>').join('');
   const flat=entries.filter(e=>!e.metrics.terrainApplied);
-  badge.textContent=flat.length?`MIXED HORIZONS · ${flat.length} SITE(S) ON FLAT 0° (NO TERRAIN DATA)`:'TERRAIN HORIZON · NASA LOLA 20 KM · '+(state.terrain?.azimuthDeg?.length||360)+' AZ BINS';
+  badge.textContent=flat.length?`MIXED HORIZONS · ${flat.length} SITE(S) ON FLAT 0° (NO TERRAIN DATA)`:horizonBadgeText(state.terrain);
   badge.classList.toggle('flat',flat.length>0);
 }
 function renderDateComparison(){
@@ -322,7 +327,7 @@ function renderDateComparison(){
   }));
   table.innerHTML=compareTableHTML(entries,comparisonRows(entries));
   $('#date-compare-notes').innerHTML=differenceNotes(entries).map(n=>'<p>'+escapeHTML(n)+'</p>').join('');
-  badge.textContent=profile?'TERRAIN HORIZON · NASA LOLA 20 KM':'FLAT 0° HORIZON · SIMPLIFIED';
+  badge.textContent=horizonBadgeText(profile);
   badge.classList.toggle('flat',!profile);
 }
 function drawComparison(){const entries=state.ranking;

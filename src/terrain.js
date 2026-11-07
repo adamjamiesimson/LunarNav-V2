@@ -40,14 +40,16 @@ export function polarXY(lat,lon){
  * is reported per profile and insufficient coverage rejects the profile.
  */
 export function deriveHorizonFromRaster({data,width,height,originX,originY,resolutionX,resolutionY,noData},site,{
-  azimuthBins=72,radiusKm=20,stepMeters=null
+  azimuthBins=72,radiusKm=20,stepMeters=null,centerXY=null
 }={}){
   if(!data||data.length!==width*height||!resolutionX||!resolutionY)throw Error('Invalid DEM raster');
   if(azimuthBins<8||azimuthBins>720||radiusKm<1||radiusKm>60)throw Error('Invalid horizon sampling');
   const pixelM=Math.max(Math.abs(resolutionX),Math.abs(resolutionY));
   const step=(stepMeters===null?Math.max(20,pixelM):stepMeters);
   if(!(step>=10))throw Error('Invalid horizon sampling');
-  const center=polarXY(site.lat,site.lon);
+  // centerXY lets callers pass rasters in a local east/north frame (equirect
+  // windows); the default is the site's south-polar stereographic position.
+  const center=centerXY||polarXY(site.lat,site.lon);
   const read=(x,y)=>{
     const col=Math.floor((x-originX)/resolutionX),row=Math.floor((y-originY)/resolutionY);
     if(col<0||col>=width||row<0||row>=height)return null;
@@ -57,7 +59,9 @@ export function deriveHorizonFromRaster({data,width,height,originX,originY,resol
   };
   const observer=read(center.x,center.y);
   if(observer===null)throw Error('No valid LOLA elevation at selected coordinates');
-  const longitude=site.lon*DEG;
+  // Local east/north rasters use a neutral azimuth basis; polar-stereo
+  // rasters use the basis rotated by the site's longitude.
+  const longitude=centerXY?0:site.lon*DEG;
   const north=[Math.sin(longitude),Math.cos(longitude)];
   const east=[Math.cos(longitude),-Math.sin(longitude)];
   const elevationDeg=[],azimuthDeg=[];
