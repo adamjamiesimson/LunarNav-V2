@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {destinationPoint,panoramaDistances,computePanoramaColumns,distanceForElevation,
-  horizonAtAzimuth,bodyStatus,createPanoramaView} from '../src/panorama.js';
+  horizonAtAzimuth,bodyStatus,createPanoramaView,directionFromAzEl,cameraBasis,projectDirection} from '../src/panorama.js';
 import {sampleBilinear} from '../src/grid-terrain.js';
 import {greatCircleDistanceKm} from '../src/travel.js';
 import {MOON_RADIUS_M} from '../src/relief.js';
@@ -72,6 +72,36 @@ test('bilinear grid sampling interpolates and rejects outside windows',()=>{
   assert.equal(sampleBilinear(data,3,3,2,2),80);
   assert.equal(sampleBilinear(data,3,3,-0.1,1),null);
   assert.equal(sampleBilinear(data,3,3,1,2.2),null);
+});
+
+test('camera basis is orthonormal and yaw 0 looks north',()=>{
+  const {forward,right,up}=cameraBasis(0,0);
+  assert.ok(Math.abs(forward.y-1)<1e-9&&Math.abs(forward.x)<1e-9,'yaw 0 faces north');
+  assert.ok(Math.abs(right.x-1)<1e-9,'right is east');
+  const dot=(a,b)=>a.x*b.x+a.y*b.y+a.z*b.z;
+  assert.ok(Math.abs(dot(forward,right))<1e-9&&Math.abs(dot(forward,up))<1e-9&&Math.abs(dot(right,up))<1e-9,'axes are orthogonal');
+  assert.ok(Math.abs(dot(up,up)-1)<1e-9,'axes are unit length');
+});
+
+test('azimuth/elevation directions follow the panorama convention',()=>{
+  const east=directionFromAzEl(90,0);
+  assert.ok(Math.abs(east.x-1)<1e-9&&Math.abs(east.y)<1e-9,'east is +x');
+  const up=directionFromAzEl(0,90);
+  assert.ok(Math.abs(up.z-1)<1e-9,'elevation 90 is up');
+});
+
+test('marker projection puts the view centre at screen centre',()=>{
+  const camera={yawDeg:123,pitchDeg:7,fovDeg:75,aspect:16/9};
+  const {forward}=cameraBasis(123,7);
+  const centre=projectDirection(forward,camera);
+  assert.ok(centre.visible&&Math.abs(centre.x-0.5)<1e-6&&Math.abs(centre.y-0.5)<1e-6);
+  const behind=projectDirection({x:-forward.x,y:-forward.y,z:-forward.z},camera);
+  assert.equal(behind.visible,false,'objects behind the camera are not projected');
+  const k=1/Math.SQRT2;
+  const eastish=projectDirection({x:k,y:k,z:0},{yawDeg:0,pitchDeg:0,fovDeg:90,aspect:1});
+  assert.ok(eastish.visible&&eastish.x>0.5,'a body east of a north-facing camera appears right of centre');
+  const high=projectDirection({x:0,y:k,z:k},{yawDeg:0,pitchDeg:0,fovDeg:90,aspect:1});
+  assert.ok(high.visible&&high.y<0.5,'a body above the horizon appears above centre');
 });
 
 test('panorama renderer exposes drawing, body updates and cleanup',()=>{

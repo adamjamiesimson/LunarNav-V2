@@ -187,11 +187,15 @@
                   <div class="panorama-head">
                     <strong id="panorama-title">SURFACE PANORAMA</strong>
                     <span id="panorama-subtitle"></span>
+                    <span id="panorama-heading">HEADING 0°</span>
                     <button type="button" id="panorama-close" class="celestial-control-btn">Close panorama</button>
                   </div>
-                  <canvas id="panorama-canvas" width="1440" height="520" aria-label="360-degree surface panorama ray-marched from NASA terrain. Drag to look around; Sun and Earth are marked at their real positions in the lunar sky."></canvas>
+                  <div class="panorama-viewport">
+                    <canvas id="panorama-canvas" width="1440" height="520" aria-label="First-person 360-degree surface view ray-marched from NASA terrain. Drag to look around, scroll to zoom, arrow keys turn the view; Sun and Earth sit at their real positions in the lunar sky."></canvas>
+                    <canvas id="panorama-hud" aria-hidden="true"></canvas>
+                  </div>
                   <div class="panorama-foot">
-                    <span id="panorama-note">Horizon silhouette ray-marched from NASA LOLA/Kaguya DEM heights · Sun and Earth from the shared ephemeris · drag to look around</span>
+                    <span id="panorama-note">3D surface ray-marched from NASA LOLA/Kaguya DEM heights · terrain lit by the real Sun direction · Sun (0.53°) and Earth (1.98°) at true angular size · star field decorative · drag to look, scroll to zoom</span>
                     <span id="panorama-bodies"></span>
                   </div>
                 </div>

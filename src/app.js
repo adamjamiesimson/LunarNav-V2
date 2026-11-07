@@ -12,6 +12,7 @@ import {inspectSituation,buildSkyDiagram,fmtMargin,findNextHorizonEvent} from '.
 import {loadBundledTerrain} from './terrain-cache.js';
 import {deriveGridHorizon,deriveSldemPatch,loadSiteHeights} from './grid-terrain.js';
 import {computePanoramaColumns,createPanoramaView,bodyStatus} from './panorama.js';
+import {createSurfaceView} from './panorama-gl.js';
 import {PAGE_ROUTES,PAGE_TITLES,routeFromURL,buildPageURL} from './router.js';
 import {initOnboarding} from './onboarding.js';
 import {initMissionAssistant,refreshAssistantContext} from './assistant.js';
@@ -257,7 +258,22 @@ async function openPanorama(){
       const pano=computePanoramaColumns({heightAt:heights.heightAt,site,azimuthBins:720,maxDistanceKm:45});
       const obs=ephemeris(new Date(state.base.getTime()+state.offset*3600000),site.lat,site.lon);
       panoramaColumns=pano;
-      panoramaView=createPanoramaView($('#panorama-canvas'),{site,panorama:pano,obs});
+      try{
+        // First-person 3D surface view (WebGL ray march). Falls back to the
+        // cylindrical panorama where WebGL is unavailable.
+        panoramaView=await createSurfaceView($('#panorama-canvas'),{
+          site,obs,patch:state.terrain?.patch||null,hud:$('#panorama-hud'),
+          onHeading:h=>{const el=$('#panorama-heading');if(el)el.textContent='HEADING '+Math.round(h)+'°';},
+          bodyLabel:body=>bodyStatus(pano,body)
+        });
+      }catch(err){
+        try{
+          panoramaView=createPanoramaView($('#panorama-canvas'),{site,panorama:pano,obs});
+          toast('3D surface view unavailable here ('+(err?.message||'WebGL')+') — showing the cylindrical panorama instead.');
+        }catch(fallbackError){
+          toast('Could not build the panorama on this device: '+(fallbackError?.message||'unknown error'));
+        }
+      }
       $('#panorama-title').textContent=site.name.toUpperCase()+' · SURFACE PANORAMA';
       $('#panorama-subtitle').textContent=fmtCoord(site.lat,site.lon)+' · '+heights.source;
       $('#panorama-bodies').textContent=panoramaBodyLine(obs,pano);

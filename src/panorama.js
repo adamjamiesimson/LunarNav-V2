@@ -216,3 +216,35 @@ export function createPanoramaView(canvas,{site,panorama,obs}={}){
     }
   };
 }
+
+/* ---- first-person surface view camera (local east/north/up frame) ---- */
+
+/** Direction vector from azimuth/elevation (0°=north, east positive). */
+export function directionFromAzEl(azimuthDeg,elevationDeg){
+  const az=azimuthDeg*RAD,el=elevationDeg*RAD;
+  return {x:Math.cos(el)*Math.sin(az),y:Math.cos(el)*Math.cos(az),z:Math.sin(el)};
+}
+
+/** Camera basis for yaw/pitch (yaw 0 looks north). */
+export function cameraBasis(yawDeg,pitchDeg){
+  const y=yawDeg*RAD,p=pitchDeg*RAD;
+  return {
+    forward:{x:Math.sin(y)*Math.cos(p),y:Math.cos(y)*Math.cos(p),z:Math.sin(p)},
+    right:{x:Math.cos(y),y:-Math.sin(y),z:0},
+    up:{x:-Math.sin(y)*Math.sin(p),y:-Math.cos(y)*Math.sin(p),z:Math.cos(p)}
+  };
+}
+
+/**
+ * Project a local direction into normalised screen coordinates
+ * (0..1, y down) for the marker labels drawn over the WebGL view.
+ */
+export function projectDirection(dir,camera){
+  const {forward,right,up}=cameraBasis(camera.yawDeg,camera.pitchDeg);
+  const fz=dir.x*forward.x+dir.y*forward.y+dir.z*forward.z;
+  const fx=dir.x*right.x+dir.y*right.y+dir.z*right.z;
+  const fy=dir.x*up.x+dir.y*up.y+dir.z*up.z;
+  if(fz<=1e-4)return {visible:false,x:0,y:0};
+  const tanF=Math.tan(camera.fovDeg/2*RAD);
+  return {visible:true,x:0.5+fx/fz/(2*tanF*camera.aspect),y:0.5-fy/fz/(2*tanF)};
+}
