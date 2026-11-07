@@ -31,7 +31,7 @@ const NORTH_IMG='http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/FLOAT_IMG/LDEM_60N_2
 const SLDEM_IMG='http://imbrium.mit.edu/DATA/SLDEM2015/GLOBAL/FLOAT_IMG/SLDEM2015_128_60S_60N_000_360_FLOAT.IMG';
 const SLDEM_LBL='http://imbrium.mit.edu/DATA/SLDEM2015/GLOBAL/FLOAT_IMG/SLDEM2015_128_60S_60N_000_360_FLOAT.LBL';
 const POLAR_SIZE=3880;          // polar grid width (nearest COG overview)
-const GLOBAL_W=2048,GLOBAL_H=1024;
+const GLOBAL_W=8192,GLOBAL_H=4096; // 4.9 km/px at the equator (source SLDEM is 237 m)
 const POLAR_DOMAIN_M=931200;    // 60°S stereographic half-width
 const RMOON=1737400;
 

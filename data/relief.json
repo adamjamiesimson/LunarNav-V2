@@ -26,21 +26,21 @@
   },
   "global": {
     "file": "assets/moon-relief-global.png",
-    "width": 2048,
-    "height": 1024,
+    "width": 8192,
+    "height": 4096,
     "coverageLat": [
       -90,
       90
     ],
     "coverageNote": "90S-60S from LDEM_60S, 60S-60N from SLDEM2015, 60N-90N from LDEM_60N; cross-faded at the boundaries",
-    "heightMinM": -9009.841351492476,
-    "heightMaxM": 10615.538597106934,
-    "horizontalGroundSampleMAtEquator": 5330.276441745026,
-    "verticalQuantisationM": 4.792522575970552,
+    "heightMinM": -9076.496841745151,
+    "heightMaxM": 10749.067306518555,
+    "horizontalGroundSampleMAtEquator": 1332.5691104362566,
+    "verticalQuantisationM": 4.841407606413604,
     "source": "SLDEM2015 (LRO LOLA + Kaguya SELENE coregistered) + LDEM_60S polar rows",
     "sourceUrl": "http://imbrium.mit.edu/DATA/SLDEM2015/GLOBAL/FLOAT_IMG/SLDEM2015_128_60S_60N_000_360_FLOAT.IMG",
     "datum": "heights above/below the 1737.4 km mean lunar radius"
   },
-  "generatedUtc": "2026-11-06T18:56:18.260Z",
+  "generatedUtc": "2026-11-07T06:28:17.965Z",
   "note": "Visual relief for the 3D globe; horizon profiles are computed from native-resolution DEM patches instead."
 }

@@ -10,7 +10,7 @@ import {findMissionWindows,compareFinderModels} from './finder.js';
 import {windowMetrics,comparisonRows,differenceNotes} from './compare.js';
 import {inspectSituation,buildSkyDiagram,fmtMargin,findNextHorizonEvent} from './situation.js';
 import {loadBundledTerrain} from './terrain-cache.js';
-import {deriveGridHorizon} from './grid-terrain.js';
+import {deriveGridHorizon,deriveSldemPatch} from './grid-terrain.js';
 import {PAGE_ROUTES,PAGE_TITLES,routeFromURL,buildPageURL} from './router.js';
 import {initOnboarding} from './onboarding.js';
 import {initMissionAssistant,refreshAssistantContext} from './assistant.js';
@@ -459,7 +459,11 @@ async function requestTerrain(file=null){
   $('#terrain-badge').textContent='LOADING…';
   $('#terrain-status').textContent='Preparing NASA LOLA GeoTIFF for '+site.name+' (40 km local patch)…';
   try{
-    const profile=await loadLolaTerrain(site,{file,onProgress:s=>{if(token===terrainRequestSeq)$('#terrain-status').textContent=site.name+' · '+s;}});
+    // Mid-latitudes use SLDEM2015 rows (~237 m); the polar caps and local
+    // file imports use the LOLA COG products.
+    const profile=file||Math.abs(site.lat)>=60
+      ? await loadLolaTerrain(site,{file,onProgress:s=>{if(token===terrainRequestSeq)$('#terrain-status').textContent=site.name+' · '+s;}})
+      : await deriveSldemPatch(site);
     if(token!==terrainRequestSeq||state.site.lat!==lat||state.site.lon!==lon){
       toast('A newer waypoint selection superseded that terrain load.');
       return;

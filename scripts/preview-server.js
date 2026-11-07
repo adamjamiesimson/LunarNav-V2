@@ -16,7 +16,8 @@ const remoteAssets={
   '/assets/lroc-color.jpg':'https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg',
   '/assets/bluemarble-1024.png':'https://svs.gsfc.nasa.gov/vis/a000000/a002900/a002915/bluemarble-1024.png',
   '/assets/lola-80m.tif':'https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_80MPP_ADJ.TIF',
-  '/assets/lola-60s-60m.tif':'https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_60S_60MPP_ADJ.TIF'
+  '/assets/lola-60s-60m.tif':'https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_60S_60MPP_ADJ.TIF',
+  '/assets/sldem.img':'http://imbrium.mit.edu/DATA/SLDEM2015/GLOBAL/FLOAT_IMG/SLDEM2015_128_60S_60N_000_360_FLOAT.IMG'
 };
 const contentTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.svg':'image/svg+xml','.jpg':'image/jpeg','.png':'image/png'};
 const server=createServer(async(req,res)=>{

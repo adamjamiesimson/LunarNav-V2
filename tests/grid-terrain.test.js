@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {inflateSync} from 'node:zlib';
 import {polarXY,deriveHorizonFromRaster} from '../src/terrain.js';
-import {gridRasterWindow,globalRasterWindow} from '../src/grid-terrain.js';
+import {gridRasterWindow,globalRasterWindow,deriveSldemPatch} from '../src/grid-terrain.js';
 import {SITES} from '../src/sites.js';
 
 const meta=JSON.parse(readFileSync(new URL('../data/relief.json',import.meta.url),'utf8'));
@@ -90,16 +90,31 @@ test('mid-latitude waypoints derive a labelled coarse horizon from the global gr
   const px=((145%360+360)%360/360)*g.width,py=((90-20)/180)*g.height;
   assert.ok(Math.abs((px-win.x0)-(win.w-1)/2)<2,'site horizontally centred');
   assert.ok(Math.abs((py-win.y0)-(win.h-1)/2)<2,'site vertically centred');
-  assert.ok(win.lonGsd>3000&&win.latGsd>3000,'global grid is honestly coarse (~5 km)');
+  assert.ok(win.lonGsd>1000&&win.latGsd>1000,'global grid GSD is honest (~1.3 km)');
   // Decode the real global PNG window and derive like the browser path does.
   const data=pngWindow('moon-relief-global.png',win.x0,win.y0,win.w,win.h);
   const profile=deriveHorizonFromRaster({data,width:win.w,height:win.h,
     originX:win.originX,originY:win.originY,resolutionX:win.resolutionX,resolutionY:win.resolutionY,noData:null},
-    {lat:20,lon:145},{radiusKm:20,azimuthBins:360,centerXY:{x:0,y:0}});
+    {lat:20,lon:145},{radiusKm:20,azimuthBins:360,centerXY:{x:0,y:0},frameLon:0});
   assert.ok(profile.coveragePct>90,'window is inside the global grid');
   assert.equal(profile.lat,20,'site coordinates preserved');
   assert.ok(profile.elevationDeg.some(v=>v>0),'regional slopes produce a real skyline');
   assert.ok(profile.elevationDeg.every(v=>Number.isFinite(v)));
+});
+
+test('mid-latitude native patches derive 237 m horizons from SLDEM rows',async()=>{
+  const site={lat:-30,lon:45};
+  // Synthetic SLDEM rows: terrain rises toward the east of the site.
+  const siteCol=Math.round((((45%360)+360)%360/360)*(46080-1));
+  const fetchRow=async(row,c0,c1)=>Float32Array.from({length:c1-c0},(_,k)=>(c0+k-siteCol)/5760);
+  const profile=await deriveSldemPatch(site,{fetchRow});
+  assert.ok(Math.abs(profile.resolutionM-237)<2,'native SLDEM pixels are ~237 m');
+  assert.ok(profile.patch&&profile.patch.data.length===profile.patch.width*profile.patch.height,
+    'full Float32 elevation window retained for geometry and analysis');
+  assert.match(profile.source,/SLDEM2015/);
+  assert.ok(profile.verifiedSource);
+  assert.ok(profile.elevationDeg[90]>profile.elevationDeg[270],
+    'terrain rising to the east raises the eastern horizon only');
 });
 
 test('profiles report their grid provenance for honest labelling',()=>{
