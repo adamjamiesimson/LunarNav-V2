@@ -10,6 +10,7 @@ import {findMissionWindows,compareFinderModels} from './finder.js';
 import {windowMetrics,comparisonRows,differenceNotes} from './compare.js';
 import {inspectSituation,buildSkyDiagram,fmtMargin,findNextHorizonEvent} from './situation.js';
 import {loadBundledTerrain} from './terrain-cache.js';
+import {deriveGridHorizon} from './grid-terrain.js';
 import {PAGE_ROUTES,PAGE_TITLES,routeFromURL,buildPageURL} from './router.js';
 import {initOnboarding} from './onboarding.js';
 import {initMissionAssistant,refreshAssistantContext} from './assistant.js';
@@ -93,11 +94,25 @@ function selectSite(site){stopPlay();state.site=site;if(site.custom&&!siteSelect
 function maybeAutoTerrain(){
   const site=state.site;
   if(getCachedTerrain(site)||$('#terrain-load').disabled)return;
-  if(site.lat> -60||site.lat< -90){toast('Outside NASA DEM coverage (60°S–90°S): flat-horizon model in use.');return;}
   const key=terrainKey(site);
   if(terrainAttempted.has(key))return;
   terrainAttempted.add(key);
-  requestTerrain();
+  // Instant horizon from the bundled NASA relief grid (offline, both
+  // hemispheres); the native-resolution DEM load then refines it.
+  deriveGridHorizon(site).then(profile=>{
+    if(state.site.lat!==site.lat||state.site.lon!==site.lon)return;
+    terrainProfiles.set(terrainKey(site),profile);
+    state.terrain=profile;
+    updateMissionPanels();
+    if(state.base)updateInspection();
+    updateFinderCoverage();updateModelNotes();renderComparePanel();renderDateComparison();
+    $('#terrain-status').textContent='Local sky horizon derived from the baked NASA LOLA grid ('+profile.resolutionM+' m).';
+    toast('Terrain horizon derived for '+site.name);
+    requestTerrain(); // optional native-resolution refinement
+  }).catch(()=>{
+    if(site.lat<=-60)requestTerrain();
+    else{updateModelNotes();toast('No terrain grid covers this location; flat-horizon model in use.');}
+  });
 }
 function refreshMissionContext(){
   const label=state.site.name+' · '+state.date+' '+state.time+' UTC · '+state.days+' days';
@@ -423,9 +438,10 @@ async function requestTerrain(file=null){
     toast('Terrain loaded for '+state.site.name+' · '+profile.provenance);
   }catch(e){
     if(token!==terrainRequestSeq)return; // a newer selection is already loading
-    state.terrain=null;
+    // A failed native upgrade must not wipe an existing (grid-derived) profile.
+    state.terrain=getCachedTerrain(state.site)||null;
     updateMissionPanels();updateModelNotes();renderComparePanel();renderDateComparison();
-    $('#terrain-status').textContent='Could not load DEM: '+e.message+'. Flat-horizon model remains in effect. Try a local LOLA 60–100 m GeoTIFF.';
+    $('#terrain-status').textContent='Could not load the native DEM: '+e.message+'. '+(state.terrain?'Keeping the baked-grid horizon.':'Flat-horizon model remains in effect. Try a local LOLA 60–100 m GeoTIFF.');
     toast('Terrain unavailable; no simulated terrain was substituted.');
   }finally{
     $('#terrain-load').disabled=false;

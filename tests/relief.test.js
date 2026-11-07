@@ -26,9 +26,9 @@ test('both NASA products are registered with proxy and source URLs',()=>{
 });
 
 test('custom waypoints automatically load real terrain, never silently faked',()=>{
-  assert.match(app,/maybeAutoTerrain/,'custom waypoint selection triggers terrain');
+  assert.match(app,/deriveGridHorizon/,'custom waypoint selection derives terrain instantly from the baked grid');
   assert.match(app,/terrainAttempted/,'failed loads are remembered, not looped');
-  assert.match(app,/Outside NASA DEM coverage/,'out-of-coverage points get an explicit message');
+  assert.match(app,/No terrain grid covers this location/,'out-of-coverage points get an explicit message');
 });
 
 test('baked relief texture matches its NASA metadata',()=>{

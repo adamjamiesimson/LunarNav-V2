@@ -28,8 +28,9 @@ const DEG=Math.PI/180;
 const RMOON=1737400;
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 export function polarXY(lat,lon){
-  if(!Number.isFinite(lat)||!Number.isFinite(lon)||lat < -90 || lat> -60)throw Error('LOLA south-polar terrain only covers 60°S to 90°S');
-  const radius=2*RMOON*Math.tan((90+lat)*DEG/2);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)<60||Math.abs(lat)>90)
+    throw Error('LOLA terrain covers only 60°S to 90°S and 60°N to 90°N');
+  const radius=2*RMOON*Math.tan((90-Math.abs(lat))*DEG/2);
   return {x:radius*Math.sin(lon*DEG),y:radius*Math.cos(lon*DEG)};
 }
 /** Compute horizon profile against real elevation pixels supplied in metres.
