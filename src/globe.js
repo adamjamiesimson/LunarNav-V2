@@ -653,6 +653,22 @@ export function createMap(canvas,{onPick,onHover}){
      request();
    },
    focusSite(){viewMode='focus';lat=clamp(site.lat,-89,50);lon=wrap(site.lon);zoom=1.35;request();return Math.round(zoom*100);},
+  panoramaZoom(target,onArrive,{durationMs=1200}={}){
+    // Fly from orbit toward the waypoint before the panorama takes over.
+    viewMode='focus';
+    const startLat=lat,startLon=lon,startZoom=zoom,targetLat=clamp(target.lat,-89,50),targetLon=wrap(target.lon);
+    const t0=performance.now();
+    const ease=t=>t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+    const step=()=>{
+      const t=Math.min(1,(performance.now()-t0)/durationMs),k=ease(t);
+      lat=startLat+(targetLat-startLat)*k;
+      lon=wrap(startLon+(((targetLon-startLon+540)%360)-180)*k);
+      zoom=startZoom+(2.1-startZoom)*k;
+      request();
+      if(t<1)requestAnimationFrame(step);else if(onArrive)onArrive();
+    };
+    requestAnimationFrame(step);
+  },
    zoomBy(delta){zoom=zoomLevel(zoom+delta);request();return Math.round(zoom*100);},
    resetView(){viewMode='overview';lat=-73;lon=wrap(site.lon);zoom=1;request();return 100;},
    setSun(obs,focus=site){

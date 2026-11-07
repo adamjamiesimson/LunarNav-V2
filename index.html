@@ -181,7 +181,19 @@
                 <div class="map-overlay-top"><span class="map-pill">SOUTH POLAR REGION</span><span class="map-pill subtle">NORTH ↑</span></div>
                 <div class="map-overlay-bottom">
                   <div class="map-coordinate"><small>FOCUSED LOCATION</small><strong id="map-site-name">MONS MOUTON</strong><span id="map-coordinate">84.79°S &nbsp; 29.20°E</span></div>
-                  <div class="map-legend"><span><i class="pin-legend"></i> Study sites</span><span><i class="ring-legend"></i> South-polar parallels</span></div>
+                  <button type="button" id="panorama-open" class="panorama-button" title="Fly down to this site and view the 360° horizon panorama">View panorama of location</button>
+                </div>
+                <div class="panorama-overlay" id="panorama-overlay" hidden>
+                  <div class="panorama-head">
+                    <strong id="panorama-title">SURFACE PANORAMA</strong>
+                    <span id="panorama-subtitle"></span>
+                    <button type="button" id="panorama-close" class="celestial-control-btn">Close panorama</button>
+                  </div>
+                  <canvas id="panorama-canvas" width="1440" height="520" aria-label="360-degree surface panorama ray-marched from NASA terrain. Drag to look around; Sun and Earth are marked at their real positions in the lunar sky."></canvas>
+                  <div class="panorama-foot">
+                    <span id="panorama-note">Horizon silhouette ray-marched from NASA LOLA/Kaguya DEM heights · Sun and Earth from the shared ephemeris · drag to look around</span>
+                    <span id="panorama-bodies"></span>
+                  </div>
                 </div>
                 <div class="celestial-annotations" aria-hidden="true">
                   <span class="celestial-label celestial-sun">SUN</span>
