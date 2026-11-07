@@ -44,6 +44,28 @@ siteSelect.value=state.site.id;
 $('#mission-date').value=state.date;
 document.querySelectorAll('#duration button').forEach(b=>b.classList.toggle('selected',Number(b.dataset.days)===state.days));
 
+// Navigation is registered first: if any later boot step fails, the site must
+// stay usable rather than freezing on the landing page.
+document.addEventListener('click',event=>{
+  const anchor=event.target.closest?.('a[data-route]');
+  if(!anchor||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+  event.preventDefault();
+  navigatePage(anchor.dataset.route);
+});
+window.addEventListener('popstate',()=>{
+  const params=new URLSearchParams(location.search);
+  const site=SITES.find(s=>s.id===params.get('site'));
+  const days=Number(params.get('days'));
+  let changed=false;
+  if(site&&site.id!==state.site.id){state.site=site;siteSelect.value=site.id;changed=true;}
+  if([3,7,14,28].includes(days)&&days!==state.days){state.days=days;document.querySelectorAll('#duration button').forEach(b=>b.classList.toggle('selected',Number(b.dataset.days)===days));changed=true;}
+  const date=params.get('date');
+  if(date&&/^\d{4}-\d{2}-\d{2}$/.test(date)&&date!==state.date){$('#mission-date').value=date;changed=true;}
+  const page=routeFromURL(location.pathname,location.hash);
+  showPage(page);
+  if(changed)updateAnalysis();
+});
+
 
 /** Keep current-site settings shareable across distinct page URLs. */
 function selectionQuery(){
@@ -86,7 +108,14 @@ function toast(message){const el=$('#toast');el.textContent=message;el.classList
 /** Write a CSV from row arrays (every cell quoted). */
 function downloadCSV(filename,rows){const cell=v=>'"'+String(v).replaceAll('"','""')+'"';const text=rows.map(r=>r.map(cell).join(',')).join('\n');const url=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
 function updateURL(){if(state.site.custom||currentPage==='home')return;history.replaceState({page:currentPage},'',buildPageURL(currentPage,selectionQuery()));}
-const map=createMap($('#moon-map'),{onPick:selectSite,onHover:(site,e)=>{const tip=$('#map-tooltip');if(!site){tip.hidden=true;return;}tip.hidden=false;tip.textContent=`${site.name} · ${site.kind} · ${fmtCoord(site.lat,site.lon)}`;const rect=$('#map-stage').getBoundingClientRect();tip.style.left=`${Math.min(rect.width-235,Math.max(12,e.clientX-rect.left+16))}px`;tip.style.top=`${Math.max(12,e.clientY-rect.top-20)}px`;}});
+let map;
+try{
+map=createMap($('#moon-map'),{onPick:selectSite,onHover:(site,e)=>{const tip=$('#map-tooltip');if(!site){tip.hidden=true;return;}tip.hidden=false;tip.textContent=`${site.name} · ${site.kind} · ${fmtCoord(site.lat,site.lon)}`;const rect=$('#map-stage').getBoundingClientRect();tip.style.left=`${Math.min(rect.width-235,Math.max(12,e.clientX-rect.left+16))}px`;tip.style.top=`${Math.max(12,e.clientY-rect.top-20)}px`;}});
+}catch(error){
+  // The globe must never take the whole app down; everything else keeps working.
+  console.warn('Globe unavailable:',error);
+  map={render(){},zoomBy:()=>100,resetView:()=>100,focusSite:()=>135};
+}
 function selectSite(site){stopPlay();state.site=site;if(site.custom&&!siteSelect.querySelector('[value="custom"]'))siteSelect.add(new Option('Custom waypoint  ·  Map-selected','custom'));siteSelect.value=site.id;updateAnalysis();toast(`${site.name} selected`);maybeAutoTerrain();}
 /** Custom waypoints get real NASA terrain automatically: picking a point on the
  * globe is an explicit request for its local horizon, so one DEM patch read is
@@ -904,25 +933,6 @@ $('#footer-method').addEventListener('click',()=>navigatePage('science'));
 $('#science-detail').addEventListener('click',()=>$('#method-dialog').showModal());
 $$('[data-close]').forEach(x=>x.addEventListener('click',()=>$('#'+x.dataset.close).close()));
 $$('dialog').forEach(d=>d.addEventListener('click',e=>{if(e.target===d)d.close();}));
-document.addEventListener('click',event=>{
-  const anchor=event.target.closest?.('a[data-route]');
-  if(!anchor||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
-  event.preventDefault();
-  navigatePage(anchor.dataset.route);
-});
-window.addEventListener('popstate',()=>{
-  const params=new URLSearchParams(location.search);
-  const site=SITES.find(s=>s.id===params.get('site'));
-  const days=Number(params.get('days'));
-  let changed=false;
-  if(site&&site.id!==state.site.id){state.site=site;siteSelect.value=site.id;changed=true;}
-  if([3,7,14,28].includes(days)&&days!==state.days){state.days=days;document.querySelectorAll('#duration button').forEach(b=>b.classList.toggle('selected',Number(b.dataset.days)===days));changed=true;}
-  const date=params.get('date');
-  if(date&&/^\d{4}-\d{2}-\d{2}$/.test(date)&&date!==state.date){$('#mission-date').value=date;changed=true;}
-  const page=routeFromURL(location.pathname,location.hash);
-  showPage(page);
-  if(changed)updateAnalysis();
-});
 $('#timeline-graph').insertAdjacentHTML('beforebegin','<button class="replay-button" id="replay-btn" type="button">▶ Replay window</button>');
 $('#replay-btn').addEventListener('click',togglePlay);
 
