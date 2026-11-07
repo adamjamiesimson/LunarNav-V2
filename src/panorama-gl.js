@@ -65,6 +65,37 @@ float starField(vec3 d){
   vec3 off=vec3(fract(h*57.31),fract(h*127.7),fract(h*311.7))-0.5;
   return smoothstep(0.10,0.0,length(f-off*0.7))*(0.25+0.75*fract(h*811.7));
 }
+/* Procedural micro-relief (ARTISTIC): regolith rolls, mounds, pebbles and
+ * shallow dips in metres. Applied only near the camera so it never invents
+ * distant landforms: the real DEM owns the silhouette. */
+float hash21(vec2 p){
+  p=fract(p*vec2(123.34,456.21));
+  p+=dot(p,p+45.32);
+  return fract(p.x*p.y);
+}
+float vnoise(vec2 p){
+  vec2 i=floor(p),f=fract(p);
+  vec2 u=f*f*(3.0-2.0*f);
+  return mix(mix(hash21(i),hash21(i+vec2(1.0,0.0)),u.x),
+             mix(hash21(i+vec2(0.0,1.0)),hash21(i+vec2(1.0,1.0)),u.x),u.y);
+}
+float fbm(vec2 p){
+  float v=0.0,a=0.5;
+  for(int i=0;i<4;i++){v+=a*vnoise(p);p=p*2.03+vec2(17.3,9.1);a*=0.5;}
+  return v;
+}
+float detailRoll(vec2 p){
+  float d=(fbm(p*0.042)-0.5)*3.6;                              // ~24 m rolls
+  d+=(fbm(p*0.17)-0.5)*0.9;                                    // ~6 m mounds
+  d-=smoothstep(0.58,0.78,fbm(p*0.09+vec2(41.7,23.3)))*1.2;    // shallow dips
+  return d;
+}
+float detailFull(vec2 p){
+  float d=detailRoll(p);
+  d+=(fbm(p*0.55)-0.5)*0.26;     // ~1.8 m rocks and pits
+  d+=(vnoise(p*1.9)-0.5)*0.07;   // pebbles
+  return d;
+}
 void main(){
   vec2 ndc=(gl_FragCoord.xy/uRes)*2.0-1.0;
   float aspect=uRes.x/uRes.y;
@@ -74,11 +105,13 @@ void main(){
   float t=0.3,last=0.3,hitT=-1.0;
   for(int i=0;i<180;i++){
     vec3 p=eye+dir*t;
-    if(p.z<=groundZ(p.x,p.y)){
+    float micro=t<400.0?detailRoll(p.xy)*exp(-t/220.0):0.0;
+    if(p.z<=groundZ(p.x,p.y)+micro){
       float a=last,b=t;
       for(int j=0;j<8;j++){
         float m=0.5*(a+b);vec3 pm=eye+dir*m;
-        if(pm.z<=groundZ(pm.x,pm.y))b=m;else a=m;
+        float mm=m<400.0?detailRoll(pm.xy)*exp(-m/220.0):0.0;
+        if(pm.z<=groundZ(pm.x,pm.y)+mm)b=m;else a=m;
       }
       hitT=b;break;
     }
@@ -105,9 +138,24 @@ void main(){
     float hx=groundZ(p.x+e,p.y)-groundZ(p.x-e,p.y);
     float hy=groundZ(p.x,p.y+e)-groundZ(p.x,p.y-e);
     vec3 n=normalize(vec3(-hx/(2.0*e),-hy/(2.0*e),1.0));
+    // Micro-relief shading (ARTISTIC): pebble-to-mound normal perturbation,
+    // faded with distance so the far field keeps the real DEM shape.
+    float dw=exp(-hitT/140.0);
+    if(dw>0.01){
+      float de=max(0.06,hitT*0.0012);
+      float ddx=detailFull(p.xy+vec2(de,0.0))-detailFull(p.xy-vec2(de,0.0));
+      float ddy=detailFull(p.xy+vec2(0.0,de))-detailFull(p.xy-vec2(0.0,de));
+      n=normalize(n+vec3(-ddx/(2.0*de),-ddy/(2.0*de),0.0)*dw);
+    }
     float lam=max(0.0,dot(n,uSunDir));
     float earthL=max(0.0,dot(n,uEarthDir));
-    col=vec3(0.52,0.53,0.56)*(0.035+0.95*lam)+vec3(0.14,0.20,0.24)*earthL*(uHasEarth>0.5?0.5:0.0);
+    // Regolith albedo (ARTISTIC): macro mottling that persists to distance,
+    // local mottle and rare bright ejecta specks near the camera.
+    float macro=(fbm(p.xy*0.006)-0.5)*0.22;
+    float mottle=(fbm(p.xy*0.08)-0.5)*0.18*dw;
+    float speck=step(0.986,hash21(floor(p.xy*3.7)))*0.24*dw;
+    float alb=max(0.05,0.46+macro+mottle+speck);
+    col=vec3(alb*0.97,alb,alb*1.05)*(0.035+0.95*lam)+vec3(0.14,0.20,0.24)*earthL*(uHasEarth>0.5?0.5:0.0);
   }
   gl_FragColor=vec4(col,1.0);
 }
