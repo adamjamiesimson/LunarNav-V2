@@ -102,12 +102,13 @@ void main(){
   vec3 dir=normalize(uCamDir+uCamRight*(ndc.x*uTanFov*aspect)+uCamUp*(ndc.y*uTanFov));
   float eyeZ=terrainH(0.0,0.0)+1.7;
   vec3 eye=vec3(0.0,0.0,eyeZ);
-  float t=0.3,last=0.3,hitT=-1.0;
-  for(int i=0;i<300;i++){
+  float t=0.3,last=0.3,hitT=-1.0,lastDz=1e9;
+  for(int i=0;i<420;i++){
     vec3 p=eye+dir*t;
     float micro=t<400.0?detailRoll(p.xy)*exp(-t/220.0):0.0;
     float g=groundZ(p.x,p.y)+micro;
-    if(p.z<=g){
+    float dz=p.z-g;
+    if(dz<=0.0){
       float a=last,b=t;
       for(int j=0;j<9;j++){
         float m=0.5*(a+b);vec3 pm=eye+dir*m;
@@ -116,14 +117,19 @@ void main(){
       }
       hitT=b;break;
     }
-    last=t;
+    last=t;lastDz=dz;
     // Step sizing prevents the vertical-stripe ("cliff") artifact at grazing
     // angles: shrink when the ray hugs the terrain so ridges are never
     // tunneled through; grow when it flies high above (with distance the
     // curvature term makes the ray gain height quickly).
-    t+=clamp((p.z-g)*1.15,max(1.5,t*0.0025),t*0.12);
+    t+=clamp(dz*1.15,max(2.5,t*0.0035),t*0.12);
     if(t>140000.0)break;
   }
+  // A ray that exhausted its budget while still grazing the surface is
+  // looking along distant terrain (the silhouette band): render terrain at
+  // the last sample instead of punching a see-through sky gap. Rays with
+  // real clearance (open sky) keep their large dz and stay sky.
+  if(hitT<0.0&&lastDz<max(45.0,t*0.02))hitT=t;
   vec3 col;
   if(hitT<0.0){
     col=vec3(0.011,0.014,0.018)+vec3(0.55,0.58,0.62)*starField(dir)*0.4; // decorative
@@ -159,7 +165,7 @@ void main(){
     // local mottle and rare bright ejecta specks near the camera.
     float macro=(fbm(p.xy*0.006)-0.5)*0.22;
     float mottle=(fbm(p.xy*0.08)-0.5)*0.18*dw;
-    float speck=step(0.986,hash21(floor(p.xy*3.7)))*0.24*dw;
+    float speck=step(0.972,hash21(floor(p.xy*16.0)))*0.12*exp(-hitT/45.0);
     float alb=max(0.05,0.46+macro+mottle+speck);
     col=vec3(alb*0.97,alb,alb*1.05)*(0.035+0.95*lam)+vec3(0.14,0.20,0.24)*earthL*(uHasEarth>0.5?0.5:0.0);
   }
