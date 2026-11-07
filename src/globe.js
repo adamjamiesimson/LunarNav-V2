@@ -17,6 +17,9 @@ const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 // Zoom floor of 0.35 fits the compressed Sun/Earth orbits (1.75 scene units)
 // inside the viewport so the full simulation loop is visible.
 const zoomLevel=v=>clamp(v,0.35,2.1);
+// Default framing: the Moon at ~44% of panel height so the Sun and Earth
+// spheres (2.6 and 2.1 moon-radii out) are all visible on load.
+const DEFAULT_ZOOM=0.5;
 const wrap=n=>((n%360)+360)%360;
 // Earth's spin axis is tilted 23.44° (obliquity) from the orbital-plane normal.
 // The shader maps the texture pole to (0,cos(pitch),-sin(pitch)), whose pitch=0
@@ -317,7 +320,7 @@ export function createMap(canvas,{onPick,onHover}){
  gl.generateMipmap(gl.TEXTURE_2D);
  gl.uniform1i(u.moon,0);
 
- let loaded=false,earthLoaded=false,site=SITES[0],zoom=1,lat=-73,lon=25,viewMode='overview',showSkyBodies=true;
+ let loaded=false,earthLoaded=false,site=SITES[0],zoom=DEFAULT_ZOOM,lat=-73,lon=25,viewMode='overview',showSkyBodies=true;
  let simulatedUTC=Date.parse('2026-11-14T12:00:00Z'),layout=null,activeBody='moon',celestialDrag=null;
  let terrainRose=null;
  const manualSpin={sun:{yaw:0,pitch:0},earth:{yaw:0,pitch:0},moon:{yaw:0,pitch:0}};
@@ -649,6 +652,11 @@ export function createMap(canvas,{onPick,onHover}){
      if(!newSite.custom){
        lon=wrap(newSite.lon);
        lat=viewMode==='focus'?clamp(newSite.lat,-89,50):-73;
+     }else{
+       // Custom waypoints face their own coordinate, tilted so the south
+       // polar region stays in frame at the default zoom.
+       lon=wrap(newSite.lon);
+       lat=clamp(newSite.lat,-85,45);
      }
      request();
    },
@@ -670,7 +678,7 @@ export function createMap(canvas,{onPick,onHover}){
     requestAnimationFrame(step);
   },
    zoomBy(delta){zoom=zoomLevel(zoom+delta);request();return Math.round(zoom*100);},
-   resetView(){viewMode='overview';lat=-73;lon=wrap(site.lon);zoom=1;request();return 100;},
+   resetView(){viewMode='overview';lat=site.custom?clamp(site.lat,-85,45):-73;lon=wrap(site.lon);zoom=DEFAULT_ZOOM;request();return Math.round(DEFAULT_ZOOM*100);},
    setSun(obs,focus=site){
      sunlight=horizontalToLunarVector(obs.sun,focus.lat,focus.lon);
      earthlight=horizontalToLunarVector(obs.earth,focus.lat,focus.lon);
