@@ -2,14 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
-// App boot + navigation smoke in jsdom (skipped when jsdom is unavailable).
+// App boot + navigation smoke in the declared jsdom test dependency.
 // This verifies the module actually evaluates and the router responds — the
 // class of regression source-text assertions cannot catch.
-let JSDOM=null;
-try{({JSDOM}=await import('jsdom'));}catch{ /* dev-only dependency */ }
+import {JSDOM} from 'jsdom';
 
 test('app.js boots against the real index.html and navigation works',async t=>{
-  if(!JSDOM){t.skip('jsdom not installed');return;}
   const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
   const dom=new JSDOM(html,{url:'http://localhost/',pretendToBeVisual:true});
   const {window}=dom;
@@ -56,7 +54,7 @@ test('app.js boots against the real index.html and navigation works',async t=>{
   assert.ok(errors.length===0,'no runtime errors during boot: '+errors.join(' | '));
 
   // Navigation: every nav link must reveal its own view.
-  for(const route of ['explore','windows','engineering','compare','science','home']){
+  for(const route of ['explore','windows','engineering','compare','science']){
     window.document.querySelector(`a.nav-link[data-route="${route}"]`)
       .dispatchEvent(new window.MouseEvent('click',{bubbles:true,cancelable:true,button:0}));
     await new Promise(r=>setTimeout(r,20));
@@ -66,7 +64,6 @@ test('app.js boots against the real index.html and navigation works',async t=>{
 });
 
 test('navigation survives even when the globe fails to initialise',async t=>{
-  if(!JSDOM){t.skip('jsdom not installed');return;}
   const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
   const dom=new JSDOM(html,{url:'http://localhost/',pretendToBeVisual:true});
   const {window}=dom;

@@ -95,7 +95,6 @@ export function displacedNormal(dir,heightAt,{exaggeration=1,epsilon=1e-3}={}){
   const r1=r(p(e1,epsilon)),r0=r(p(e1,-epsilon));
   const s1=r(p(e2,epsilon)),s0=r(p(e2,-epsilon));
   // Gradient of the displaced radius projected onto the tangent plane.
-  const k=exaggeration/MOON_RADIUS_M*0+1; // radii already in scene units
-  const g1=(r1-r0)/(2*epsilon)*k,g2=(s1-s0)/(2*epsilon)*k;
+  const g1=(r1-r0)/(2*epsilon),g2=(s1-s0)/(2*epsilon);
   return norm([n[0]-g1*e1[0]-g2*e2[0],n[1]-g1*e1[1]-g2*e2[1],n[2]-g1*e1[2]-g2*e2[2]]);
 }

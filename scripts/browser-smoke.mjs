@@ -2,19 +2,21 @@
  * Real Chromium smoke test for the built static application.
  * Run after:
  *   npm run build
- *   npm install --no-save --no-package-lock playwright@1.56.1
+ *   npm ci
  *   npx playwright install --with-deps chromium
  *   node scripts/browser-smoke.mjs
  * The test blocks third-party requests to confirm the procedural lunar fallback
- * works when NASA image/CORS or Google Fonts are unavailable.
+ * works when optional NASA imagery and runtime terrain networks are unavailable.
  */
 import {chromium} from 'playwright';
 import {spawn} from 'node:child_process';
 import {setTimeout as sleep} from 'node:timers/promises';
-import {mkdirSync} from 'node:fs';
+import {mkdirSync,readFileSync,writeFileSync} from 'node:fs';
 
 const host='http://127.0.0.1:4173';
-const server=spawn('node',['scripts/preview-server.js','--dist','4173'],{stdio:'ignore'});
+const server=spawn(process.execPath,['scripts/preview-server.js','--dist','4173'],{stdio:['ignore','pipe','pipe']});
+server.on('error',error=>console.error('Preview server:',error.message));
+server.stderr.on('data',chunk=>console.error(String(chunk)));
 let browser=null;
 const assert=(value,message)=>{if(!value)throw new Error('Browser smoke: '+message);};
 async function ready(){
@@ -29,31 +31,41 @@ async function offNetwork(page){
   await page.route('**/*',route=>{
     try{
       const hostname=new URL(route.request().url()).hostname;
+      const pathname=new URL(route.request().url()).pathname;
+      if(['/assets/bluemarble-1024.png','/assets/lola-80m.tif','/assets/lola-60s-60m.tif','/assets/sldem.img'].includes(pathname))return route.abort();
       if(hostname==='127.0.0.1'||hostname==='localhost')return route.continue();
     }catch{}
     return route.abort();
   });
+}
+async function trackGPU(page){
+  await page.addInitScript(()=>{
+    window.gpuUploads=[];
+    const upload=WebGLRenderingContext.prototype.texImage2D;
+    WebGLRenderingContext.prototype.texImage2D=function(...args){
+      const result=upload.apply(this,args),source=args[5];
+      const width=args.length===9?args[3]:source.width,height=args.length===9?args[4]:source.height;
+      window.gpuUploads.push({width,height,bytes:args[8]?.byteLength||null,error:this.getError()});
+      return result;
+    };
+  });
+}
+async function checkCSV(page,selector){
+  const [download]=await Promise.all([page.waitForEvent('download'),page.locator(selector).click()]);
+  const text=readFileSync(await download.path(),'utf8');
+  assert(download.suggestedFilename().endsWith('.csv')&&text.split('\n').length>2,'CSV has no data: '+selector);
 }
 const errors=[];
 try{
   await ready();
   browser=await chromium.launch({headless:true,args:['--use-gl=angle','--use-angle=swiftshader']});
   const page=await browser.newPage({viewport:{width:1440,height:900},reducedMotion:'reduce'});
+  await trackGPU(page);
   page.on('pageerror',err=>errors.push('desktop '+err.message));
-  await page.addInitScript(()=>{
-    sessionStorage.setItem('lunarnav:intro:session:v1','1');
-    localStorage.setItem('lunarnav:onboarding:complete:v1','1');
-  });
   await offNetwork(page);
   await page.goto(host+'/',{waitUntil:'domcontentloaded'});
-  await page.waitForFunction(()=>document.body.dataset.page==='home');
-  assert((await page.locator('.home-tool-card:visible').count())===4,'overview does not have four focused tool entrances');
-  assert((await page.locator('.app-view:not([hidden])').count())===1,'more than one page visible on overview');
+  await page.waitForFunction(()=>document.body.dataset.page==='explore');
   mkdirSync('smoke-artifacts',{recursive:true});
-  await page.screenshot({path:'smoke-artifacts/overview.png',fullPage:false});
-  await page.locator('a.home-action-primary').click();
-  assert(new URL(page.url()).pathname==='/explore','overview launch did not open the explorer');
-  assert((await page.locator('.app-view:not([hidden])').count())===1,'more than one page visible in explorer');
   await page.waitForFunction(()=>document.querySelector('#mission-verdict')?.textContent!=='COMPUTING…');
   await page.waitForFunction(()=>document.querySelector('#finder-terrain-count')?.textContent?.startsWith('5 of 5'),{timeout:20000});
   const initial=await page.locator('#mission-verdict').textContent();
@@ -94,7 +106,7 @@ try{
   await page.screenshot({path:'smoke-artifacts/celestial.png',fullPage:false});
   await page.locator('#celestial-scrubber').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});
   await page.locator('#time-next').click();
-  const clock=await page.locator('#hud-clock').textContent();
+  const clock=await page.locator('#celestial-clock').textContent();
   assert(clock.includes('18:00'),'six hour UTC advance did not update mission HUD');
   await page.locator('#time-event').click();
   assert((await page.locator('#time-event-note').textContent()).length>10,'next-event feedback missing');
@@ -118,6 +130,8 @@ try{
   assert(new URL(page.url()).pathname==='/engineering','engineering lab route failed');
   assert(await page.locator('#eng-charge-chart').isVisible(),'engineering simulator hidden');
   await page.locator('a.nav-link[data-route="compare"]').click();
+  await checkCSV(page,'#download-csv');
+  assert(await page.locator('#date-compare-table table').isVisible(),'date comparison did not render');
   assert((await page.locator('.compare-card:visible').count())>=5,'site comparison missing');
   await page.locator('.compare-card').first().click();
   assert(new URL(page.url()).pathname==='/explore','site comparison did not navigate to selected site');
@@ -159,6 +173,21 @@ try{
   await page.waitForSelector('#travel-results .travel-summary',{state:'visible'});
   const travelDistance=await page.locator('#travel-results .travel-summary').textContent();
   assert(/\d+(\.\d+)? km/.test(travelDistance),'travel estimate did not report a distance');
+  const energy=await page.locator('#eng-energy').textContent();
+  await page.locator('#eng-area').fill('0');
+  assert((await page.locator('#eng-energy').textContent())==='0.0 kWh','solar-area input did not update engineering');
+  await page.locator('#eng-area').fill('12');
+  assert((await page.locator('#eng-energy').textContent())===energy,'engineering restoration changed output');
+  await checkCSV(page,'#export-model');
+  await page.locator('a.nav-link[data-route="windows"]').click();
+  await checkCSV(page,'#finder-export');
+  await page.locator('#transit-run').click();
+  assert((await page.locator('#transit-results').textContent()).includes('LUNAR ARRIVAL'),'transit results missing');
+  await page.locator('#brief-btn').click();
+  assert(await page.locator('#brief-content .report-grid').isVisible(),'briefing did not contain computed results');
+  await page.pdf({path:'smoke-artifacts/mission-brief.pdf'});
+  assert(readFileSync('smoke-artifacts/mission-brief.pdf').subarray(0,4).toString()==='%PDF','briefing PDF export failed');
+  await page.locator('[data-close="brief-dialog"]').click();
 
   // Gemini assistant floats above the app, opens without an API key, and shows a friendly failure.
   assert(await page.locator('#assistant-fab').isVisible(),'assistant launcher button missing');
@@ -171,14 +200,13 @@ try{
   assert((await page.locator('#assistant-messages').textContent()).includes('GEMINI_API_KEY'),'assistant did not surface the configuration message');
   await page.locator('#assistant-close').click();
   assert(await page.locator('#assistant-root').isHidden(),'assistant did not close');
+  await page.locator('a.nav-link[data-route="explore"]').click();
+  await page.waitForSelector('#toast:not(.show)');
   await page.screenshot({path:'smoke-artifacts/desktop.png',fullPage:false});
 
   const mobile=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'});
+  await trackGPU(mobile);
   mobile.on('pageerror',err=>errors.push('mobile '+err.message));
-  await mobile.addInitScript(()=>{
-    sessionStorage.setItem('lunarnav:intro:session:v1','1');
-    localStorage.setItem('lunarnav:onboarding:complete:v1','1');
-  });
   await offNetwork(mobile);
   await mobile.goto(host+'/explore?site=nobile&date=2026-11-14&days=7',{waitUntil:'domcontentloaded'});
   await mobile.waitForFunction(()=>document.querySelector('#mission-verdict')?.textContent!=='COMPUTING…');
@@ -188,72 +216,77 @@ try{
   assert(mobileLinks>=4,'mobile header hides primary page navigation');
   const overflow=await mobile.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
   assert(overflow<=8,'mobile page overflows horizontally by '+overflow+'px');
-  await mobile.locator('#hero-find').click();
+  await mobile.locator('a.nav-link[data-route="windows"]').click();
   assert(new URL(mobile.url()).pathname==='/windows','mobile finder navigation failed');
   assert(await mobile.locator('#finder').isVisible(),'finder not visible on mobile');
+  await mobile.locator('a.nav-link[data-route="explore"]').click();
   await mobile.screenshot({path:'smoke-artifacts/mobile.png',fullPage:false});
-  await mobile.goto(host+'/',{waitUntil:'domcontentloaded'});
-  assert(await mobile.locator('.home-page').isVisible(),'overview not visible on mobile');
-  assert(await mobile.locator('.main-nav').isVisible(),'overview lost mobile page navigation');
-  const homeOverflow=await mobile.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
-  assert(homeOverflow<=8,'mobile overview overflows by '+homeOverflow+'px');
-
-  // Isolated fresh visitor: observe the full six-second branded intro,
-  // then walk across the ten feature highlights and verify persistence.
-  const visitor=await browser.newPage({viewport:{width:1280,height:800},reducedMotion:'reduce'});
-  visitor.on('pageerror',err=>errors.push('first-visit '+err.message));
-  await offNetwork(visitor);
-  const start=Date.now();
-  await visitor.goto(host+'/',{waitUntil:'domcontentloaded'});
-  assert(await visitor.locator('html').evaluate(el=>el.hasAttribute('data-intro-loading')),
-    'first-visit loading screen did not appear');
-  assert(await visitor.locator('#intro-loader').isVisible(),'intro artwork not visible');
-  await visitor.screenshot({path:'smoke-artifacts/intro.png',fullPage:false});
-  await visitor.waitForFunction(()=>!document.documentElement.hasAttribute('data-intro-loading'),{timeout:11000});
-  const duration=Date.now()-start;
-  assert(duration>=5500&&duration<=11000,'intro timing outside expected six-second range: '+duration+'ms');
-  await visitor.locator('#tour-root').waitFor({state:'visible',timeout:4000});
-  assert(await visitor.locator('#tour-title').textContent()==='Step 1 — select a location.',
-    'welcome tutorial step missing');
-  await visitor.screenshot({path:'smoke-artifacts/tutorial.png',fullPage:false});
-  const expectedPages=['explore','explore','explore'];
-  for(let i=0;i<expectedPages.length;i++){
-    assert((await visitor.locator('body').getAttribute('data-page'))===expectedPages[i],
-      'tour step '+(i+1)+' failed to highlight '+expectedPages[i]);
-    assert((await visitor.locator('#tour-counter').textContent())?.includes(String(i+1).padStart(2,'0')),
-      'tour step counter incorrect at '+(i+1));
-    if(i!==expectedPages.length-1)await visitor.locator('#tour-next').click();
+  for(const route of ['windows','compare','engineering','science','explore']){
+    await mobile.locator('a.nav-link[data-route="'+route+'"]').click();
+    const overflow=await mobile.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
+    assert(overflow<=8,route+' mobile overflow: '+overflow);
   }
-  await visitor.locator('#tour-next').click();
-  assert(await visitor.locator('#tour-root').isHidden(),'complete tour failed to close');
-  assert(await visitor.locator('body').getAttribute('data-page')==='home',
-    'tour completion did not restore original overview');
-  assert(await visitor.evaluate(()=>localStorage.getItem('lunarnav:onboarding:complete:v1'))==='1',
-    'tutorial completion not persisted');
-  await visitor.reload({waitUntil:'domcontentloaded'});
-  assert(await visitor.locator('#tour-root').isHidden(),'tour unexpectedly restarted on reload');
-  assert(!await visitor.locator('html').evaluate(el=>el.hasAttribute('data-intro-loading')),
-    'intro replayed on same-session refresh');
-  await visitor.locator('#restart-tour').click();
-  assert(await visitor.locator('#tour-root').isVisible(),'replay tutorial control did not work');
-  await visitor.keyboard.press('Escape');
-  assert(await visitor.locator('#tour-root').isHidden(),'Escape failed to close replayed tour');
+  const visitor=await browser.newPage({viewport:{width:1280,height:800}});
+  visitor.on('pageerror',error=>errors.push(error.message));
+  await offNetwork(visitor);
+  await visitor.route('**/assets/*',route=>route.abort());
+  await visitor.goto(host+'/',{waitUntil:'domcontentloaded'});
+  assert(await visitor.locator('#moon-map').isVisible(),'fresh visitor cannot see globe');
+  assert(await visitor.locator('#intro-loader,#tour-root').count()===0,'forced onboarding remains');
+  await visitor.waitForFunction(()=>document.querySelector('#map-image-status').textContent.includes('PROCEDURAL'));
+  await visitor.locator('#planner-help').click();
+  assert(await visitor.locator('#science-page').isVisible(),'optional help did not open Methods');
 
-  // Mobile first visit can bypass animation without losing the guided tour.
-  const mobileVisitor=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'});
-  mobileVisitor.on('pageerror',err=>errors.push('mobile first-visit '+err.message));
-  await offNetwork(mobileVisitor);
-  await mobileVisitor.goto(host+'/',{waitUntil:'domcontentloaded'});
-  await mobileVisitor.locator('#intro-skip').click();
-  await mobileVisitor.locator('#tour-root').waitFor({state:'visible',timeout:3500});
-  await mobileVisitor.screenshot({path:'smoke-artifacts/mobile-tutorial.png',fullPage:false});
-  const card=await mobileVisitor.locator('#tour-dialog').boundingBox();
-  assert(card&&card.x>=0&&card.x+card.width<=392,'tour card overflows mobile viewport');
-  await mobileVisitor.locator('#tour-skip').click();
-  assert(await mobileVisitor.locator('#tour-root').isHidden(),'mobile tutorial Skip did not close');
+  // Fixture-backed integration: exercise the real browser decoder and WebGL patch upload.
+  // These synthetic rows test wiring only; live NASA verification is a separate command.
+  const terrainPage=await browser.newPage({viewport:{width:1440,height:900}});
+  terrainPage.on('pageerror',error=>errors.push('terrain '+error.message));
+  await trackGPU(terrainPage);await offNetwork(terrainPage);
+  let hold=false,release,started=false;
+  const gate=new Promise(resolve=>{release=resolve;});
+  await terrainPage.route('**/assets/sldem.img',async route=>{
+    started=true;
+    if(hold)await gate;
+    const [,start,end]=/bytes=(\d+)-(\d+)/.exec(route.request().headers().range);
+    const size=Number(end)-Number(start)+1;
+    try{await route.fulfill({status:206,headers:{'content-range':'bytes '+start+'-'+end+'/'+(15360*46080*4),
+      'content-length':String(size),'content-type':'application/octet-stream'},body:Buffer.alloc(size)});}catch{}
+  });
+  await terrainPage.goto(host+'/explore',{waitUntil:'domcontentloaded'});
+  await terrainPage.waitForFunction(()=>document.querySelector('#finder-terrain-count').textContent.startsWith('5 of 5'));
+  await terrainPage.locator('#moon-map').press('3');
+  for(let i=0;i<7;i++)await terrainPage.locator('#moon-map').press('ArrowUp');
+  await terrainPage.waitForTimeout(100);
+  const box=await terrainPage.locator('#moon-map').boundingBox();
+  await terrainPage.mouse.click(box.x+box.width/2,box.y+box.height/2);
+  await terrainPage.waitForFunction(()=>document.querySelector('#site-select').value==='custom');
+  await terrainPage.waitForFunction(()=>document.querySelector('#metrics-model').textContent.includes('NASA terrain'));
+  await terrainPage.locator('a.nav-link[data-route="engineering"]').click();
+  await terrainPage.locator('#terrain-load').click();
+  await terrainPage.waitForFunction(()=>document.querySelector('#terrain-status').textContent.includes('SLDEM2015'));
+  await terrainPage.waitForFunction(()=>!document.querySelector('#terrain-load').disabled);
+  const patchUploads=await terrainPage.evaluate(()=>gpuUploads.filter(u=>u.bytes>4&&u.width>10));
+  assert(patchUploads.length>0&&patchUploads.every(u=>u.bytes===u.width*u.height*4&&u.error===0),'native RGBA patch upload failed');
+  hold=true;started=false;
+  await terrainPage.locator('#terrain-load').click();
+  for(let i=0;i<40&&!started;i++)await sleep(25);
+  assert(started,'delayed native request did not start');
+  await terrainPage.locator('a.nav-link[data-route="explore"]').click();
+  await terrainPage.locator('#site-select').selectOption('nobile');
+  release();await terrainPage.waitForTimeout(150);
+  assert((await terrainPage.locator('#selected-name').textContent())==='Nobile Region','stale terrain restored old site');
+  assert(!(await terrainPage.locator('#terrain-status').textContent()).includes('SLDEM2015'),'stale terrain replaced current profile');
 
+  const metrics={};
+  for(const [name,target,limit] of [['desktop',page,4096],['mobile',mobile,2048]]){
+    const uploads=await target.evaluate(()=>gpuUploads);
+    assert(uploads.every(u=>u.error===0),name+' WebGL upload error');
+    assert(uploads.filter(u=>u.bytes===null).every(u=>u.width<=limit&&u.height<=limit),name+' exceeded texture budget');
+    metrics[name]=await target.evaluate(()=>({uploads:gpuUploads,jsHeapBytes:performance.memory?.usedJSHeapSize||null}));
+  }
+  writeFileSync('smoke-artifacts/render-metrics.json',JSON.stringify(metrics,null,2));
   assert(errors.length===0,'uncaught JavaScript errors: '+errors.join(' | '));
-  console.log('Browser smoke PASS: six pages, direct URLs, back/forward, desktop/mobile, science refresh, globe, terrain Finder and exports.');
+  console.log('Browser smoke PASS: five pages, direct URLs, back/forward, desktop/mobile, science refresh, globe, terrain Finder and exports.');
 }catch(error){
   console.error('Browser smoke FAIL:',error.message);
   if(errors.length)console.error('JavaScript errors:',errors.join(' | '));

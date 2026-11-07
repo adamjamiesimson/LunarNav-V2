@@ -268,3 +268,19 @@ test('context sent to the model is sanitised and excludes secrets', async () => 
   const sent = JSON.stringify(GeminiFake.getFakeCalls());
   assert.ok(!sent.includes('sk-secret'), 'secrets must not reach the model request');
 });
+test('full 360-bin horizons and Finder metadata survive context sanitisation',async()=>{
+  process.env.GEMINI_API_KEY='test-key';
+  GeminiFake.configure([{parts:[{text:'Understood.'}]}]);
+  const {default:handler}=await loadHandler(),res=makeRes();
+  const profile={lat:-84.79,lon:29.2,source:'NASA fixture horizon',verifiedSource:true,coveragePct:99,radiusKm:20,resolutionM:80,
+    azimuthDeg:Array.from({length:360},(_,i)=>i),elevationDeg:Array.from({length:360},(_,i)=>i>300?12:0)};
+  await handler(makeReq('POST',{message:{text:'state?'},context:{site:{id:'mons-mouton',lat:-84.79,lon:29.2},
+    terrain:profile,terrainProfilesBySite:{'mons-mouton':profile}}}),res);
+  assert.equal(res.getStatus(),200);
+  const part=GeminiFake.getFakeCalls()[0].contents.flatMap(c=>c.parts).find(p=>p.text?.startsWith('[LunarNav live application state'));
+  const context=JSON.parse(part.text.slice(part.text.indexOf('\n')+1));
+  assert.equal(context.terrainProfile.elevationDeg.length,360,'do not truncate and reinterpret 144 degrees as a full circle');
+  assert.equal(context.terrainProfile.elevationDeg[359],12);
+  assert.equal(context.terrainProfilesBySite['mons-mouton'].coveragePct,99);
+  assert.equal(context.terrainProfilesBySite['mons-mouton'].source,profile.source);
+});

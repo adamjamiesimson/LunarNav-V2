@@ -66,7 +66,8 @@ export function deriveHorizonFromRaster({data,width,height,originX,originY,resol
   // Local east/north rasters use a neutral azimuth basis; polar-stereo
   // rasters use the basis rotated by the site's longitude.
   const longitude=(frameLon!==null?frameLon:site.lon)*DEG;
-  const north=[Math.sin(longitude),Math.cos(longitude)];
+  const northSign=frameLon===null&&site.lat>0?-1:1;
+  const north=[northSign*Math.sin(longitude),northSign*Math.cos(longitude)];
   const east=[Math.cos(longitude),-Math.sin(longitude)];
   const elevationDeg=[],azimuthDeg=[];
   let covered=0,required=0,minLastRange=Infinity;
@@ -80,7 +81,7 @@ export function deriveHorizonFromRaster({data,width,height,originX,originY,resol
     const groundScale=stereoDistortion?1+Math.pow(Math.hypot(center.x,center.y)/(2*RMOON),2):1;
     for(let distance=step;distance<=radiusKm*1000;distance+=step){
       required++;
-      const projected=distance/groundScale;
+      const projected=distance*groundScale;
       const z=read(center.x+dir[0]*projected,center.y+dir[1]*projected);
       if(z===null)continue;
       covered++;lastRange=distance;
@@ -122,8 +123,9 @@ async function ensureGeoTIFF(){
       const script=document.createElement('script');
       script.src='https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js';
       script.crossOrigin='anonymous';
-      script.onload=()=>globalThis.GeoTIFF?.fromUrl?resolve(globalThis.GeoTIFF):reject(Error('GeoTIFF library not available'));
-      script.onerror=()=>reject(Error('Could not load GeoTIFF reader from CDN'));
+      const timer=setTimeout(()=>{script.remove();reject(Error('GeoTIFF reader timed out'));},15000);
+      script.onload=()=>{clearTimeout(timer);globalThis.GeoTIFF?.fromUrl?resolve(globalThis.GeoTIFF):reject(Error('GeoTIFF library not available'));};
+      script.onerror=()=>{clearTimeout(timer);reject(Error('Could not load GeoTIFF reader from CDN'));};
       document.head.appendChild(script);
     }).catch(e=>{loaderPromise=null;throw e;});
   }
@@ -150,7 +152,7 @@ function subsetWindow(image,site,radiusKm){
 }
 
 /** COGs require true 206 byte responses; reject proxies returning the entire image. */
-export async function selectSafeLolaSource(productKey='80s'){
+export async function selectSafeLolaSource(productKey='80s',{signal}={}){
   const product=LOLA_PRODUCTS[productKey]||LOLA_PRODUCTS['80s'];
   const candidates=[product.proxy,product.cog];
   const errors=[];
@@ -158,7 +160,7 @@ export async function selectSafeLolaSource(productKey='80s'){
     try{
       const response=await fetch(url,{
         headers:{Range:'bytes=0-63'},
-        signal:AbortSignal.timeout(10000),cache:'no-store'
+        signal:signal?AbortSignal.any([signal,AbortSignal.timeout(10000)]):AbortSignal.timeout(10000),cache:'no-store'
       });
       // Immediately cancel even when the server responds 200 with a full file.
       await response.body?.cancel();
@@ -172,17 +174,19 @@ export async function selectSafeLolaSource(productKey='80s'){
 /** Load a terrain patch and derive its horizon profile. The full Float32
  * elevation samples are retained on the result (profile.patch) so the same
  * source data can feed geometry, visualisation and future surface views. */
-export async function loadLolaTerrain(site,{file=null,onProgress=()=>{}}={}){
+export async function loadLolaTerrain(site,{file=null,onProgress=()=>{},signal}={}){
+  const requestSignal=signal?AbortSignal.any([signal,AbortSignal.timeout(30000)]):AbortSignal.timeout(30000);
   const g=await ensureGeoTIFF();
+  requestSignal.throwIfAborted();
   onProgress('Opening NASA LOLA elevation metadata…');
   // fromUrl uses HTTP ranges for the cloud-optimized remote GeoTIFF.
   // Local .tif files remain an escape hatch when CORS or upstream access fails.
   const productKey=productFor(site.lat);
   const product=LOLA_PRODUCTS[productKey];
-  const remoteUrl=file?null:await selectSafeLolaSource(productKey);
+  const remoteUrl=file?null:await selectSafeLolaSource(productKey,{signal:requestSignal});
   if(remoteUrl)onProgress('Loading safe 206-byte-range NASA terrain source…');
-  const tiff=file?await g.fromBlob(file):await g.fromUrl(remoteUrl);
-  const image=await tiff.getImage();
+  const tiff=file?await g.fromBlob(file):await g.fromUrl(remoteUrl,{allowFullFile:false},requestSignal);
+  const image=await tiff.getImage(0,requestSignal);
   // Coordinate conventions are explicit: MOON_ME south-polar stereographic,
   // metres. GeoTIFF projection metadata is often custom for planetary CRS, so
   // we validate measurable bounds/resolution instead of
@@ -195,7 +199,8 @@ export async function loadLolaTerrain(site,{file=null,onProgress=()=>{}}={}){
   const radiusKm=20;
   const {window,...geo}=subsetWindow(image,site,radiusKm);
   onProgress('Reading a local 40 km DEM patch (may take a moment)…');
-  const r=await image.readRasters({window,samples:[0]});
+  const r=await image.readRasters({window,samples:[0],signal:requestSignal});
+  requestSignal.throwIfAborted();
   const data=r[0];if(!data)throw Error('Could not decode NASA elevation pixels');
   const noData=typeof image.getGDALNoData==='function'?image.getGDALNoData():null;
   onProgress('Computing the terrain horizon at 1° azimuth intervals…');

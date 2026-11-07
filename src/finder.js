@@ -7,7 +7,7 @@
  * All percentages are sample-based exploratory estimates, NOT verified
  * JPL Horizons or flight-qualified operational probabilities.
  */
-import {ephemeris} from './astro.js';
+import {ephemeris,longestRunHours} from './astro.js';
 import {bodyVisible} from './mission.js';
 
 const HOUR=3600000,DAY=24*HOUR;
@@ -27,15 +27,6 @@ function ensureDate(date){
     throw Error('Invalid finder UTC date');
   return n;
 }
-
-const longestRun=(values,start,length,predicate,stepHours)=>{
-  let best=0,current=0;
-  for(let i=start;i<start+length;i++){
-    if(predicate(values[i])){current+=stepHours;best=Math.max(best,current);}
-    else current=0;
-  }
-  return best;
-};
 
 /** Analyze each possible UTC start date, sharing one sampled ephemeris array per site. */
 export function findMissionWindows({
@@ -87,9 +78,9 @@ export function findMissionWindows({
       const sunPct=100*(sun[end]-sun[start])/steps;
       const earthPct=100*(earth[end]-earth[start])/steps;
       const dualPct=100*(dual[end]-dual[start])/steps;
-      const longestDualHours=longestRun(samples,start,steps,s=>s.dual,stepHours);
-      const longestEarthBlackoutHours=longestRun(samples,start,steps,s=>!s.earth,stepHours);
-      const longestDarknessHours=longestRun(samples,start,steps,s=>!s.sun,stepHours);
+      const longestDualHours=longestRunHours(samples,stepHours,s=>s.dual,start,steps);
+      const longestEarthBlackoutHours=longestRunHours(samples,stepHours,s=>!s.earth,start,steps);
+      const longestDarknessHours=longestRunHours(samples,stepHours,s=>!s.sun,start,steps);
       const date=new Date(epoch+day*DAY).toISOString().slice(0,10);
       const item={siteId:site.id,siteName:site.name,siteLat:site.lat,siteLon:site.lon,
         startDate:date,windowDays,sunPct,earthPct,dualPct,

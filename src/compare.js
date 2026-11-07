@@ -8,14 +8,8 @@
  * ranks a site as suitable for a mission: outputs are comparative planning
  * information only.
  */
-import {sampleWindow,summarize,longestDualWindow} from './astro.js';
+import {sampleWindow,summarize,longestDualWindow,longestRunHours} from './astro.js';
 import {simulateMission,DEFAULT_ENGINEERING} from './mission.js';
-
-const longestRunHours=(intervals,stepHours,predicate)=>{
-  let best=0,run=0;
-  for(const item of intervals){run=predicate(item)?run+stepHours:0;best=Math.max(best,run);}
-  return best;
-};
 
 /** Metrics for one site over one mission window (fixed sampling resolution). */
 export function windowMetrics({start,days,lat,lon,profile=null,stepHours=2}={}){

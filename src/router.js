@@ -4,10 +4,10 @@
  * Legacy #planner/#finder links resolve to their modern locations.
  */
 export const PAGE_ROUTES=Object.freeze({
- home:'/',explore:'/explore',windows:'/windows',engineering:'/engineering',compare:'/compare',science:'/science'
+ explore:'/explore',windows:'/windows',engineering:'/engineering',compare:'/compare',science:'/science'
 });
 export const PAGE_TITLES=Object.freeze({
- home:'Overview',explore:'Lunar explorer',windows:'Mission windows',engineering:'Engineering lab',compare:'Site comparison',science:'Science & methodology'
+ explore:'Lunar explorer',windows:'Mission windows',engineering:'Engineering lab',compare:'Site comparison',science:'Science & methodology'
 });
 export function routeFromURL(pathname='/',hash=''){
  const path=pathname.replace(/\/+$/,'')||'/';
@@ -18,11 +18,12 @@ export function routeFromURL(pathname='/',hash=''){
    if(hash==='#compare')return 'compare';
    if(hash==='#engineering')return 'engineering';
  }
+ if(path==='/'||path==='/index.html')return 'explore';
  for(const [name,href] of Object.entries(PAGE_ROUTES))if(path===href)return name;
  if(path==='/planner')return 'explore';
  if(path==='/finder')return 'windows';
  if(path==='/methodology'||path==='/method')return 'science';
- return 'home';
+ return 'explore';
 }
 export function buildPageURL(page,query=''){
  const path=PAGE_ROUTES[page];

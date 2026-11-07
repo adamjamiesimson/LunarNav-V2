@@ -11,15 +11,7 @@
  * as the server-side GEMINI_API_KEY env var.
  */
 
-const WELCOME = `### Mission analyst online
-I'm working from your **live LunarNav configuration** and the same calculation engine as the planner. Ask me about:
-- **Sun/Earth visibility** for the selected site and date
-- **mission windows**, site comparisons and the Window Finder
-- **engineering** (power, battery, Earth access)
-- **surface traverses** between study locations
-- **Earth-to-Moon transit** for the selected landing site (reference-duration estimates, not a trajectory solver)
-
-Every number I give you is either present in the current application state or produced by a real LunarNav calculation tool.`;
+const WELCOME = 'Ask about the selected mission, visibility, power, windows or travel. Calculations use the planner’s models; an API key must be configured on the server.';
 const STORAGE_KEY = 'lunarnav:assistant:history:v1';
 
 function escapeHTML(str){
@@ -147,7 +139,10 @@ function collectContext(){
     finder: state.finder ? {startDate: state.finder.startDate, searchDays: state.finder.searchDays,
       windowDays: state.finder.windowDays, priority: state.finder.priority, terrainMode: state.finder.terrainMode,
       top: state.finder.top} : null,
-    terrainProfilesBySite: state.terrainProfiles || {},
+    terrainProfilesBySite: Object.fromEntries(Object.entries(state.terrainProfiles||{}).map(([id,p])=>[id,{
+      azimuthDeg:p.azimuthDeg,elevationDeg:p.elevationDeg,lat:p.lat,lon:p.lon,
+      source:p.source,verifiedSource:p.verifiedSource,coveragePct:p.coveragePct,radiusKm:p.radiusKm,resolutionM:p.resolutionM
+    }])),
     transit: state.transit ? {
       model: state.transit.model,
       profile: state.transit.profile,

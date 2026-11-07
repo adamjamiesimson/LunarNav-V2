@@ -101,14 +101,23 @@ export function sampleWindow({start,days=7,stepHours=2,lat,lon,profile=null}) {
   return result;
 }
 
+/** Longest uninterrupted run on a uniformly sampled interval grid. */
+export function longestRunHours(values,stepHours,predicate,start=0,length=values.length-start){
+  let best=0,current=0;
+  for(let i=start;i<start+length;i++){
+    current=predicate(values[i])?current+stepHours:0;
+    best=Math.max(best,current);
+  }
+  return best;
+}
+
 export function summarize(samples) {
   if(!samples.length) return {sun:0,earth:0,dual:0,longestBlackoutHours:0};
   const n=samples.length-1;
   const avg=key=>n>0 ? 100*samples.slice(0,-1).filter(x=>key(x)).length/n : 0;
   const step=n>0 ? (Date.parse(samples[1].time)-Date.parse(samples[0].time))/3600000 : 0;
-  let cur=0,max=0;
-  samples.slice(0,-1).forEach(x=>{cur=x.earth.visible?0:cur+step;max=Math.max(max,cur);});
-  return {sun:avg(x=>x.sun.visible),earth:avg(x=>x.earth.visible),dual:avg(x=>x.dual),longestBlackoutHours:max};
+  return {sun:avg(x=>x.sun.visible),earth:avg(x=>x.earth.visible),dual:avg(x=>x.dual),
+    longestBlackoutHours:longestRunHours(samples,step,x=>!x.earth.visible,0,n)};
 }
 
 /** Longest sampled continuous period with the Sun and Earth both above the horizon. */
