@@ -258,11 +258,12 @@ async function openPanorama(){
       const pano=computePanoramaColumns({heightAt:heights.heightAt,site,azimuthBins:720,maxDistanceKm:45});
       const obs=ephemeris(new Date(state.base.getTime()+state.offset*3600000),site.lat,site.lon);
       panoramaColumns=pano;
+      const nativePatch=state.terrain?.patch||null;
       try{
         // First-person 3D surface view (WebGL ray march). Falls back to the
         // cylindrical panorama where WebGL is unavailable.
         panoramaView=await createSurfaceView($('#panorama-canvas'),{
-          site,obs,patch:state.terrain?.patch||null,hud:$('#panorama-hud'),
+          site,obs,patch:nativePatch,hud:$('#panorama-hud'),
           onHeading:h=>{const el=$('#panorama-heading');if(el)el.textContent='HEADING '+Math.round(h)+'°';},
           bodyLabel:body=>bodyStatus(pano,body)
         });
@@ -278,7 +279,24 @@ async function openPanorama(){
       $('#panorama-subtitle').textContent=fmtCoord(site.lat,site.lon)+' · '+heights.source;
       $('#panorama-bodies').textContent=panoramaBodyLine(obs,pano);
       overlay.hidden=false;
-      requestAnimationFrame(()=>overlay.classList.add('visible'));
+      // Redraw once the overlay has real layout: the view was built while the
+      // overlay was hidden (zero-size canvas), so its first frame is invalid.
+      requestAnimationFrame(()=>{overlay.classList.add('visible');panoramaView?.redraw?.();});
+      // Sharpen the near field: auto-load the native-resolution terrain patch
+      // for this area (the same NASA data "Load NASA terrain" fetches) and
+      // blend it in when it arrives. The grid view shows immediately.
+      if(!nativePatch&&panoramaView?.setPatch){
+        const view=panoramaView,gridLabel=fmtCoord(site.lat,site.lon)+' · '+heights.source;
+        $('#panorama-subtitle').textContent=gridLabel+' · loading native-resolution terrain…';
+        Promise.resolve().then(()=>Math.abs(site.lat)<60?deriveSldemPatch(site):loadLolaTerrain(site,{}))
+          .then(profile=>{
+            if(!profile?.patch||panoramaView!==view)return;
+            view.setPatch(profile.patch);
+            const gsm=Math.round(profile.patch.groundSampleM||Math.abs(profile.patch.resolutionY));
+            $('#panorama-subtitle').textContent=gridLabel+' + '+gsm+' m native patch (auto-loaded)';
+          })
+          .catch(()=>{if(panoramaView===view)$('#panorama-subtitle').textContent=gridLabel;});
+      }
     }catch(e){toast(e.message||'Could not build the panorama from the terrain grids.');}
     btn.disabled=false;
   });

@@ -193,7 +193,8 @@ export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
   const gridCfg=[(block.heightMaxM-block.heightMinM)||1,block.heightMinM,0,1];
 
   let patchTexture=null,patchCfg=[1,0,0,0],patchGeo=[0,0,1,1];
-  if(patch&&patch.data){
+  function uploadPatch(patch){
+    if(!patch||!patch.data){patchCfg[3]=0;return;}
     const {data,width,height,originX,originY,resolutionX,resolutionY,minM,maxM}=patch;
     const range=(maxM-minM)||1;
     const codes=new Uint8Array(width*height*3);
@@ -201,7 +202,7 @@ export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
       const v=Math.max(0,Math.min(4095,Math.round(((Number(data[i])||0)-minM)/range*4095)));
       codes[i*3]=v>>4;codes[i*3+1]=(v&15)<<4;
     }
-    patchTexture=gl.createTexture();
+    if(!patchTexture)patchTexture=gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D,patchTexture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,width,height,0,gl.RGBA,gl.UNSIGNED_BYTE,codes);
@@ -212,6 +213,7 @@ export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
     patchCfg=[range,minM,1/Math.max(width,height),1];
     patchGeo=[originX,originY,width*resolutionX,height*Math.abs(resolutionY)];
   }
+  uploadPatch(patch);
 
   let yaw=0,pitch=2,fov=75,pointer=null,raf=0;
   const camera=()=>({yawDeg:yaw,pitchDeg:pitch,fovDeg:fov,aspect:canvas.width/Math.max(1,canvas.height)});
@@ -323,6 +325,10 @@ export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
   };
   const onDbl=()=>{yaw=0;pitch=2;fov=75;schedule();};
   const onResize=()=>schedule();
+  // The overlay starts hidden (zero-size canvas): re-render as soon as it
+  // gains real size, so the first frame is never a stretched empty buffer.
+  const observer=typeof ResizeObserver==='function'?new ResizeObserver(()=>schedule()):null;
+  observer?.observe(canvas);
   canvas.style.cursor='grab';
   canvas.tabIndex=0;
   canvas.addEventListener('pointerdown',onDown);
@@ -337,9 +343,11 @@ export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
   return {
     redraw:render,
     setObs(next){obs=next;render();},
+    setPatch(next){uploadPatch(next);render();},
     get camera(){return {yawDeg:yaw,pitchDeg:pitch,fovDeg:fov};},
     destroy(){
       if(raf)cancelAnimationFrame(raf);
+      observer?.disconnect();
       canvas.removeEventListener('pointerdown',onDown);
       canvas.removeEventListener('pointermove',onMove);
       canvas.removeEventListener('pointerup',onUp);
