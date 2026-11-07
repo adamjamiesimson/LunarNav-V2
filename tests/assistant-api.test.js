@@ -22,16 +22,10 @@ test('Gemini API key is never exposed in frontend files or committed config', ()
   // ...and the browser modules must never read it from the environment.
   assert.match(chat, /process\.env\.GEMINI_API_KEY/);
   assert.match(chat, /process\.env\.GEMINI_MODEL/);
-  assert.doesNotMatch(app, /process\.env\.GEMINI_API_KEY/);
-  assert.doesNotMatch(assistant, /process\.env\.GEMINI_API_KEY/);
-  assert.ok(packageJson.dependencies['@google/genai'], 'SDK runtime dependency declared');
-});
-
-test('API endpoint reads the key and model from environment variables only', () => {
-  assert.match(chat, /process\.env\.GEMINI_API_KEY/);
-  assert.match(chat, /process\.env\.GEMINI_MODEL/);
   assert.doesNotMatch(app, /GEMINI_API_KEY/);
   assert.doesNotMatch(html, /GEMINI_API_KEY/);
+  assert.doesNotMatch(assistant, /process\.env\.GEMINI_API_KEY/);
+  assert.ok(packageJson.dependencies['@google/genai'], 'SDK runtime dependency declared');
 });
 
 test('all declared tools execute against the existing LunarNav modules', () => {

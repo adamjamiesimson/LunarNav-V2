@@ -28,6 +28,7 @@ test('tutorial is one time for each browser profile and replay remains available
   assert.equal(tourNeeded(storage),false);
   assert.match(html,/id="restart-tour"/);
   assert.match(html,/id="tour-help"/);
+  assert.match(html,/id="home-tour"/);
 });
 test('storage-denied browsers fail open and remain skippable',()=>{
   const unavailable={getItem(){throw Error('blocked')},setItem(){throw Error('blocked')}};
@@ -36,10 +37,9 @@ test('storage-denied browsers fail open and remain skippable',()=>{
   assert.match(html,/id="intro-skip"/);
   assert.match(html,/id="tour-skip"/);
 });
-test('guided tour explains every major module in the six-page workspace',()=>{
-  assert.equal(TOUR_STEPS.length,10);
-  assert.deepEqual([...new Set(TOUR_STEPS.map(s=>s.page))],
-    ['home','explore','windows','engineering','compare','science']);
+test('guided tour teaches the three-step planning workflow',()=>{
+  assert.equal(TOUR_STEPS.length,3);
+  assert.deepEqual([...new Set(TOUR_STEPS.map(s=>s.page))],['explore']);
   for(const step of TOUR_STEPS){
     assert.ok(PAGE_ROUTES[step.page]);
     assert.ok(step.title.length>=9);

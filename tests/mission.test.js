@@ -47,7 +47,8 @@ test('mission settings reject invalid or nonsensical engineering inputs',()=>{
 test('LOLA stereographic south pole projects to map origin',()=>{
   const pt=polarXY(-90,230);
   assert.ok(Math.abs(pt.x)<1e-8&&Math.abs(pt.y)<1e-8);
-  assert.throws(()=>polarXY(-70,0),/covers/);
+  assert.ok(Number.isFinite(polarXY(-70,0).x),'60°S–80°S is covered by the LDEM_60S product');
+  assert.throws(()=>polarXY(-50,0),/covers/);
 });
 test('DEM-derived horizon rises over a synthetic high point to the east',()=>{
   const width=11,height=11,arr=new Float32Array(width*height).fill(0);

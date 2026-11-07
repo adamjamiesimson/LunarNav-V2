@@ -8,7 +8,7 @@
  * JPL Horizons or flight-qualified operational probabilities.
  */
 import {ephemeris} from './astro.js';
-import {horizonAt} from './mission.js';
+import {bodyVisible} from './mission.js';
 
 const HOUR=3600000,DAY=24*HOUR;
 
@@ -72,8 +72,8 @@ export function findMissionWindows({
     const profile=terrainMode==='terrain'?terrainProfiles[site.id]:null;
     const samples=Array.from({length:intervals},(_,i)=>{
       const obs=ephemeris(new Date(epoch+i*stepHours*HOUR),site.lat,site.lon);
-      const sun=obs.sun.elevation>(profile?horizonAt(profile,obs.sun.azimuth):0);
-      const earth=obs.earth.elevation>(profile?horizonAt(profile,obs.earth.azimuth):0);
+      const sun=bodyVisible(profile,obs.sun.azimuth,obs.sun.elevation);
+      const earth=bodyVisible(profile,obs.earth.azimuth,obs.earth.elevation);
       return {sun,earth,dual:sun&&earth};
     });
     const sun=[0],earth=[0],dual=[0];

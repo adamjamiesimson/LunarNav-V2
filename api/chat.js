@@ -1,14 +1,9 @@
 /**
  * LunarNav Gemini mission-assistant API (Vercel serverless function).
- *
  * The Gemini API key never reaches the browser: it is read here from the
- * GEMINI_API_KEY environment variable. The model (default gemini-3.8-flash)
- * is configurable through GEMINI_MODEL. Gemini's native function-calling is
- * used to execute the same LunarNav calculation modules the planner runs in
- * the browser (src/tools.js), so the assistant never invents ephemeris values.
- *
- * Uses the current @google/genai SDK (Interactions API) with a manual
- * function-calling loop over stateless models.generateContent calls.
+ * GEMINI_API_KEY env var (model configurable via GEMINI_MODEL). Function
+ * calling runs the shared planner calculations in src/tools.js, so the
+ * assistant never invents ephemeris values.
  */
 import {GoogleGenAI} from '@google/genai';
 import {TOOL_DECLARATIONS,executeTool} from '../src/tools.js';
@@ -19,10 +14,8 @@ const MAX_CONTEXT_BYTES = 24 * 1024;
 const MAX_TOOL_ROUNDS = 8;
 const MODEL_TIMEOUT_MS = 25000;
 const CIRCUIT_BREAKER_MS = 90 * 1000;
-// Preferred model comes from GEMINI_MODEL (default gemini-3.8-flash). If it is
-// unavailable (404 retired/not allowed, 429 quota, 503 high demand, or a hang)
-// the request transparently retries with these fallbacks so the assistant stays
-// responsive during capacity spikes on the newest tier.
+// Preferred model (GEMINI_MODEL, default gemini-3.8-flash) with automatic
+// fallbacks for transient unavailability (404/429/503 or a hang).
 const DEFAULT_MODEL = 'gemini-3.8-flash';
 const DEFAULT_FALLBACK_MODELS = ['gemini-3.5-flash', 'gemini-3.1-flash-lite'];
 function modelChain(){
@@ -32,10 +25,8 @@ function modelChain(){
   const chain = [preferred, ...(fallbacks.length ? fallbacks : DEFAULT_FALLBACK_MODELS)];
   return [...new Set(chain)];
 }
-// Small in-process circuit breaker: after a transient failure on a model,
-// skip it for a short window so a capacity spike on the newest tier does not
-// add a 25 s stall to every request. Vercel instances are per-isolate, so a
-// few warm isolates still probe the preferred model periodically.
+// In-process circuit breaker: a model that just failed transiently is tried
+// last for a short window (per-isolate on Vercel, so it is a soft guard).
 const recentlyFailing = new Map();
 function isCircuitOpen(model){
   const until = recentlyFailing.get(model);

@@ -24,11 +24,12 @@ export function horizontalToLunarVector(observation,lat,lon){
  * Shared Moon-fixed 3D scene used by the GPU renderer and pointer picking.
  * True Sun/Earth *directions* come from the lunar ephemeris; displayed radii
  * and distances are compressed to make all three spheres inspectable together.
+ * The Sun sits slightly further out and renders larger than Earth.
  * This scene must never be interpreted as a distance/size/orbit-scale model.
  */
 export const SCENE_BODIES = Object.freeze({
-  sun: Object.freeze({distance:1.75,radius:0.20}),
-  earth: Object.freeze({distance:1.75,radius:0.19})
+  sun: Object.freeze({distance:2.6,radius:0.25}),
+  earth: Object.freeze({distance:2.1,radius:0.19})
 });
 
 /** Project the same 3D spheres that the WebGL ray tracer intersects. */

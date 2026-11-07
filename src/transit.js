@@ -1,22 +1,10 @@
 /**
- * Earth-to-Moon transit estimator.
- *
- * This is a mission-planning *scheduling* estimate, not a trajectory solver.
- * The Earth–Moon transfer is characterised by a small set of transparent,
- * configurable reference durations (chosen to bracket real transfer families:
- * conventional direct transfers are ~3–4 days, fuel-efficient / low-energy
- * transfers are longer). We deliberately do NOT divide an average Earth–Moon
- * distance by an arbitrary spacecraft speed: that would fabricate precision
- * that no real trajectory solver would support.
- *
- * Lunar arrival, lunar orbit insertion (LOI), descent and surface touchdown
- * are separated into distinct mission events with their own reference
- * durations. The destination site's coordinates identify the landing target
- * and frame the approach discussion; they do not artificially change the
- * overall Earth–Moon transit duration.
- *
- * Outputs are labelled estimates based on the selected transfer profile, not
- * flight-certified trajectory predictions.
+ * Earth-to-Moon transit estimator — a scheduling estimate, not a trajectory
+ * solver. Transfers are characterised by transparent reference durations that
+ * bracket real transfer families (direct ~3–4 days, low-energy ~7.5 days);
+ * dividing an average distance by an assumed speed would fabricate precision.
+ * Arrival, LOI, descent and touchdown are separate events. The destination
+ * site identifies the landing target but does not change the transit duration.
  */
 export const TRANSIT_PROFILES = Object.freeze({
   direct: {
@@ -55,13 +43,8 @@ export function formatHours(hours){
   return `${rem} h`;
 }
 
-/**
- * Reference phase durations (hours) for a given total transit duration.
- * LOI/descent timing is a nominal fraction of the total; each phase is
- * labelled as a planning estimate and kept well inside the total. The phase
- * times sum to the total transit duration so the timeline stays coherent.
- */
-export function transitPhases(totalHours, profileId){
+/** Phase timeline (hours from departure) summing to the total transit duration. */
+export function transitPhases(totalHours){
   const total = Number(totalHours);
   if (!Number.isFinite(total) || total <= 0) throw new Error('Invalid transit duration');
   const approachHours = total * 0.16;   // terminal approach to lunar arrival / LOI window
@@ -79,20 +62,9 @@ export function transitPhases(totalHours, profileId){
   ];
 }
 
-/**
- * Estimate an Earth–Moon transit for the selected landing destination.
- *
- * @param {object} opts
- *   - destination: {id, name, lat, lon}
- *   - profile: 'direct' | 'extended' | 'custom'
- *   - referenceHours: for 'custom' profile, the operator-supplied total transit duration.
- *   - departUTC: ISO 8601 departure timestamp (used when scheduleMode==='depart')
- *   - landingUTC: ISO 8601 desired landing timestamp (used when scheduleMode==='land')
- *   - scheduleMode: 'depart' | 'land'
- *
- * Returns arrival/departure timestamps, total transit duration, phase timeline
- * and clear limitations. The landing site's coordinates identify the
- * destination and are reported, but do not alter the transit duration.
+/** Estimate an Earth–Moon transit for a landing destination.
+ * Anchors on either a departure time (forward) or a desired landing time
+ * (backward). Returns timestamps, the phase timeline and clear limitations.
  */
 export function estimateEarthMoonTransit({
   destination = null,
@@ -110,6 +82,7 @@ export function estimateEarthMoonTransit({
     throw new Error('Invalid lunar destination coordinates for transit estimate');
   }
   const spec = TRANSIT_PROFILES[profile] || TRANSIT_PROFILES.direct;
+  // Unknown profiles fall back to the direct reference rather than throwing.
   const totalHours = profile === 'custom'
     ? (Number.isFinite(Number(referenceHours)) ? Number(referenceHours) : 84)
     : spec.referenceHours;
@@ -122,7 +95,6 @@ export function estimateEarthMoonTransit({
     throw new Error('Provide either a departure or a landing UTC timestamp');
   }
 
-  // Forward: departure → arrival.  Backward: target landing → subtract transit.
   let departureUTC, arrivalUTC;
   if (mode === 'land'){
     if (Number.isNaN(land.getTime())) throw new Error('Invalid landing UTC timestamp');
@@ -135,7 +107,7 @@ export function estimateEarthMoonTransit({
   }
 
   const departMs = new Date(departureUTC).getTime();
-  const phaseEvents = transitPhases(totalHours, profile).map(p => ({
+  const phaseEvents = transitPhases(totalHours).map(p => ({
     phase: p.phase,
     kind: p.kind,
     startUTC: new Date(departMs + p.startHours * 3600000).toISOString(),

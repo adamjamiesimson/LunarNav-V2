@@ -1,0 +1,46 @@
+{
+  "version": "lola-polar-relief-v2",
+  "projection": "MOON_ME south-polar stereographic, centered 90°S / 0°E",
+  "encoding": "12-bit height packed into PNG R (high) and the upper nibble of G (low)",
+  "size": 3880,
+  "domainKm": 1862.4,
+  "radiusKm": 931.2,
+  "heightMinM": -9122.10546875,
+  "heightMaxM": 7015.744140625,
+  "horizontalGroundSampleM": 480,
+  "verticalQuantisationM": 3.9408668154761903,
+  "source": "NASA GSFC PGDA LOLA south-polar DEM (Barker et al. 2023) LDEM_60S_60MPP_ADJ.TIF",
+  "sourceUrl": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_60S_60MPP_ADJ.TIF",
+  "north": {
+    "file": "assets/moon-relief-north.png",
+    "size": 3880,
+    "projection": "MOON_ME north-polar stereographic, centered 90°N / 0°E",
+    "heightMinM": -6063.602447509766,
+    "heightMaxM": 6233.986854553223,
+    "horizontalGroundSampleM": 480,
+    "verticalQuantisationM": 3.0030743106380924,
+    "source": "NASA LOLA GDR north-polar shape mosaic LDEM_60N_240M (raw float32)",
+    "sourceUrl": "http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/FLOAT_IMG/LDEM_60N_240M_FLOAT.IMG",
+    "datum": "heights above/below the 1737.4 km mean lunar radius",
+    "validation": "grid orientation and scale cross-checked against SLDEM2015 in the 55-60 degN overlap ring: RMS 17 m, bias +0.9 m"
+  },
+  "global": {
+    "file": "assets/moon-relief-global.png",
+    "width": 8192,
+    "height": 4096,
+    "coverageLat": [
+      -90,
+      90
+    ],
+    "coverageNote": "90S-60S from LDEM_60S, 60S-60N from SLDEM2015, 60N-90N from LDEM_60N; cross-faded at the boundaries",
+    "heightMinM": -9076.496841745151,
+    "heightMaxM": 10749.067306518555,
+    "horizontalGroundSampleMAtEquator": 1332.5691104362566,
+    "verticalQuantisationM": 4.841407606413604,
+    "source": "SLDEM2015 (LRO LOLA + Kaguya SELENE coregistered) + LDEM_60S polar rows",
+    "sourceUrl": "http://imbrium.mit.edu/DATA/SLDEM2015/GLOBAL/FLOAT_IMG/SLDEM2015_128_60S_60N_000_360_FLOAT.IMG",
+    "datum": "heights above/below the 1737.4 km mean lunar radius"
+  },
+  "generatedUtc": "2026-11-07T06:28:17.965Z",
+  "note": "Visual relief for the 3D globe; horizon profiles are computed from native-resolution DEM patches instead."
+}

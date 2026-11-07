@@ -5,6 +5,7 @@
  * Intentionally NOT SPICE / Horizons / terrain-aware / flight-qualified.
  * Longitude input east-positive; all timestamps UTC.
  */
+import {bodyVisible} from './mission.js';
 const R = Math.PI / 180;
 const s = d => Math.sin(d*R);
 const c = d => Math.cos(d*R);
@@ -82,13 +83,20 @@ export function ephemeris(dateLike,lat,lon) {
   return {time:date.toISOString(), sun:horizontal(fixed(sunMoon),lat,lon), earth:horizontal(fixed(earthMoon),lat,lon), model:'analytical-screening-v1'};
 }
 
-export function sampleWindow({start,days=7,stepHours=2,lat,lon}) {
+export function sampleWindow({start,days=7,stepHours=2,lat,lon,profile=null}) {
   const base=new Date(start).getTime();
   if(!Number.isFinite(base)||days<1||days>31||stepHours<1||stepHours>24) throw new Error('Invalid sampling window');
   const result=[];
   for(let n=0;n<=Math.round(days*24/stepHours);n++) {
     const r=ephemeris(new Date(base+n*stepHours*3600000),lat,lon);
-    result.push({...r,dual:r.sun.visible&&r.earth.visible});
+    // Visibility always goes through the shared horizon rule so terrain-aware
+    // and flat-horizon sampling cannot diverge.
+    const sun=bodyVisible(profile,r.sun.azimuth,r.sun.elevation);
+    const earth=bodyVisible(profile,r.earth.azimuth,r.earth.elevation);
+    result.push({...r,
+      sun:{...r.sun,visible:sun},
+      earth:{...r.earth,visible:earth},
+      dual:sun&&earth});
   }
   return result;
 }
@@ -121,9 +129,10 @@ export function longestDualWindow(samples) {
   return best;
 }
 
-export function rankedSites(sites,start,days) {
-  return sites.map(site=>({site,stats:summarize(sampleWindow({start,days,stepHours:4,lat:site.lat,lon:site.lon}))}))
+/** Same-window site ranking. When terrain profiles are supplied (by site id),
+ * each site is scored with its own horizon so the comparison stays consistent
+ * with the terrain-aware planner views. */
+export function rankedSites(sites,start,days,profiles=null) {
+  return sites.map(site=>({site,stats:summarize(sampleWindow({start,days,stepHours:4,lat:site.lat,lon:site.lon,profile:profiles?.[site.id]||null}))}))
     .sort((a,b)=>b.stats.dual-a.stats.dual || b.stats.sun-a.stats.sun);
 }
-
-export const D2R=R;
