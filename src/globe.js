@@ -17,6 +17,9 @@ const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 // Zoom floor of 0.35 fits the compressed Sun/Earth orbits (1.75 scene units)
 // inside the viewport so the full simulation loop is visible.
 const zoomLevel=v=>clamp(v,0.35,2.1);
+// Default framing: the Moon at ~44% of panel height so the Sun and Earth
+// spheres (2.6 and 2.1 moon-radii out) are all visible on load.
+const DEFAULT_ZOOM=0.5;
 const wrap=n=>((n%360)+360)%360;
 // Earth's spin axis is tilted 23.44° (obliquity) from the orbital-plane normal.
 // The shader maps the texture pole to (0,cos(pitch),-sin(pitch)), whose pitch=0
@@ -317,7 +320,7 @@ export function createMap(canvas,{onPick,onHover}){
  gl.generateMipmap(gl.TEXTURE_2D);
  gl.uniform1i(u.moon,0);
 
- let loaded=false,earthLoaded=false,site=SITES[0],zoom=1,lat=-73,lon=25,viewMode='overview',showSkyBodies=true;
+ let loaded=false,earthLoaded=false,site=SITES[0],zoom=DEFAULT_ZOOM,lat=-73,lon=25,viewMode='overview',showSkyBodies=true;
  let simulatedUTC=Date.parse('2026-11-14T12:00:00Z'),layout=null,activeBody='moon',celestialDrag=null;
  let terrainRose=null;
  const manualSpin={sun:{yaw:0,pitch:0},earth:{yaw:0,pitch:0},moon:{yaw:0,pitch:0}};
@@ -649,12 +652,33 @@ export function createMap(canvas,{onPick,onHover}){
      if(!newSite.custom){
        lon=wrap(newSite.lon);
        lat=viewMode==='focus'?clamp(newSite.lat,-89,50):-73;
+     }else{
+       // Custom waypoints face their own coordinate, tilted so the south
+       // polar region stays in frame at the default zoom.
+       lon=wrap(newSite.lon);
+       lat=clamp(newSite.lat,-85,45);
      }
      request();
    },
    focusSite(){viewMode='focus';lat=clamp(site.lat,-89,50);lon=wrap(site.lon);zoom=1.35;request();return Math.round(zoom*100);},
+  panoramaZoom(target,onArrive,{durationMs=1200}={}){
+    // Fly from orbit toward the waypoint before the panorama takes over.
+    viewMode='focus';
+    const startLat=lat,startLon=lon,startZoom=zoom,targetLat=clamp(target.lat,-89,50),targetLon=wrap(target.lon);
+    const t0=performance.now();
+    const ease=t=>t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+    const step=()=>{
+      const t=Math.min(1,(performance.now()-t0)/durationMs),k=ease(t);
+      lat=startLat+(targetLat-startLat)*k;
+      lon=wrap(startLon+(((targetLon-startLon+540)%360)-180)*k);
+      zoom=startZoom+(2.1-startZoom)*k;
+      request();
+      if(t<1)requestAnimationFrame(step);else if(onArrive)onArrive();
+    };
+    requestAnimationFrame(step);
+  },
    zoomBy(delta){zoom=zoomLevel(zoom+delta);request();return Math.round(zoom*100);},
-   resetView(){viewMode='overview';lat=-73;lon=wrap(site.lon);zoom=1;request();return 100;},
+   resetView(){viewMode='overview';lat=site.custom?clamp(site.lat,-85,45):-73;lon=wrap(site.lon);zoom=DEFAULT_ZOOM;request();return Math.round(DEFAULT_ZOOM*100);},
    setSun(obs,focus=site){
      sunlight=horizontalToLunarVector(obs.sun,focus.lat,focus.lon);
      earthlight=horizontalToLunarVector(obs.earth,focus.lat,focus.lon);
@@ -668,10 +692,10 @@ export function createMap(canvas,{onPick,onHover}){
      if(!patch||!patch.data){patchCfg[3]=0;request();return;}
      const {data,width,height,originX,originY,resolutionX,resolutionY,minM,maxM}=patch;
      const range=(maxM-minM)||1;
-     const codes=new Uint8Array(width*height*3);
+     const codes=new Uint8Array(width*height*4);
      for(let i=0;i<data.length;i++){
        const v=Math.max(0,Math.min(4095,Math.round(((Number(data[i])||0)-minM)/range*4095)));
-       codes[i*3]=v>>4;codes[i*3+1]=(v&15)<<4;
+       codes[i*4]=v>>4;codes[i*4+1]=(v&15)<<4;codes[i*4+3]=255;
      }
      gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,patchTexture);
      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);

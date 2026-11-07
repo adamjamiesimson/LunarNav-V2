@@ -5,7 +5,7 @@
  *
  * Deriving the horizon here gives every custom waypoint a real local sky view
  * immediately and offline: the polar grids (60°–90° in either hemisphere) at
- * 480 m, and the global grid for lower latitudes at its honest ~5 km
+ * 480 m, and the global grid for lower latitudes at its honest ~1.3 km
  * resolution. The horizon maths is shared: deriveHorizonFromRaster is the
  * same function used for the preset sites and the native DEM loader.
  */
@@ -228,4 +228,61 @@ export async function deriveSldemPatch(site,{azimuthBins=360,radiusKm=20,fetchRo
   return finishProfile(profile,site,
     'NASA LOLA+Kaguya SLDEM2015 patch ('+Math.round(SLDEM_PIXEL_M)+' m)',
     SLDEM_PIXEL_M);
+}
+
+/* ---- elevation samplers for the panoramic surface view ---- */
+
+/** Bilinear grid sample in pixel coordinates; null outside the window. */
+export function sampleBilinear(data,width,height,fx,fy){
+  if(!(fx>=0&&fy>=0&&fx<=width-1&&fy<=height-1))return null;
+  const x0=Math.floor(fx),y0=Math.floor(fy),x1=Math.min(x0+1,width-1),y1=Math.min(y0+1,height-1);
+  const tx=fx-x0,ty=fy-y0;
+  const v00=data[y0*width+x0],v10=data[y0*width+x1],v01=data[y1*width+x0],v11=data[y1*width+x1];
+  if(![v00,v10,v01,v11].every(Number.isFinite))return null;
+  return v00*(1-tx)*(1-ty)+v10*tx*(1-ty)+v01*(1-tx)*ty+v11*tx*ty;
+}
+
+/**
+ * Terrain heights around any site for the surface panorama: the native
+ * waypoint patch (when loaded) refines the near field, the baked DEM grid
+ * covers the rest of the radius. Heights are metres above R=1737.4 km.
+ */
+export async function loadSiteHeights(site,{radiusKm=45,patch=null}={}){
+  const meta=await loadMeta();
+  const polar=Math.abs(site.lat)>=60;
+  let win,data,resolutionM;
+  if(polar){
+    const cfg=site.lat>0?GRIDS.north:GRIDS.south;
+    const block=cfg.key?meta[cfg.key]:meta;
+    if(!block)throw Error('no baked polar grid metadata');
+    const {ctx}=await gridContext(cfg.file);
+    win=gridRasterWindow({size:block.size,domainKm:block.domainKm,north:cfg.north},site,{radiusKm});
+    data=readRasterWindow(ctx,win.x0,win.y0,win.w,win.w,block);
+    resolutionM=block.horizontalGroundSampleM;
+  }else{
+    const block=meta.global;
+    if(!block)throw Error('no baked global grid metadata');
+    const {ctx}=await gridContext(GRIDS.global.file);
+    win=globalRasterWindow({width:block.width,height:block.height},site.lat,site.lon,{radiusKm});
+    data=readRasterWindow(ctx,win.x0,win.y0,win.w,win.h,block);
+    resolutionM=Math.max(win.latGsd,win.lonGsd);
+  }
+  const sampleFrame=(x,y)=>sampleBilinear(data,win.w,win.h,(x-win.originX)/win.resolutionX,(y-win.originY)/win.resolutionY);
+  const heightAt=(lat,lon)=>{
+    if(patch&&patch.data){
+      const p=polarFrameXY(lat,lon);
+      const v=sampleBilinear(patch.data,patch.width,patch.height,
+        (p.x-patch.originX)/patch.resolutionX,(p.y-patch.originY)/patch.resolutionY);
+      if(Number.isFinite(v))return v;
+    }
+    if(polar){
+      const p=polarXY(lat,lon);
+      return sampleFrame(p.x,p.y);
+    }
+    const x=MOON_RADIUS_M*Math.cos(site.lat*Math.PI/180)*(lon-site.lon)*Math.PI/180;
+    const y=MOON_RADIUS_M*(lat-site.lat)*Math.PI/180;
+    return sampleFrame(x,y);
+  };
+  return {heightAt,resolutionM,usedPatch:Boolean(patch&&patch.data),
+    source:'NASA LOLA/Kaguya DEM grid ('+Math.round(resolutionM)+' m/px)'+(patch&&patch.data?' + native waypoint patch':'')};
 }

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {executeTool, TOOL_DECLARATIONS} from '../src/tools.js';
+import {geminiErrorStatus, isTransientGeminiError, friendlyModelError} from '../api/chat.js';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const app = readFileSync(new URL('../src/app.js', import.meta.url), 'utf8');
@@ -103,6 +104,29 @@ test('unknown or forged tool names are rejected', () => {
   const result = executeTool('send_to_moon', {}, context);
   assert.equal(result.ok, false);
   assert.match(result.error, /Unknown tool/);
+});
+
+test('504 DEADLINE_EXCEEDED from Gemini is transient and gets retry guidance', () => {
+  // Exactly the provider error seen in production: raw JSON in message.
+  const error = new Error('{"error":{"code":504,"message":"Deadline expired before operation could complete.","status":"DEADLINE_EXCEEDED"}}');
+  assert.equal(geminiErrorStatus(error), 504);
+  assert.ok(isTransientGeminiError(error), 'deadline errors must be retried across models');
+  const message = friendlyModelError(error);
+  assert.match(message, /timed out/i);
+  assert.match(message, /Asking again usually succeeds/i);
+  assert.ok(!/GEMINI_API_KEY/.test(message), 'timeout errors must not blame the API key');
+});
+
+test('auth failures are not retried and point at GEMINI_API_KEY', () => {
+  const error = new Error('{"error":{"code":403,"message":"API key not valid.","status":"PERMISSION_DENIED"}}');
+  assert.equal(geminiErrorStatus(error), 403);
+  assert.ok(!isTransientGeminiError(error), 'auth errors must not be retried');
+  assert.match(friendlyModelError(error), /GEMINI_API_KEY/);
+});
+
+test('the assistant hint distinguishes timeouts from configuration problems', () => {
+  assert.match(assistant, /provider timed out/i, 'timeouts get retry guidance');
+  assert.match(assistant, /GEMINI_API_KEY/, 'auth errors keep key guidance');
 });
 
 test('find_optimal_windows returns ranked results and rejects bad sites', () => {
