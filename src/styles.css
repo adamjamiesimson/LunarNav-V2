@@ -181,7 +181,7 @@ main{padding:0 clamp(14px,3vw,32px);min-height:calc(100vh - 140px)}
 .map-coordinate small{font:11px var(--mono);color:#B4BDC2}
 .map-coordinate strong{font-size:14px}
 .map-coordinate span{font:11px var(--mono);color:#C6CDD1}
-.panorama-button{align-self:flex-start;font:600 11px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;
+.panorama-button{align-self:flex-start;pointer-events:auto;font:600 11px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;
   color:var(--text);background:rgba(12,15,18,.72);border:1px solid var(--line);border-radius:3px;padding:9px 12px;cursor:pointer}
 .panorama-button:hover{border-color:var(--accent);color:var(--accent)}
 .panorama-button:disabled{opacity:.55;cursor:progress}
