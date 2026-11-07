@@ -103,20 +103,26 @@ void main(){
   float eyeZ=terrainH(0.0,0.0)+1.7;
   vec3 eye=vec3(0.0,0.0,eyeZ);
   float t=0.3,last=0.3,hitT=-1.0;
-  for(int i=0;i<180;i++){
+  for(int i=0;i<300;i++){
     vec3 p=eye+dir*t;
     float micro=t<400.0?detailRoll(p.xy)*exp(-t/220.0):0.0;
-    if(p.z<=groundZ(p.x,p.y)+micro){
+    float g=groundZ(p.x,p.y)+micro;
+    if(p.z<=g){
       float a=last,b=t;
-      for(int j=0;j<8;j++){
+      for(int j=0;j<9;j++){
         float m=0.5*(a+b);vec3 pm=eye+dir*m;
         float mm=m<400.0?detailRoll(pm.xy)*exp(-m/220.0):0.0;
         if(pm.z<=groundZ(pm.x,pm.y)+mm)b=m;else a=m;
       }
       hitT=b;break;
     }
-    last=t;t+=max(1.2,t*0.09);
-    if(t>160000.0)break;
+    last=t;
+    // Step sizing prevents the vertical-stripe ("cliff") artifact at grazing
+    // angles: shrink when the ray hugs the terrain so ridges are never
+    // tunneled through; grow when it flies high above (with distance the
+    // curvature term makes the ray gain height quickly).
+    t+=clamp((p.z-g)*1.15,max(1.5,t*0.0025),t*0.12);
+    if(t>140000.0)break;
   }
   vec3 col;
   if(hitT<0.0){
