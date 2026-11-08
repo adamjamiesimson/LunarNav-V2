@@ -38,8 +38,7 @@
       <a class="brand" href="/explore" data-route="explore"><strong>LunarNav</strong></a>
       <nav class="main-nav" aria-label="Primary navigation">
         <a class="nav-link" data-route="explore" href="/explore">Explore</a>
-        <a class="nav-link" data-route="windows" href="/windows">Windows</a>
-        <a class="nav-link" data-route="compare" href="/compare">Compare</a>
+        <a class="nav-link" data-route="planning" href="/planning">Plan Mission</a>
         <a class="nav-link" data-route="engineering" href="/engineering">Engineering</a>
         <a class="nav-link" id="planner-help" data-route="science" href="/science" title="Help, data and scientific methods">Methods</a>
       </nav>
@@ -177,6 +176,7 @@
 
             <div class="panel metrics-panel">
               <div class="panel-head compact"><h2>Window availability</h2><span class="mini-tag" id="metric-days">7 DAYS</span></div>
+              <button class="outline-button" id="download-csv" type="button">Mission CSV</button>
               <p id="metrics-model" class="model-badge">Flat 0° horizon · no terrain</p>
               <div class="primary-metric">
                 <div><span>SIMULTANEOUS ACCESS</span><div class="hero-value"><strong id="dual-value">—</strong><span>%</span></div></div>
@@ -257,19 +257,54 @@
         </div>
       </section>
 
-      <section class="finder-section app-view" data-view="windows" id="finder" hidden aria-label="Find mission windows across sites and dates">
-        <div class="section-title-row finder-heading">
-          <div><h2>Mission windows</h2></div>
-          <span class="sim-tag" id="finder-model-badge">GEOMETRIC HORIZON · EXPERIMENTAL</span>
+      <section class="planning-page app-view" data-view="planning" id="planning" hidden aria-label="Compare landing sites and mission dates">
+        <div class="section-title-row"><h1>Plan Mission</h1></div>
+        <div class="panel planning-controls">
+          <div class="planning-toolbar">
+            <label>Start date (UTC)<input type="date" id="finder-date" value="2026-11-14" min="2025-01-01" max="2036-12-31" /></label>
+            <label>Start time (UTC)<input type="time" id="planning-time" value="12:00" step="3600" /></label>
+            <label>Mission duration<select id="finder-duration"><option value="3">3 days</option><option value="7" selected>7 days</option><option value="14">14 days</option><option value="28">28 days</option></select></label>
+            <label>Horizon model<select id="finder-mode"><option value="flat">Geometric 0°</option><option value="terrain">Loaded terrain</option></select></label>
+          </div>
+          <details class="planning-data"><summary id="finder-terrain-count">Loading terrain profiles…</summary><p id="finder-data-status" role="status">Loaded terrain compares only covered sites. No flat-horizon results are mixed in. Refine or import terrain in Engineering.</p></details>
         </div>
 
-        <section class="transit-section" id="transit" aria-label="Earth-to-Moon transit planning">
-          <div class="section-title-row transit-heading">
-            <div><h3>Plan your journey to the Moon</h3><p>Estimate the spacecraft's journey from Earth to your selected lunar landing site. This planning estimate uses reference transfer durations — it is not a trajectory or delta-v solver.</p></div>
-            <span class="sim-tag" id="transit-profile-tag">REFERENCE DURATIONS · NOT A TRAJECTORY SOLVER</span>
+        <section class="panel compare-detail" aria-labelledby="site-comparison-title">
+          <div class="panel-head"><h2 id="site-comparison-title">Compare landing sites</h2><span class="model-badge" id="compare-model">—</span></div>
+          <div id="compare-table" class="compare-table" tabindex="0" aria-label="Landing site metrics; scroll horizontally on small screens" aria-live="polite"></div>
+          <div id="compare-timeline" class="compare-timeline" tabindex="0" role="img" aria-label="Sun and Earth visibility timelines for the compared sites; scroll horizontally on small screens"></div>
+          <p class="planning-note">Solar energy uses the 12 m² reference array. Configure your payload in <a href="/engineering" data-route="engineering">Engineering</a>. Earth visibility is geometry, not a radio link budget.</p>
+        </section>
+
+        <section class="panel finder-shell" id="finder" aria-labelledby="finder-title">
+          <div class="panel-head"><h2 id="finder-title">Find better dates</h2><button id="finder-export" class="outline-button" disabled>Export search CSV</button></div>
+          <div class="search-toolbar">
+            <label>Search ahead<select id="finder-range"><option value="30" selected>30 start dates</option><option value="60">60 start dates</option></select></label>
+            <label>Prioritize<select id="finder-priority"><option value="balanced" selected>Sun + Earth access</option><option value="sun">Sunlight</option><option value="earth">Earth visibility</option></select></label>
+            <span class="model-badge" id="finder-model-badge">—</span>
           </div>
-          <div class="panel transit-panel">
-            <div class="panel-head"><h3>Transit estimator</h3><span class="sim-tag" id="transit-destination-tag">DESTINATION: MONS MOUTON</span></div>
+          <p id="finder-caption" class="planning-note" role="status">Scanning mission windows…</p>
+          <div id="finder-top" class="compare-table" tabindex="0" aria-label="Recommended windows; scroll horizontally on small screens" aria-live="polite"></div>
+          <details class="planning-calendar"><summary>Date calendar</summary>
+            <div class="finder-legend"><span><i class="finder-legend-low"></i> Less access</span><span><i class="finder-legend-high"></i> More access</span></div>
+            <div class="finder-heatmap-wrap" tabindex="0" aria-label="Scrollable site and date calendar"><div id="finder-heatmap" class="finder-heatmap"></div></div>
+          </details>
+          <p class="planning-note" id="finder-shell-status" role="status"></p>
+        </section>
+
+        <details class="planning-option" id="date-comparison"><summary>Compare two dates</summary>
+          <div class="panel-head"><h3>Same site, different dates</h3><span class="model-badge" id="date-compare-model">—</span></div>
+          <div class="date-compare-fields">
+            <label>SITE<select id="date-compare-site"></select></label>
+            <label>DATE A<input type="date" id="date-compare-a" min="2025-01-01" max="2036-12-31" /></label>
+            <label>DATE B<input type="date" id="date-compare-b" min="2025-01-01" max="2036-12-31" /></label>
+          </div>
+          <div id="date-compare-table" class="compare-table" tabindex="0" aria-label="Date comparison metrics" aria-live="polite"></div>
+        </details>
+
+        <details class="planning-option" id="transit"><summary>Earth-to-Moon timing</summary>
+          <div class="panel-head"><h3>Transit estimate</h3><span id="transit-destination-tag" class="sim-tag">Destination</span></div>
+          <p class="planning-note" id="transit-profile-tag">Reference duration; not a trajectory solver.</p>
             <div class="transit-fields">
               <label>ANCHOR<select id="transit-mode"><option value="depart">Earth departure time</option><option value="land">Desired landing time</option></select></label>
               <label>UTC DATE<input type="date" id="transit-date" min="2025-01-01" max="2040-12-31" /></label>
@@ -281,96 +316,18 @@
               </select></label>
               <label>CUSTOM DURATION · h<input type="number" id="transit-custom-hours" min="48" max="720" step="1" value="100" disabled /></label>
             </div>
-            <div class="transit-actions">
-              <button id="transit-run" class="top-primary" type="button">Estimate transit</button>
-              <button id="transit-sync" class="outline-button" type="button">Sync to mission</button>
-              <span class="transit-hint" id="transit-hint">Destination uses your selected landing site.</span>
-            </div>
-            <div id="transit-results" class="transit-results" aria-live="polite"></div>
-          </div>
-        </section>
 
-        <div class="panel finder-shell">
-          <div class="finder-toolbar">
-            <label>SCAN START · UTC<input type="date" id="finder-date" value="2026-11-14" min="2025-01-01" max="2036-12-31" /></label>
-            <label>SEARCH DATES<select id="finder-range" aria-label="Number of possible start dates"><option value="30" selected>30 days</option><option value="60">60 days</option></select></label>
-            <label>MISSION LENGTH<select id="finder-duration" aria-label="Mission duration for the finder"><option value="3">3 days</option><option value="7" selected>7 days</option><option value="14">14 days</option></select></label>
-            <label>PRIORITIZE<select id="finder-priority" aria-label="Window ranking priority"><option value="balanced" selected>Balanced access</option><option value="sun">Solar access</option><option value="earth">Earth visibility</option></select></label>
-            <label>HORIZON SOURCE<select id="finder-mode" aria-label="Mission window horizon source"><option value="flat" selected>Geometric baseline</option><option value="terrain">Loaded LOLA terrain (2+ sites)</option></select></label>
-            <button id="finder-run" class="top-primary finder-run" type="button">Find windows</button>
-          </div>
-
-          <details class="terrain-details">
-            <summary><strong id="finder-terrain-count">0 of 5 terrain profiles ready</strong><span class="terrain-detail-toggle">Data source and manual options</span></summary>
-            <div class="finder-terrain-controls">
-              <div><small>Loaded terrain mode compares only locations with valid NASA-derived horizon profiles. No flat-horizon results are mixed in.</small></div>
-              <button id="finder-load-all" class="outline-button" type="button">Refresh NASA terrain</button>
-              <button id="finder-open-terrain" class="outline-button" type="button">Import a local GeoTIFF</button>
-            </div>
-            <p class="finder-data-status" id="finder-data-status" role="status" aria-live="polite">Terrain loading is optional; the bundled five-site profiles work without downloading NASA files.</p>
-          </details>
-
-          <div class="finder-meta">
-            <div><span class="finder-small-dot"></span><span id="finder-caption">Calculating candidate windows…</span></div>
-            <div class="finder-legend"><span><i class="finder-legend-low"></i> Less access</span><span><i class="finder-legend-high"></i> More access</span></div>
-          </div>
-          <div class="finder-heatmap-wrap" tabindex="0" aria-label="Horizontally scrollable site and date comparison calendar"><div id="finder-heatmap" class="finder-heatmap" aria-live="polite"></div></div>
-
-          <div class="finder-results-heading">
-            <h3>Recommended windows</h3>
-            <button id="finder-export" class="outline-button">Export all windows</button>
-          </div>
-          <div id="finder-top" class="finder-recommendations" aria-live="polite"><p>Comparing mission windows…</p></div>
-
-          <div id="finder-impact" class="finder-impact" hidden aria-label="Terrain impact on matched mission dates">
-            <div class="finder-impact-head"><h3>Terrain effect on matched dates</h3><span class="sim-tag">PERCENTAGE-POINT DIFFERENCES</span></div>
-            <p>Each result compares the <strong>same location and exact UTC window</strong> with and without the loaded terrain horizon. Negative values indicate less access. No claim about landing safety or radio-link performance.</p>
-            <div id="finder-impact-items" class="finder-impact-grid"></div>
-          </div>
-
-          <div class="finder-score-note" id="finder-shell-status" aria-live="polite">Balanced score = 70% dual + 15% sunlight + 15% Earth visibility.</div>
-          <div class="finder-notice">
-            <strong>How to read this.</strong> Each square is one candidate UTC start date; brighter squares match the selected ranking goal better. Select a square to open it in the planner. Values are sampled every four hours, use a smooth 0° flat-horizon model and were benchmarked against 90 NASA JPL Horizons observations (max sampled errors 0.480° azimuth and 0.285° elevation across three sites and seasons) — these are <strong>not universal error bounds</strong>. Terrain-mode rankings use only sites with successfully loaded local horizons.
-          </div>
-        </div>
-      </section>
-
-      <section class="comparison-section app-view" data-view="compare" id="compare" hidden>
-        <div class="context-bar"><span>ACTIVE COMPARISON WINDOW</span><strong id="compare-context">Mission study interval</strong><a data-route="explore" href="/explore">Change comparison window</a></div>
-        <div class="section-title-row">
-          <div><h2>Site comparison</h2></div>
-          <button class="outline-button" id="download-csv">Mission timeline CSV</button>
-        </div>
-        <div id="site-comparison" class="comparison-grid"></div>
-        <div class="compare-picker" role="group" aria-label="Sites to compare">
-          <span class="picker-label">SITES TO COMPARE</span>
-          <div id="compare-picks" class="compare-picks"></div>
-        </div>
-        <div class="panel compare-detail">
-          <div class="panel-head"><h3>Side-by-side comparison</h3><span class="model-badge" id="compare-model">—</span></div>
-          <div id="compare-table" class="compare-table" aria-live="polite"></div>
-          <div id="compare-timeline" class="compare-timeline" role="img" aria-label="Shared illumination and geometric Earth visibility timeline for the compared sites"></div>
-          <div id="compare-notes" class="compare-notes" aria-live="polite"></div>
-        </div>
-        <div class="panel compare-detail">
-          <div class="panel-head"><h3>Mission-date comparison</h3><span class="model-badge" id="date-compare-model">—</span></div>
-          <div class="date-compare-fields">
-            <label>SITE<select id="date-compare-site"></select></label>
-            <label>DATE A<input type="date" id="date-compare-a" min="2025-01-01" max="2036-12-31" /></label>
-            <label>DATE B<input type="date" id="date-compare-b" min="2025-01-01" max="2036-12-31" /></label>
-            <button id="date-compare-run" class="top-primary" type="button">Compare dates</button>
-          </div>
-          <div id="date-compare-table" class="compare-table" aria-live="polite"></div>
-          <div id="date-compare-notes" class="compare-notes" aria-live="polite"></div>
-        </div>
-        <div class="comparison-note">All figures are sampled estimates from one shared model — comparative planning information, not landing certification. Site labels distinguish historical landing locations, published reference coordinates and illustrative study points; illustrative points are not surveyed landing sites.</div>
+          <div class="transit-actions"><button id="transit-run" class="top-primary" type="button">Estimate transit</button><span class="planning-note" id="transit-hint" role="status"></span></div>
+          <div id="transit-results" class="transit-results" aria-live="polite"></div>
+        </details>
+        <p class="planning-note">Two-hour comparison and four-hour search samples can differ. Terrain resolution is shown per site. These screening estimates have uncertainty, not universal error bounds; illustrative points are not surveyed landing sites. <a href="/science" data-route="science">Methods and sources</a></p>
       </section>
 
       <section class="science-page app-view" data-view="science" id="science-page" hidden>
         <div class="page-intro">
           <h2>Methods and limitations</h2>
           <button type="button" class="outline-button" id="restart-tour">Replay tutorial</button>
-          <p>Select a site or click the globe, set a UTC date and duration, then inspect the timeline. Drag the globe to rotate; use Focus to centre the site. Windows ranks dates; Compare and Engineering use the selected mission period.</p>
+          <p>Select a site or click the globe, set a UTC date and duration, then inspect the timeline. Drag the globe to rotate; use Focus to centre the site. Plan Mission compares sites and dates; Engineering uses the same selected mission period.</p>
         </div>
         <div class="science-feature">
           <div>
@@ -389,7 +346,7 @@
         <div class="science-grid">
           <article class="science-card"><h3>Geometry</h3><p>An analytical model estimates local Sun and Earth azimuth and elevation in UTC. Small errors near the horizon can change a visible/hidden decision.</p><a href="https://ssd.jpl.nasa.gov/horizons/" target="_blank" rel="noopener noreferrer">JPL Horizons</a></article>
           <article class="science-card"><h3>Elevation data</h3><p>Archived site profiles, global and polar relief, and optional native patches have different resolutions. Results identify the applied horizon; absent terrain uses a flat 0° approximation.</p><a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener noreferrer">NASA elevation source</a></article>
-          <article class="science-card"><h3>Window rankings</h3><p>The balanced heuristic weights simultaneous access 70%, sunlight 15%, and Earth visibility 15%. It isn't an operational site-safety score.</p><a href="/windows" data-route="windows">Open the Window Finder</a></article>
+          <article class="science-card"><h3>Window rankings</h3><p>The balanced heuristic weights simultaneous access 70%, sunlight 15%, and Earth visibility 15%. It isn't an operational site-safety score.</p><a href="/planning" data-route="planning">Open the Window Finder</a></article>
           <article class="science-card"><h3>Engineering estimates</h3><p>Power calculations assume a simplified fixed solar array, constant load, and idealized battery storage. Earth visibility is not an RF link budget.</p><a href="/engineering" data-route="engineering">Open engineering</a></article>
         </div>
         <div class="panel science-detail-panel">

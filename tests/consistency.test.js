@@ -75,14 +75,15 @@ test('every results panel exposes its horizon model, including the flat fallback
   for(const id of ['timeline-model','metrics-model','compare-model','date-compare-model'])
     assert.ok(html.includes('id="'+id+'"'),'missing model badge '+id);
   assert.match(app,/Flat 0° horizon · no terrain/);
-  assert.match(app,/MIXED HORIZONS/);
+  assert.match(app,/LOADED TERRAIN/);
+  assert.match(app,/SITES.filter\(site=>!terrainMode\|\|getCachedTerrain\(site\)\)/);
 });
 
 test('comparison and date-comparison controls ship wired',()=>{
-  for(const id of ['compare-picks','compare-table','compare-timeline','compare-notes',
-    'date-compare-site','date-compare-a','date-compare-b','date-compare-run'])
+  for(const id of ['compare-table','compare-timeline','planning-time',
+    'date-compare-site','date-compare-a','date-compare-b','finder-duration'])
     assert.ok(html.includes('id="'+id+'"'),'missing comparison control '+id);
-  for(const id of ['compare-picks','compare-table','date-compare-site','date-compare-run'])
+  for(const id of ['compare-table','date-compare-site','planning-time','finder-duration'])
     assert.ok(app.includes("'#"+id+"'"),'missing comparison wiring for '+id);
 });
 

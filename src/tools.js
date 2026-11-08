@@ -237,7 +237,7 @@ function runFindOptimalWindows(args,context){
     }
   }
   const result=findMissionWindows({
-    sites,startDate,
+    sites,startDate,startTime:context.time||'12:00',
     searchDays:Number(args.searchDays)||30,
     windowDays:Number(args.windowDays)||7,
     stepHours:4,
@@ -245,7 +245,7 @@ function runFindOptimalWindows(args,context){
     terrainMode,terrainProfiles
   });
   return {
-    startDate:result.startDate,searchDays:result.searchDays,windowDays:result.windowDays,
+    startDate:result.startDate,startTime:result.startTime,searchDays:result.searchDays,windowDays:result.windowDays,
     priority:result.priority,terrainMode:result.terrainMode,model:result.model,scoring:result.scoring,
     top:result.top.map(w=>({rank:null,siteId:w.siteId,siteName:w.siteName,startDate:w.startDate,
       solarAccessPct:w.sunPct,earthVisibilityPct:w.earthPct,sunEarthPct:w.dualPct,

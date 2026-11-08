@@ -20,9 +20,10 @@ export const finderScore=(v,priority)=>{
     v.sunPct*FINDER_WEIGHTS.sun+v.earthPct*FINDER_WEIGHTS.earth;
 };
 
-function ensureDate(date){
+function ensureDate(date,time){
   if(typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date))throw Error('Invalid finder UTC date');
-  const n=Date.parse(date+'T12:00:00Z');
+  if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(time))throw Error('Invalid finder UTC time');
+  const n=Date.parse(date+'T'+time+':00Z');
   if(!Number.isFinite(n)||new Date(n).toISOString().slice(0,10)!==date)
     throw Error('Invalid finder UTC date');
   return n;
@@ -30,10 +31,10 @@ function ensureDate(date){
 
 /** Analyze each possible UTC start date, sharing one sampled ephemeris array per site. */
 export function findMissionWindows({
-  sites,startDate,searchDays=30,windowDays=7,stepHours=4,priority='balanced',
+  sites,startDate,startTime='12:00',searchDays=30,windowDays=7,stepHours=4,priority='balanced',
   terrainProfiles=null,terrainMode='flat'
 }={}){
-  const epoch=ensureDate(startDate);
+  const epoch=ensureDate(startDate,startTime);
   if(!['flat','terrain'].includes(terrainMode))throw Error('Unknown terrain mode');
   if(!Array.isArray(sites)||!sites.length||sites.length>20)throw Error('Select 1–20 valid sites');
   if(!Number.isInteger(searchDays)||searchDays<1||searchDays>90)throw Error('Search must be 1–90 days');
@@ -97,7 +98,7 @@ export function findMissionWindows({
   return {matrix,ranked:all,top:all.slice(0,10),bestBySite:matrix.map(m=>({
     site:m.site,best:[...m.windows].sort((a,b)=>b.score-a.score || b.dualPct-a.dualPct)[0]
   })).sort((a,b)=>b.best.score-a.best.score),
-  startDate,searchDays,windowDays,stepHours,priority,terrainMode,
+  startDate,startTime,searchDays,windowDays,stepHours,priority,terrainMode,
   scoring:priority==='balanced'?'70% simultaneous + 15% Sun + 15% Earth':priority==='sun'?'Solar access':'Earth geometric visibility',
   model:terrainMode==='terrain'?'analytical-screening-v1 + loaded LOLA 20km local horizon, UTC, sampled intervals':'analytical-screening-v1, smooth horizon, UTC, sampled intervals'};
 }
@@ -108,6 +109,7 @@ export function findMissionWindows({
 export function compareFinderModels(geometric,terrain){
   if(!geometric||!terrain||geometric.terrainMode!=='flat'||terrain.terrainMode!=='terrain'||
       geometric.startDate!==terrain.startDate ||
+      (geometric.startTime||'12:00')!==(terrain.startTime||'12:00') ||
       geometric.windowDays!==terrain.windowDays||
       geometric.stepHours!==terrain.stepHours||
       geometric.priority!==terrain.priority)

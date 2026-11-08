@@ -8,7 +8,7 @@
 import {GoogleGenAI} from '@google/genai';
 import {TOOL_DECLARATIONS,executeTool} from '../src/tools.js';
 
-const ALLOWED_PAGES = new Set(['home','explore','windows','engineering','compare','science']);
+const ALLOWED_PAGES = new Set(['home','explore','planning','windows','engineering','compare','science']);
 const MAX_MESSAGES = 24;
 const MAX_CONTEXT_BYTES = 128 * 1024;
 const MAX_TOOL_ROUNDS = 8;
@@ -116,6 +116,7 @@ function sanitizeContext(raw){
     const finder = context.finder;
     out.finder = {
       startDate: String(finder.startDate ?? '').slice(0, 10),
+      startTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(finder.startTime||'') ? finder.startTime : '12:00',
       searchDays: Number(finder.searchDays) || 0,
       windowDays: Number(finder.windowDays) || 0,
       priority: String(finder.priority ?? 'balanced'),

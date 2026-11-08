@@ -4,24 +4,24 @@
  * Legacy #planner/#finder links resolve to their modern locations.
  */
 export const PAGE_ROUTES=Object.freeze({
- explore:'/explore',windows:'/windows',engineering:'/engineering',compare:'/compare',science:'/science'
+ explore:'/explore',planning:'/planning',engineering:'/engineering',science:'/science'
 });
 export const PAGE_TITLES=Object.freeze({
- explore:'Lunar explorer',windows:'Mission windows',engineering:'Engineering lab',compare:'Site comparison',science:'Science & methodology'
+ explore:'Lunar explorer',planning:'Plan Mission',engineering:'Engineering lab',science:'Science & methodology'
 });
 export function routeFromURL(pathname='/',hash=''){
  const path=pathname.replace(/\/+$/,'')||'/';
  // Resolve old deep links BEFORE considering the default '/' overview route.
  if(path==='/'||path==='/index.html'){
    if(hash==='#planner')return 'explore';
-   if(hash==='#finder')return 'windows';
-   if(hash==='#compare')return 'compare';
+   if(hash==='#finder')return 'planning';
+   if(hash==='#compare')return 'planning';
    if(hash==='#engineering')return 'engineering';
  }
  if(path==='/'||path==='/index.html')return 'explore';
  for(const [name,href] of Object.entries(PAGE_ROUTES))if(path===href)return name;
  if(path==='/planner')return 'explore';
- if(path==='/finder')return 'windows';
+ if(['/finder','/windows','/compare'].includes(path))return 'planning';
  if(path==='/methodology'||path==='/method')return 'science';
  return 'explore';
 }

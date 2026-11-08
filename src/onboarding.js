@@ -2,7 +2,7 @@ export const LOADING_DURATION_MS=5000;
 export const TOUR_STEPS=[
   {target:'#site-select',title:'Choose a landing site',text:'Select a study site, or click the globe to create a custom waypoint.'},
   {target:'.field-row',title:'Set your mission time',text:'Choose the UTC start date, time and mission duration. Use the sliders to inspect conditions.'},
-  {target:'#mission-situation',title:'Read the mission conditions',text:'Check Sun and Earth clearance, then use Windows, Compare and Engineering to plan your mission.'}
+  {target:'#mission-situation',title:'Read the mission conditions',text:'Check Sun and Earth clearance, then use Plan Mission and Engineering to plan your mission.'}
 ];
 
 /** Each page load runs loading → graphics → tutorial; no visit flags are stored. */

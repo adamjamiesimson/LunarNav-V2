@@ -137,31 +137,50 @@ try{
   assert(clock.includes('18:00'),'six hour UTC advance did not update mission HUD');
   await page.locator('#time-event').click();
   assert((await page.locator('#time-event-note').textContent()).length>10,'next-event feedback missing');
-  await page.locator('a.nav-link[data-route="windows"]').click();
-  assert(new URL(page.url()).pathname==='/windows','mission windows has no own route');
-  assert((await page.locator('.app-view:not([hidden])').count())===1,'hidden modules still visible on window page');
-  await page.waitForFunction(()=>document.querySelector('.finder-window-card'));
-  await page.locator('#finder-mode').selectOption('terrain');
-  await page.waitForFunction(()=>document.querySelector('#finder-impact')?.hidden===false,{timeout:20000});
-  assert((await page.locator('.finder-window-card').count())>0,'no terrain-ranked mission windows');
-  assert((await page.locator('.finder-impact-card').count())>0,'no terrain-vs-geometric comparison');
+  await page.locator('a.nav-link[data-route="planning"]').click();
+  assert(new URL(page.url()).pathname==='/planning','planning route failed');
+  assert(await page.locator('.app-view:not([hidden])').count()===1,'more than one page visible');
+  await page.waitForFunction(()=>document.querySelectorAll('.finder-window-card').length===3);
+  assert(await page.locator('#compare-table tbody tr').count()===6,'expected six core metrics');
+  assert(await page.locator('#compare-table .planning-site').count()===5,'missing study sites');
+  assert(!await page.locator('#date-compare-table').isVisible(),'date comparison should start collapsed');
+  assert(!await page.locator('#transit-run').isVisible(),'transit should start collapsed');
   await page.locator('#finder-mode').selectOption('flat');
-  await page.waitForFunction(()=>document.querySelector('#finder-impact')?.hidden===true);
-  await page.screenshot({path:'smoke-artifacts/windows.png',fullPage:false});
-  await page.locator('.finder-window-card').first().click();
-  assert(new URL(page.url()).pathname==='/explore','finder recommendation did not open dedicated explorer');
-  assert((await page.locator('#mission-date').inputValue())!=='','finder lost selected mission date');
-  await page.goBack();
-  assert(new URL(page.url()).pathname==='/windows','browser Back did not restore mission windows');
-  await page.locator('a.nav-link[data-route="engineering"]').click();
-  assert(new URL(page.url()).pathname==='/engineering','engineering lab route failed');
-  assert(await page.locator('#eng-charge-chart').isVisible(),'engineering simulator hidden');
-  await page.locator('a.nav-link[data-route="compare"]').click();
+  await page.waitForFunction(()=>document.querySelector('#finder-model-badge').textContent.includes('GEOMETRIC'));
+  assert((await page.locator('#compare-model').textContent()).includes('FLAT 0°'),'comparison did not share horizon');
+  await page.locator('#planning-time').fill('18:00');await page.locator('#planning-time').dispatchEvent('change');
+  await page.locator('#finder-duration').selectOption('14');
+  await page.waitForFunction(()=>document.querySelector('#finder-caption').textContent.includes('14-day')&&document.querySelector('#finder-shell-status').textContent.includes('18:00 UTC'));
+  await page.locator('.planning-calendar summary').click();
+  assert(await page.locator('.finder-day').count()===150,'date calendar lost sites/dates');
+  await page.locator('#finder-mode').selectOption('terrain');
+  await page.waitForFunction(()=>document.querySelector('#finder-model-badge').textContent.includes('LOADED LOCAL'));
+  assert((await page.locator('#compare-model').textContent()).includes('LOADED TERRAIN'),'comparison did not switch horizon');
+  const [searchDownload]=await Promise.all([page.waitForEvent('download'),page.locator('#finder-export').click()]);
+  const searchCSV=readFileSync(await searchDownload.path(),'utf8');
+  assert(searchCSV.includes('T18:00:00Z')&&searchCSV.includes('delta_dual_pp')&&searchCSV.includes('data_source'),'CSV lost UTC, baseline or provenance');
+  await page.locator('.planning-calendar summary').click();
+  await page.evaluate(()=>scrollTo(0,0));
+  await page.screenshot({path:'smoke-artifacts/planning.png',fullPage:true});
+  const recommendation=page.locator('.finder-window-card').first();
+  const chosenDate=await recommendation.getAttribute('data-date'),chosenSite=await recommendation.getAttribute('data-site');
+  await recommendation.click();
+  assert(new URL(page.url()).pathname==='/explore','recommendation did not open Explore');
+  assert(await page.locator('#mission-time').inputValue()==='18:00','recommendation lost UTC');
+  assert(await page.locator('#mission-date').inputValue()===chosenDate,'recommendation lost date');
+  assert(await page.locator('#site-select').inputValue()===chosenSite,'recommendation lost site');
+  assert(await page.locator('#duration .selected').getAttribute('data-days')==='14','recommendation lost duration');
   await checkCSV(page,'#download-csv');
-  assert(await page.locator('#date-compare-table table').isVisible(),'date comparison did not render');
-  assert((await page.locator('.compare-card:visible').count())>=5,'site comparison missing');
-  await page.locator('.compare-card').first().click();
-  assert(new URL(page.url()).pathname==='/explore','site comparison did not navigate to selected site');
+  await page.goBack();
+  assert(new URL(page.url()).pathname==='/planning','Back lost Plan Mission');
+  await page.locator('#date-comparison summary').click();
+  assert(await page.locator('#date-compare-table table').isVisible(),'date comparison missing');
+  await page.locator('#date-compare-b').fill('2026-12-21');await page.locator('#date-compare-b').dispatchEvent('change');
+  assert((await page.locator('#date-compare-table thead').textContent()).includes('2026-12-21'),'date comparison did not update');
+  await page.locator('#compare-table .planning-site').first().click();
+  assert(new URL(page.url()).pathname==='/explore','site header did not open Explore');
+  await page.locator('a.nav-link[data-route="engineering"]').click();
+  assert(await page.locator('#eng-charge-chart').isVisible(),'engineering hidden');
   await page.locator('a.nav-link[data-route="science"]').click();
   assert(await page.locator('#science-page').isVisible(),'science page missing');
   await page.reload({waitUntil:'domcontentloaded'});
@@ -187,11 +206,12 @@ try{
   const draggedOffset=await readOffset();
   assert(draggedOffset>startOffset+2,'timeline drag did not advance the inspection offset');
   // Click-to-jump must still work: clicking the middle of the track should land
-  // near half the mission window (84 h on a 7-day mission).
+  // near half the active mission window.
   const jumpTrack=await page.locator('#timeline-hit').boundingBox();
   await page.mouse.click(jumpTrack.x+jumpTrack.width*0.5,jumpTrack.y+jumpTrack.height/2);
   const clickedOffset=await readOffset();
-  assert(Math.abs(clickedOffset-84)<6,'click-to-jump no longer lands near the middle of the window');
+  const halfWindow=Number(await page.locator('#duration .selected').getAttribute('data-days'))*12;
+  assert(Math.abs(clickedOffset-halfWindow)<6,'click-to-jump no longer lands near the middle of the window');
 
   // Surface traverse planner lives on the Engineering page and produces a results card.
   await page.locator('a.nav-link[data-route="engineering"]').click();
@@ -207,8 +227,9 @@ try{
   await page.locator('#eng-area').fill('12');
   assert((await page.locator('#eng-energy').textContent())===energy,'engineering restoration changed output');
   await checkCSV(page,'#export-model');
-  await page.locator('a.nav-link[data-route="windows"]').click();
+  await page.locator('a.nav-link[data-route="planning"]').click();
   await checkCSV(page,'#finder-export');
+  await page.locator('#transit summary').click();
   await page.locator('#transit-run').click();
   assert((await page.locator('#transit-results').textContent()).includes('LUNAR ARRIVAL'),'transit results missing');
   await page.locator('#brief-btn').click();
@@ -247,12 +268,18 @@ try{
   assert(mobileLinks>=4,'mobile header hides primary page navigation');
   const overflow=await mobile.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
   assert(overflow<=8,'mobile page overflows horizontally by '+overflow+'px');
-  await mobile.locator('a.nav-link[data-route="windows"]').click();
-  assert(new URL(mobile.url()).pathname==='/windows','mobile finder navigation failed');
+  await mobile.locator('a.nav-link[data-route="planning"]').click();
+  assert(new URL(mobile.url()).pathname==='/planning','mobile finder navigation failed');
   assert(await mobile.locator('#finder').isVisible(),'finder not visible on mobile');
+  await mobile.evaluate(()=>scrollTo(0,0));
+  await mobile.screenshot({path:'smoke-artifacts/mobile-planning.png',fullPage:true});
+  await mobile.locator('.finder-window-card').first().click();
+  assert(new URL(mobile.url()).pathname==='/explore','mobile recommendation did not open Explore');
+  await mobile.goBack();
+  assert(new URL(mobile.url()).pathname==='/planning','mobile Back lost Plan Mission');
   await mobile.locator('a.nav-link[data-route="explore"]').click();
   await mobile.screenshot({path:'smoke-artifacts/mobile.png',fullPage:false});
-  for(const route of ['windows','compare','engineering','science','explore']){
+  for(const route of ['planning','engineering','science','explore']){
     await mobile.locator('a.nav-link[data-route="'+route+'"]').click();
     const overflow=await mobile.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
     assert(overflow<=8,route+' mobile overflow: '+overflow);
@@ -293,6 +320,13 @@ try{
   await visitor.locator('#restart-tour').click();
   await visitor.keyboard.press('Escape');
   assert(await visitor.locator('#science-page').isVisible(),'skipping tutorial lost the original page');
+  // Both replaced URLs keep existing bookmarks usable and run the entry flow.
+  for(const legacy of ['/windows','/compare']){
+    await visitor.goto(host+legacy+'?site=nobile&date=2026-11-14&days=28',{waitUntil:'domcontentloaded'});
+    await completeWelcome(visitor);
+    assert(await visitor.locator('[data-view="planning"]').isVisible(),'legacy link did not reach Plan Mission');
+    assert(await visitor.locator('#finder-duration').inputValue()==='28','legacy link lost the mission duration');
+  }
 
   // Fixture-backed integration: exercise the real browser decoder and WebGL patch upload.
   // These synthetic rows test wiring only; live NASA verification is a separate command.
@@ -344,7 +378,7 @@ try{
   }
   writeFileSync('smoke-artifacts/render-metrics.json',JSON.stringify(metrics,null,2));
   assert(errors.length===0,'uncaught JavaScript errors: '+errors.join(' | '));
-  console.log('Browser smoke PASS: five pages, direct URLs, back/forward, desktop/mobile, science refresh, globe, terrain Finder and exports.');
+  console.log('Browser smoke PASS: four pages, shared planning inputs, recommendations, date comparison, transit, direct URLs, back/forward, desktop/mobile, science refresh, globe, terrain Finder and exports.');
 }catch(error){
   console.error('Browser smoke FAIL:',error.message);
   if(errors.length)console.error('JavaScript errors:',errors.join(' | '));

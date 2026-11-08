@@ -9,7 +9,7 @@ import {createReadStream} from 'node:fs';
 import {resolve,join,sep,extname} from 'node:path';
 const root=resolve(process.argv.includes('--dist')?'dist':'.');
 const port=Number(process.argv.find(x=>/^\d{3,5}$/.test(x))||4173);
-const pages=new Set(['/','/index.html','/explore','/windows','/engineering','/compare','/science','/planner','/finder','/methodology']);
+const pages=new Set(['/','/index.html','/explore','/planning','/windows','/engineering','/compare','/science','/planner','/finder','/methodology']);
 // Same-origin proxies as vercel.json, for assets that upstream hosts serve
 // without CORS headers. A local copy of the file always wins over the proxy.
 // Range requests are forwarded so cloud-optimized DEMs can be read in parts.

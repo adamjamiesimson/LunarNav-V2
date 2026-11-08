@@ -55,7 +55,7 @@ test('app.js boots against the real index.html and navigation works',async t=>{
   assert.ok(errors.length===0,'no runtime errors during boot: '+errors.join(' | '));
 
   // Navigation: every nav link must reveal its own view.
-  for(const route of ['explore','windows','engineering','compare','science']){
+  for(const route of ['explore','planning','engineering','science']){
     window.document.querySelector(`a.nav-link[data-route="${route}"]`)
       .dispatchEvent(new window.MouseEvent('click',{bubbles:true,cancelable:true,button:0}));
     await new Promise(r=>setTimeout(r,20));

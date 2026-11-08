@@ -136,7 +136,7 @@ function collectContext(){
       terrainApplied: state.simulation.terrainApplied
     } : null,
     missionSummary: state.missionSummary || null,
-    finder: state.finder ? {startDate: state.finder.startDate, searchDays: state.finder.searchDays,
+    finder: state.finder ? {startDate: state.finder.startDate, startTime: state.finder.startTime, searchDays: state.finder.searchDays,
       windowDays: state.finder.windowDays, priority: state.finder.priority, terrainMode: state.finder.terrainMode,
       top: state.finder.top} : null,
     terrainProfilesBySite: Object.fromEntries(Object.entries(state.terrainProfiles||{}).map(([id,p])=>[id,{

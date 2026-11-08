@@ -30,6 +30,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/planning",
+      "destination": "/index.html"
+    },
+    {
       "source": "/windows",
       "destination": "/index.html"
     },

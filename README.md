@@ -19,9 +19,8 @@ The lockfile is committed. Both CI workflows install with `npm ci`; browser CI a
 
 ## Workspace
 
-- **Explore** opens immediately: rotatable displaced globe, five study sites or a custom point selected on the globe, UTC inspection, visibility timeline, sky diagram and mission results.
-- **Windows** ranks sites and dates with geometric or loaded-terrain horizons; includes a reference-duration Earth-to-Moon transit estimator.
-- **Compare** shows site rankings, a shared metric table/timeline and two-date comparison. Sampling is labelled; different resolutions can produce different percentages.
+- **Explore** is the default workspace: rotatable displaced globe, five study sites or a custom point selected on the globe, UTC inspection, visibility timeline, sky diagram and mission results.
+- **Plan Mission** combines Windows and Compare at `/planning`. One date/time/duration/horizon selection drives a six-metric site table, Sun/Earth timelines and three recommended windows. Keep illumination, longest darkness, Earth visibility/gaps, simultaneous access and reference solar energy in view. The date calendar, two-date comparison and reference-duration Earth-to-Moon timing expand on demand. Loaded-terrain comparisons include covered sites only; flat mode is explicit. Search uses four-hour samples; comparison uses two-hour samples. Exports retain all search windows, terrain provenance and matched baseline deltas. A recommendation opens Explore with its site, date, UTC time and duration. Old `/windows` and `/compare` links remain usable.
 - **Engineering** simulates a horizontal solar array, constant load and ideal battery; includes terrain refinement/import and a spherical surface-traverse estimate.
 - **Methods** holds short help, data provenance, resolution and limitations. Every visit starts with a five-second loading screen, graphics choice, and the three-step tutorial; it can also be replayed from Methods.
 
@@ -56,7 +55,7 @@ Configure `GEMINI_API_KEY` on the server. Optional `GEMINI_MODEL` (default `gemi
 
 ## Verification
 
-`npm test`: **186 passing, zero skipped** after a clean install. Coverage includes archived JPL fixtures, terrain projections/units, safe range handling, stale-request protection, DOM boot, mission calculations, assistant consistency and handler contracts. Onboarding tests cover the five-second delay, all three graphics mappings, tutorial navigation/skip/replay and preservation of mission inputs; scientific tests were retained.
+`npm test`: **188 passing, zero skipped**. Coverage includes archived JPL fixtures, terrain projections/units, safe range handling, stale-request protection, DOM boot, mission calculations, assistant consistency and handler contracts. Onboarding tests cover the five-second delay, all three graphics mappings, tutorial navigation/skip/replay and preservation of mission inputs. Planning regressions verify non-noon UTC scans against the shared sampler, including date rollover, and reject mismatched baseline sampling times; existing scientific tests remain.
 
 Chromium smoke checks desktop (1440 × 900), mobile (390 × 844), navigation/deep links, camera/time controls, custom waypoint terrain, comparisons/Finder, engineering, traverse/transit, CSV downloads, briefing generation, assistant-unavailable feedback, texture upload errors/limits and horizontal overflow. Native browser patch and stale-response tests use **explicit synthetic range fixtures**. Screenshots and upload records go to `smoke-artifacts/`. Headless SwiftShader results are not physical-device frame-rate or total-memory benchmarks.
 
