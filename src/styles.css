@@ -67,10 +67,26 @@ main{padding:0 clamp(14px,3vw,32px);min-height:calc(100vh - 140px)}
 .graphics-options input{accent-color:var(--accent)}
 .graphics-options span{flex:1;font-size:15px}
 .graphics-options small{font-size:14px;color:var(--muted)}
-.tour-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
-.tour-actions #tour-skip{margin-right:auto}
-.onboarding-dialog[data-stage="tour"]{place-items:end end;background:rgba(0,0,0,.3)}
-.tour-target{outline:2px solid var(--accent);outline-offset:4px}
+.tour-spotlight{display:none;position:fixed;inset:0;pointer-events:none}
+.onboarding-dialog[open][data-stage="tour"]{display:block;padding:0;background:transparent;overflow:hidden}
+.onboarding-dialog[data-stage="tour"]::backdrop{background:transparent}
+.onboarding-dialog[data-stage="tour"] .tour-spotlight{display:block}
+.onboarding-dialog[data-stage="tour"] .onboarding-card{position:fixed;z-index:1;display:flex;flex-direction:column;width:min(440px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;box-shadow:0 12px 40px #0006}
+.onboarding-dialog[data-stage="tour"] [data-onboarding-panel="tour"]{display:contents}
+.onboarding-dialog[data-stage="tour"] h1{font-size:21px;line-height:1.4;margin:0 0 12px}
+.onboarding-dialog[data-stage="tour"] #onboarding-description{line-height:1.65;margin:0 0 16px}
+.tour-meta{order:-1;display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;color:var(--muted)}
+#tour-counter{font:12px var(--mono)}
+#tour-skip{border:0;background:transparent;color:var(--muted);padding:4px 0;font-size:14px}
+#tour-skip:hover{color:var(--text)}
+.tour-progress{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px;margin-bottom:16px}
+.tour-progress span{height:4px;border-radius:2px;background:var(--line)}
+.tour-progress .complete{background:#79AD8C}
+.tour-actions{display:flex;gap:10px}
+.tour-actions button{min-height:44px}
+.tour-actions #tour-next{flex:1;background:#609A76;color:#0B1910}
+.tour-actions #tour-back:disabled{cursor:default}
+@media(max-width:480px){.onboarding-dialog[data-stage="tour"] .onboarding-card{padding:18px}.onboarding-dialog[data-stage="tour"] h1{font-size:19px}.tour-meta{margin-bottom:12px}}
 @media(prefers-reduced-motion:reduce){.loading-track span{animation:none;transform:scaleX(1)}}
 
 /* Generic panels */

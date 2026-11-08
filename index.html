@@ -11,8 +11,13 @@
 </head>
 <body>
   <dialog id="onboarding-dialog" class="onboarding-dialog" open data-stage="loading" aria-labelledby="onboarding-title" aria-describedby="onboarding-description">
+    <svg class="tour-spotlight" width="100%" height="100%" aria-hidden="true" focusable="false">
+      <defs><mask id="tour-mask" maskUnits="userSpaceOnUse"><rect width="100%" height="100%" fill="white"/><rect id="tour-cutout" x="0" y="0" width="0" height="0" rx="5" fill="black"/></mask></defs>
+      <rect width="100%" height="100%" fill="black" fill-opacity=".72" mask="url(#tour-mask)"/>
+      <rect id="tour-ring" x="0" y="0" width="0" height="0" rx="5" fill="none" stroke="#79AD8C" stroke-width="2"/>
+    </svg>
     <div class="onboarding-card">
-      <h1 id="onboarding-title">LunarNav</h1>
+      <h1 id="onboarding-title" aria-live="polite" aria-atomic="true">LunarNav</h1>
       <p id="onboarding-description">Opening your lunar workspace…</p>
       <div data-onboarding-panel="loading" role="status" aria-label="Loading LunarNav for five seconds">
         <div class="loading-track" aria-hidden="true"><span></span></div>
@@ -28,8 +33,9 @@
         <button id="graphics-continue" type="button" class="top-primary">Continue to tutorial</button>
       </div>
       <div data-onboarding-panel="tour" hidden>
-        <p id="tour-counter">1 / 3</p>
-        <div class="tour-actions"><button id="tour-skip" type="button" class="outline-button">Skip tutorial</button><button id="tour-back" type="button" class="outline-button">Back</button><button id="tour-next" type="button" class="top-primary">Next</button></div>
+        <div class="tour-meta"><span id="tour-counter">01 / 10</span><button id="tour-skip" type="button">Skip tour</button></div>
+        <div id="tour-progress" class="tour-progress" role="progressbar" aria-label="Tutorial progress" aria-valuemin="1" aria-valuemax="10" aria-valuenow="1"></div>
+        <div class="tour-actions"><button id="tour-back" type="button" class="outline-button">Back</button><button id="tour-next" type="button" class="top-primary">Next feature →</button></div>
       </div>
     </div>
   </dialog>
@@ -57,7 +63,7 @@
           <aside class="control-column">
             <div class="panel control-panel">
               <div class="panel-head"><h2>Mission parameters</h2></div>
-              <div class="field">
+              <div id="tour-site"><div class="field">
                 <label for="site-select">Landing site</label>
                 <div class="select-wrap"><select id="site-select" aria-label="Landing site"></select></div>
               </div>
@@ -66,7 +72,8 @@
                 <p id="selected-coord">84.79°S · 29.20°E</p>
                 <div class="site-foot"><span id="selected-type">Historic landing</span><a id="site-source" href="https://science.nasa.gov" target="_blank" rel="noopener noreferrer">Source</a></div>
               </div>
-              <div class="field-row">
+              </div>
+              <div id="tour-window"><div class="field-row">
                 <div class="field"><label for="mission-date">Start date (UTC)</label><input type="date" id="mission-date" value="2026-11-14" min="2025-01-01" max="2036-12-31" /></div>
                 <div class="field"><label for="mission-time">Start time (UTC)</label><input type="time" id="mission-time" value="12:00" step="3600" /></div>
               </div>
@@ -74,7 +81,8 @@
                 <label for="duration">Mission window (days)</label>
                 <div class="segment" id="duration" role="group" aria-label="Mission duration"><button data-days="3">3D</button><button data-days="7" class="selected">7D</button><button data-days="14">14D</button><button data-days="28">28D</button></div>
               </div>
-              <div class="field">
+              </div>
+              <div class="field" id="tour-inspection">
                 <label for="time-scrubber">Inspection time <span id="scrub-time-label">DAY 01 · 00:00</span></label>
                 <input id="time-scrubber" class="slider" type="range" min="0" max="168" value="0" step="0.5" />
                 <div class="slider-labels"><span>START</span><span id="end-label">+7 DAYS</span></div>
