@@ -11,6 +11,7 @@ test('app.js boots against the real index.html and navigation works',async t=>{
   const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
   const dom=new JSDOM(html,{url:'http://localhost/',pretendToBeVisual:true});
   const {window}=dom;
+  t.after(()=>window.close());
   const errors=[];
   window.addEventListener('error',e=>errors.push(e.message));
   for(const k of ['document','history','sessionStorage','localStorage','navigator','Node','Element','HTMLElement','SVGElement','Event','MouseEvent','KeyboardEvent','DOMParser','Option','getComputedStyle'])
@@ -67,6 +68,7 @@ test('navigation survives even when the globe fails to initialise',async t=>{
   const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
   const dom=new JSDOM(html,{url:'http://localhost/',pretendToBeVisual:true});
   const {window}=dom;
+  t.after(()=>window.close());
   for(const k of ['document','history','sessionStorage','localStorage','navigator','Node','Element','HTMLElement','SVGElement','Event','MouseEvent','KeyboardEvent','DOMParser','Option','getComputedStyle'])
     try{Object.defineProperty(globalThis,k,{value:window[k],configurable:true,writable:true});}catch{}
   Object.defineProperty(globalThis,'location',{value:window.location,configurable:true});

@@ -12,6 +12,7 @@ import {inspectSituation,buildSkyDiagram,fmtMargin,findNextHorizonEvent} from '.
 import {loadBundledTerrain} from './terrain-cache.js';
 import {deriveGridHorizon,deriveSldemPatch} from './grid-terrain.js';
 import {PAGE_ROUTES,PAGE_TITLES,routeFromURL,buildPageURL} from './router.js';
+import {initOnboarding} from './onboarding.js';
 import {initMissionAssistant,refreshAssistantContext} from './assistant.js';
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
@@ -934,7 +935,7 @@ $('#print-brief').addEventListener('click',()=>window.print());
 $('#share-btn').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(location.href);toast('Shareable mission link copied');}catch{toast('Copy this page URL to share');}});
 $('#footer-method').addEventListener('click',()=>navigatePage('science'));
 $$('[data-close]').forEach(x=>x.addEventListener('click',()=>$('#'+x.dataset.close).close()));
-$$('dialog').forEach(d=>d.addEventListener('click',e=>{if(e.target===d)d.close();}));
+$$('dialog:not(#onboarding-dialog)').forEach(d=>d.addEventListener('click',e=>{if(e.target===d)d.close();}));
 
 for(const id of ['eng-area','eng-efficiency','eng-load','eng-battery','eng-earthcutoff','eng-derate']){
   $('#'+id).addEventListener('input',()=>{
@@ -1024,4 +1025,12 @@ initMissionAssistant({
   getContext: assistantContext
 });
 refreshAssistantContext();
+
+initOnboarding({
+  navigateView:page=>showPage(page),getPage:()=>currentPage,
+  onGraphicsChange:value=>{
+    $('#relief-exaggeration').value=String(value);
+    map.setReliefExaggeration?.(value);
+  }
+});
 

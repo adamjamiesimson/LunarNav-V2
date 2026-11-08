@@ -23,7 +23,7 @@ The lockfile is committed. Both CI workflows install with `npm ci`; browser CI a
 - **Windows** ranks sites and dates with geometric or loaded-terrain horizons; includes a reference-duration Earth-to-Moon transit estimator.
 - **Compare** shows site rankings, a shared metric table/timeline and two-date comparison. Sampling is labelled; different resolutions can produce different percentages.
 - **Engineering** simulates a horizontal solar array, constant load and ideal battery; includes terrain refinement/import and a spherical surface-traverse estimate.
-- **Methods** holds short help, data provenance, resolution and limitations. No timed splash screen or automatic tour.
+- **Methods** holds short help, data provenance, resolution and limitations. Every visit starts with a five-second loading screen, graphics choice, and the three-step tutorial; it can also be replayed from Methods.
 
 Mission-timeline, Finder and engineering CSVs export distinct datasets. The mission briefing supports copying and print/save-PDF. Share URLs retain preset site, date and duration; custom coordinates are not encoded in share URLs.
 
@@ -35,7 +35,7 @@ Mission-timeline, Finder and engineering CSVs export distinct datasets. The miss
 
 **Relief and custom horizons.** The committed **8192 × 4096** global grid is approximately **1.33 km/pixel at the equator**, combining SLDEM2015 mid-latitudes with numerical polar DEMs. North and south polar grids are approximately **480 m/pixel**. These are real elevation grids, not heights inferred from imagery; sources, datum and 12-bit vertical quantisation are in `data/relief.json`. Custom points derive a coarse horizon from the appropriate bundled grid. That is different from a native-resolution patch.
 
-The globe uses elevation-dependent ray intersection and surface normals. Relief exaggeration defaults to **×1** and affects rendering only. GPU uploads are capped at 4096 pixels on desktop and 2048 on small screens, subject to the device limit; nearest sampling preserves packed height codes. Scientific window sampling uses the original assets. Canvas readback covers only the requested window, one decoded grid is retained, custom profile storage is bounded, and unchanged patches are not reuploaded. This bounds resources but does not establish performance on every laptop or phone.
+The globe uses elevation-dependent ray intersection and surface normals. Graphics presets are **Low ×2**, **Medium ×5** (default), and **High realistic ×10**. These names select visual relief exaggeration only; ×10 is exaggerated rather than physical-scale geometry, and scientific calculations retain actual elevations. GPU uploads are capped at 4096 pixels on desktop and 2048 on small screens, subject to the device limit; nearest sampling preserves packed height codes. Scientific window sampling uses the original assets. Canvas readback covers only the requested window, one decoded grid is retained, custom profile storage is bounded, and unchanged patches are not reuploaded. This bounds resources but does not establish performance on every laptop or phone.
 
 **Native terrain.** Archived `data/lola-horizons.json` profiles cover the five study sites (20 km, 72 bins at 5°). Optional runtime refinement derives 360 bins at 1°:
 
@@ -56,7 +56,7 @@ Configure `GEMINI_API_KEY` on the server. Optional `GEMINI_MODEL` (default `gemi
 
 ## Verification
 
-`npm test`: **186 passing, zero skipped** after a clean install. Coverage includes archived JPL fixtures, terrain projections/units, safe range handling, stale-request protection, DOM boot, mission calculations, assistant consistency and handler contracts. Existing tests for intentionally removed UI were updated to enforce the new immediate-entry/help behaviour; scientific tests were retained.
+`npm test`: **186 passing, zero skipped** after a clean install. Coverage includes archived JPL fixtures, terrain projections/units, safe range handling, stale-request protection, DOM boot, mission calculations, assistant consistency and handler contracts. Onboarding tests cover the five-second delay, all three graphics mappings, tutorial navigation/skip/replay and preservation of mission inputs; scientific tests were retained.
 
 Chromium smoke checks desktop (1440 × 900), mobile (390 × 844), navigation/deep links, camera/time controls, custom waypoint terrain, comparisons/Finder, engineering, traverse/transit, CSV downloads, briefing generation, assistant-unavailable feedback, texture upload errors/limits and horizontal overflow. Native browser patch and stale-response tests use **explicit synthetic range fixtures**. Screenshots and upload records go to `smoke-artifacts/`. Headless SwiftShader results are not physical-device frame-rate or total-memory benchmarks.
 

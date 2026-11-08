@@ -10,7 +10,30 @@
   <script type="module" src="/src/app.js"></script>
 </head>
 <body>
-  <div id="app">
+  <dialog id="onboarding-dialog" class="onboarding-dialog" open data-stage="loading" aria-labelledby="onboarding-title" aria-describedby="onboarding-description">
+    <div class="onboarding-card">
+      <h1 id="onboarding-title">LunarNav</h1>
+      <p id="onboarding-description">Opening your lunar workspace…</p>
+      <div data-onboarding-panel="loading" role="status" aria-label="Loading LunarNav for five seconds">
+        <div class="loading-track" aria-hidden="true"><span></span></div>
+        <p>Loading…</p>
+      </div>
+      <div data-onboarding-panel="graphics" hidden>
+        <fieldset class="graphics-options"><legend class="sr-only">Graphics preset</legend>
+          <label><input type="radio" name="startup-graphics" value="2" /><span>Low</span><small>Relief ×2</small></label>
+          <label><input type="radio" name="startup-graphics" value="5" checked /><span>Medium</span><small>Relief ×5</small></label>
+          <label><input type="radio" name="startup-graphics" value="10" /><span>High realistic</span><small>Relief ×10</small></label>
+        </fieldset>
+        <p class="graphics-note">Visual relief exaggeration only. Real elevations and calculations are unchanged.</p>
+        <button id="graphics-continue" type="button" class="top-primary">Continue to tutorial</button>
+      </div>
+      <div data-onboarding-panel="tour" hidden>
+        <p id="tour-counter">1 / 3</p>
+        <div class="tour-actions"><button id="tour-skip" type="button" class="outline-button">Skip tutorial</button><button id="tour-back" type="button" class="outline-button">Back</button><button id="tour-next" type="button" class="top-primary">Next</button></div>
+      </div>
+    </div>
+  </dialog>
+  <div id="app" inert>
     <header class="topbar">
       <a class="brand" href="/explore" data-route="explore"><strong>LunarNav</strong></a>
       <nav class="main-nav" aria-label="Primary navigation">
@@ -89,9 +112,9 @@
                   <span id="zoom-label">100%</span>
                   <button id="zoom-in" class="map-tool" aria-label="Zoom in">+</button>
                   <button id="expand-globe" class="map-tool view-expand" aria-label="Expand lunar globe" aria-pressed="false" title="Enter immersive globe view">⛶</button>
-                  <label class="relief-control" for="relief-exaggeration">RELIEF
-                    <select id="relief-exaggeration" aria-label="Terrain relief exaggeration (visual only)">
-                      <option value="1" selected>×1</option><option value="2">×2</option><option value="5">×5</option><option value="10">×10</option>
+                  <label class="relief-control" for="relief-exaggeration">GRAPHICS
+                    <select id="relief-exaggeration" aria-label="Graphics preset (visual relief exaggeration only)">
+                      <option value="2">Low · ×2</option><option value="5" selected>Medium · ×5</option><option value="10">High realistic · ×10</option>
                     </select></label>
                 </div>
               </div>
@@ -346,6 +369,7 @@
       <section class="science-page app-view" data-view="science" id="science-page" hidden>
         <div class="page-intro">
           <h2>Methods and limitations</h2>
+          <button type="button" class="outline-button" id="restart-tour">Replay tutorial</button>
           <p>Select a site or click the globe, set a UTC date and duration, then inspect the timeline. Drag the globe to rotate; use Focus to centre the site. Windows ranks dates; Compare and Engineering use the selected mission period.</p>
         </div>
         <div class="science-feature">

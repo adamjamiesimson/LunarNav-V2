@@ -41,6 +41,19 @@ async function offNetwork(page){
 async function trackGPU(page){
   await page.addInitScript(()=>{
     window.gpuUploads=[];
+    window.reliefValues=[];
+    const reliefLocations=new WeakSet();
+    const locate=WebGLRenderingContext.prototype.getUniformLocation;
+    WebGLRenderingContext.prototype.getUniformLocation=function(program,name){
+      const location=locate.call(this,program,name);
+      if(name==='reliefExag'&&location)reliefLocations.add(location);
+      return location;
+    };
+    const uniform=WebGLRenderingContext.prototype.uniform1f;
+    WebGLRenderingContext.prototype.uniform1f=function(location,value){
+      if(location&&reliefLocations.has(location))window.reliefValues.push(value);
+      return uniform.call(this,location,value);
+    };
     const upload=WebGLRenderingContext.prototype.texImage2D;
     WebGLRenderingContext.prototype.texImage2D=function(...args){
       const result=upload.apply(this,args),source=args[5];
@@ -55,6 +68,14 @@ async function checkCSV(page,selector){
   const text=readFileSync(await download.path(),'utf8');
   assert(download.suggestedFilename().endsWith('.csv')&&text.split('\n').length>2,'CSV has no data: '+selector);
 }
+async function completeWelcome(page,preset='5'){
+  await page.locator('#onboarding-dialog[data-stage="graphics"]').waitFor();
+  await page.locator(`input[name="startup-graphics"][value="${preset}"]`).check();
+  await page.locator('#graphics-continue').click();
+  assert((await page.locator('#relief-exaggeration').inputValue())===preset,'startup preset was not applied');
+  await page.locator('#tour-skip').click();
+  assert(!await page.locator('#app').evaluate(el=>el.inert),'tutorial left the workspace inert');
+}
 const errors=[];
 try{
   await ready();
@@ -64,6 +85,7 @@ try{
   page.on('pageerror',err=>errors.push('desktop '+err.message));
   await offNetwork(page);
   await page.goto(host+'/',{waitUntil:'domcontentloaded'});
+  await completeWelcome(page,'2');
   await page.waitForFunction(()=>document.body.dataset.page==='explore');
   mkdirSync('smoke-artifacts',{recursive:true});
   await page.waitForFunction(()=>document.querySelector('#mission-verdict')?.textContent!=='COMPUTING…');
@@ -72,6 +94,11 @@ try{
   assert(/VISIBILITY|ONLY|OBSTRUCTED/.test(initial),'no live mission verdict');
   const imageStatus=await page.locator('#map-image-status').textContent();
   assert(/GLOBE|PROCEDURAL|SCHEMATIC|LROC/.test(imageStatus),'no truthful globe image status');
+  for(const value of ['2','5','10']){
+    await page.locator('#relief-exaggeration').selectOption(value);
+    await page.waitForFunction(n=>window.reliefValues.at(-1)===Number(n),value);
+  }
+  await page.locator('#relief-exaggeration').selectOption('5');
   await page.locator('#focus-site').click();
   assert((await page.locator('#zoom-label').textContent())==='135%','focus camera did not change zoom');
   await page.locator('#expand-globe').click();
@@ -138,6 +165,7 @@ try{
   await page.locator('a.nav-link[data-route="science"]').click();
   assert(await page.locator('#science-page').isVisible(),'science page missing');
   await page.reload({waitUntil:'domcontentloaded'});
+  await completeWelcome(page);
   assert(await page.locator('#science-page').isVisible(),'deep-linked science page broke after refresh');
   await page.locator('a.nav-link[data-route="explore"]').click();
 
@@ -209,6 +237,9 @@ try{
   mobile.on('pageerror',err=>errors.push('mobile '+err.message));
   await offNetwork(mobile);
   await mobile.goto(host+'/explore?site=nobile&date=2026-11-14&days=7',{waitUntil:'domcontentloaded'});
+  await mobile.locator('#onboarding-dialog[data-stage="graphics"]').waitFor();
+  await mobile.screenshot({path:'smoke-artifacts/mobile-graphics.png'});
+  await completeWelcome(mobile);
   await mobile.waitForFunction(()=>document.querySelector('#mission-verdict')?.textContent!=='COMPUTING…');
   const mobileNav=await mobile.locator('.main-nav').boundingBox();
   assert(mobileNav&&mobileNav.height>=40,'mobile navigation is not visible/tappable');
@@ -230,12 +261,38 @@ try{
   visitor.on('pageerror',error=>errors.push(error.message));
   await offNetwork(visitor);
   await visitor.route('**/assets/*',route=>route.abort());
+  await visitor.addInitScript(()=>{
+    sessionStorage.setItem('lunarnav:intro:session:v1','1');
+    localStorage.setItem('lunarnav:onboarding:complete:v1','1');
+  });
+  const arrival=Date.now();
   await visitor.goto(host+'/',{waitUntil:'domcontentloaded'});
-  assert(await visitor.locator('#moon-map').isVisible(),'fresh visitor cannot see globe');
-  assert(await visitor.locator('#intro-loader,#tour-root').count()===0,'forced onboarding remains');
+  assert(await visitor.locator('#onboarding-dialog[data-stage="loading"]').isVisible(),'five-second loading screen missing');
+  await visitor.mouse.click(5,5);
+  assert(await visitor.locator('#onboarding-dialog').evaluate(el=>el.open),'loading backdrop click stranded the workspace');
+  await visitor.screenshot({path:'smoke-artifacts/loading.png'});
+  await visitor.locator('#onboarding-dialog[data-stage="graphics"]').waitFor();
+  assert(Date.now()-arrival>=4900,'loading screen ended before five seconds');
+  await visitor.screenshot({path:'smoke-artifacts/graphics.png'});
+  await visitor.locator('input[name="startup-graphics"][value="10"]').check();
+  await visitor.locator('#graphics-continue').click();
+  assert((await visitor.locator('#relief-exaggeration').inputValue())==='10','high realistic preset did not set ×10 relief');
+  assert((await visitor.locator('#tour-counter').textContent())==='1 / 3','tutorial did not start at step one');
+  await visitor.screenshot({path:'smoke-artifacts/tutorial.png'});
+  await visitor.locator('#tour-next').click();
+  await visitor.locator('#tour-back').click();
+  assert((await visitor.locator('#tour-counter').textContent())==='1 / 3','tutorial Back failed');
+  for(let i=0;i<3;i++)await visitor.locator('#tour-next').click();
+  assert(!await visitor.locator('#onboarding-dialog').evaluate(el=>el.open),'tutorial did not finish');
+  await visitor.reload({waitUntil:'domcontentloaded'});
+  assert(await visitor.locator('#onboarding-dialog[data-stage="loading"]').isVisible(),'onboarding did not replay on reload');
+  await completeWelcome(visitor);
   await visitor.waitForFunction(()=>document.querySelector('#map-image-status').textContent.includes('PROCEDURAL'));
   await visitor.locator('#planner-help').click();
   assert(await visitor.locator('#science-page').isVisible(),'optional help did not open Methods');
+  await visitor.locator('#restart-tour').click();
+  await visitor.keyboard.press('Escape');
+  assert(await visitor.locator('#science-page').isVisible(),'skipping tutorial lost the original page');
 
   // Fixture-backed integration: exercise the real browser decoder and WebGL patch upload.
   // These synthetic rows test wiring only; live NASA verification is a separate command.
@@ -253,6 +310,7 @@ try{
       'content-length':String(size),'content-type':'application/octet-stream'},body:Buffer.alloc(size)});}catch{}
   });
   await terrainPage.goto(host+'/explore',{waitUntil:'domcontentloaded'});
+  await completeWelcome(terrainPage);
   await terrainPage.waitForFunction(()=>document.querySelector('#finder-terrain-count').textContent.startsWith('5 of 5'));
   await terrainPage.locator('#moon-map').press('3');
   for(let i=0;i<7;i++)await terrainPage.locator('#moon-map').press('ArrowUp');
