@@ -186,18 +186,26 @@ function buildContents(coreMessage, history, context){
 function modelContent(result){
   return result.candidates?.[0]?.content || null;
 }
+function geminiErrorStatus(error){
+  const direct = Number(error?.status);
+  if (direct) return direct;
+  // The GenAI SDK surfaces provider failures as raw JSON in message:
+  // {"error":{"code":504,...,"status":"DEADLINE_EXCEEDED"}}
+  const code = String(error?.message || '').match(/"code"\s*:\s*(\d{3})/);
+  return code ? Number(code[1]) : 0;
+}
 function isTransientGeminiError(error){
   if (!error) return true;
-  const status = Number(error?.status);
-  // Transient/unretryable-only: 429 quota/throttle, 5xx capacity, and 404 model
-  // not available/retired. Hard auth/validation failures (400/401/403) or an
-  // explicit 404 for other resources must NOT be retried.
+  const status = geminiErrorStatus(error);
+  // Transient/unretryable-only: 429 quota/throttle, 5xx capacity (incl. 504
+  // deadline), and 404 model not available/retired. Hard auth/validation
+  // failures (400/401/403) must NOT be retried.
   if (status === 404){
     return /model.*(?:not|no longer|unavailable|not supported)/i.test(String(error?.message || ''));
   }
   if (status === 429 || (status >= 500 && status < 600)) return true;
   // SDK timeouts / retry exhaustion are surfaced as errors with these hints.
-  return /timeout|abort|retries? exhausted|503|429|unavailable|high demand/i.test(String(error?.message || ''));
+  return /deadline|deadline_exceeded|timeout|abort|retries? exhausted|503|429|504|unavailable|high demand/i.test(String(error?.message || ''));
 }
 async function generateContentWithTimeout(genAI, model, contents){
   let timeout;
@@ -231,16 +239,36 @@ async function generateContentWithFallback(genAI, contents){
   const attempts = orderedModelAttempts();
   let lastError = null;
   for (const model of attempts){
-    try {
-      return await generateContentWithTimeout(genAI, model, contents);
-    } catch (error){
-      lastError = error;
-      if (!isTransientGeminiError(error)) throw error;
-      openCircuit(model);
+    // One quick retry per model for fast transient failures (e.g. Google's
+    // 504 DEADLINE_EXCEEDED returned in under a few seconds). Slow timeouts
+    // are not retried in place so the request stays within the function's
+    // time budget; the next model in the list is tried instead.
+    for (let attempt = 0; attempt < 2; attempt++){
+      const started = Date.now();
+      try {
+        return await generateContentWithTimeout(genAI, model, contents);
+      } catch (error){
+        lastError = error;
+        if (!isTransientGeminiError(error)) throw error;
+        openCircuit(model);
+        if (Date.now() - started >= 8000 || attempt === 1) break;
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
     }
   }
   throw lastError || new Error('All configured Gemini models failed');
 }
+function friendlyModelError(error){
+  const detail = String(error?.message || 'unknown error');
+  if (/deadline|deadline_exceeded|timed out|timeout|504/i.test(detail)){
+    return 'The AI provider timed out before answering. Asking again usually succeeds; history and context are kept for the retry. Provider detail: ' + detail;
+  }
+  if (/api key|API_KEY|401|403|PERMISSION_DENIED|UNAUTHENTICATED/i.test(detail)){
+    return 'Gemini rejected the configured API key or its access. Verify GEMINI_API_KEY on the Vercel deployment. Provider detail: ' + detail;
+  }
+  return 'The Gemini request failed: ' + detail;
+}
+export {geminiErrorStatus, isTransientGeminiError, friendlyModelError};
 async function runGeminiRoundtrip(coreMessage, history, context){
   const GenAI = geminiConstructor();
   const genAI = new GenAI(process.env.GEMINI_API_KEY);
@@ -307,9 +335,9 @@ export default async function handler(req, res){
     const result = await runGeminiRoundtrip(message, history, context);
     return res.status(200).json({reply: result.text, tools: result.toolTraces});
   } catch (error){
-    const apiStatus = Number(error?.status);
+    const apiStatus = geminiErrorStatus(error);
     const status = (apiStatus >= 400 && apiStatus < 500) ? apiStatus
       : /413|429|rate limit|quota/i.test(String(error?.message || '')) ? 429 : 500;
-    return res.status(status).json({error: 'The Gemini request failed: ' + (error?.message || 'unknown error')});
+    return res.status(status).json({error: friendlyModelError(error)});
   }
 }

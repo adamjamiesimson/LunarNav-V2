@@ -10,7 +10,9 @@ import {findMissionWindows,compareFinderModels} from './finder.js';
 import {windowMetrics,comparisonRows,differenceNotes} from './compare.js';
 import {inspectSituation,buildSkyDiagram,fmtMargin,findNextHorizonEvent} from './situation.js';
 import {loadBundledTerrain} from './terrain-cache.js';
-import {deriveGridHorizon,deriveSldemPatch} from './grid-terrain.js';
+import {deriveGridHorizon,deriveSldemPatch,loadSiteHeights} from './grid-terrain.js';
+import {computePanoramaColumns,createPanoramaView,bodyStatus} from './panorama.js';
+import {createSurfaceView} from './panorama-gl.js';
 import {PAGE_ROUTES,PAGE_TITLES,routeFromURL,buildPageURL} from './router.js';
 import {initOnboarding} from './onboarding.js';
 import {initMissionAssistant,refreshAssistantContext} from './assistant.js';
@@ -238,11 +240,84 @@ function onIndicatorKeyDown(e){
   setOffset(state.offset+step);
 }
 function updateIndicator(){const x=indicatorX(state.offset,state.days*24);const l=$('#time-indicator');const tri=$('#indicator-triangle');const handle=$('#indicator-handle');if(l){l.setAttribute('x1',x);l.setAttribute('x2',x);}if(tri)tri.setAttribute('d',`M${x-4} 4 L${x+4} 4 L${x} 11 Z`);if(handle)handle.setAttribute('d',`M${x-11} 11 a11 11 0 0 0 22 0 Z`);if(document.querySelector('#timeline-graph [role="slider"]'))document.querySelector('#timeline-graph [role="slider"]').setAttribute('aria-valuenow',String(Math.round(state.offset)));}
+/* ---- panoramic surface view ---- */
+let panoramaView=null,panoramaColumns=null;
+function panoramaBodyLine(obs,pano){
+  const part=(label,body)=>label+' '+Math.round(body.azimuth)+'° AZ / '+body.elevation.toFixed(1)+'° EL · '+bodyStatus(pano,body);
+  return part('SUN',obs.sun)+'  ·  '+part('EARTH',obs.earth);
+}
+async function openPanorama(){
+  const overlay=$('#panorama-overlay'),btn=$('#panorama-open');
+  if(!overlay||!map.panoramaZoom)return;
+  btn.disabled=true;
+  // Fly from orbit toward the waypoint; the panorama fades in on arrival.
+  map.panoramaZoom({lat:state.site.lat,lon:state.site.lon},async()=>{
+    try{
+      const site=state.site;
+      const heights=await loadSiteHeights(site,{radiusKm:45,patch:state.terrain?.patch||null});
+      const pano=computePanoramaColumns({heightAt:heights.heightAt,site,azimuthBins:720,maxDistanceKm:45,observerHeightM:5});
+      const obs=ephemeris(new Date(state.base.getTime()+state.offset*3600000),site.lat,site.lon);
+      panoramaColumns=pano;
+      const nativePatch=state.terrain?.patch||null;
+      try{
+        // First-person 3D surface view (WebGL ray march). Falls back to the
+        // cylindrical panorama where WebGL is unavailable.
+        panoramaView=await createSurfaceView($('#panorama-canvas'),{
+          site,obs,patch:nativePatch,hud:$('#panorama-hud'),
+          onHeading:h=>{const el=$('#panorama-heading');if(el)el.textContent='HEADING '+Math.round(h)+'°';},
+          bodyLabel:body=>bodyStatus(pano,body)
+        });
+      }catch(err){
+        try{
+          panoramaView=createPanoramaView($('#panorama-canvas'),{site,panorama:pano,obs});
+          toast('3D surface view unavailable here ('+(err?.message||'WebGL')+') — showing the cylindrical panorama instead.');
+        }catch(fallbackError){
+          toast('Could not build the panorama on this device: '+(fallbackError?.message||'unknown error'));
+        }
+      }
+      $('#panorama-title').textContent=site.name.toUpperCase()+' · SURFACE PANORAMA';
+      $('#panorama-subtitle').textContent=fmtCoord(site.lat,site.lon)+' · '+heights.source;
+      $('#panorama-bodies').textContent=panoramaBodyLine(obs,pano);
+      overlay.hidden=false;
+      // Redraw once the overlay has real layout: the view was built while the
+      // overlay was hidden (zero-size canvas), so its first frame is invalid.
+      requestAnimationFrame(()=>{overlay.classList.add('visible');panoramaView?.redraw?.();});
+      // Sharpen the near field: auto-load the native-resolution terrain patch
+      // for this area (the same NASA data "Load NASA terrain" fetches) and
+      // blend it in when it arrives. The grid view shows immediately.
+      if(!nativePatch&&panoramaView?.setPatch){
+        const view=panoramaView,gridLabel=fmtCoord(site.lat,site.lon)+' · '+heights.source;
+        $('#panorama-subtitle').textContent=gridLabel+' · loading native-resolution terrain…';
+        Promise.resolve().then(()=>Math.abs(site.lat)<60?deriveSldemPatch(site):loadLolaTerrain(site,{}))
+          .then(profile=>{
+            if(!profile?.patch||panoramaView!==view)return;
+            view.setPatch(profile.patch);
+            const gsm=Math.round(profile.patch.groundSampleM||Math.abs(profile.patch.resolutionY));
+            $('#panorama-subtitle').textContent=gridLabel+' + '+gsm+' m native patch (auto-loaded)';
+          })
+          .catch(()=>{if(panoramaView===view)$('#panorama-subtitle').textContent=gridLabel;});
+      }
+    }catch(e){toast(e.message||'Could not build the panorama from the terrain grids.');}
+    btn.disabled=false;
+  });
+}
+function closePanorama(){
+  const overlay=$('#panorama-overlay');
+  if(!overlay)return;
+  overlay.classList.remove('visible');
+  overlay.hidden=true;
+  panoramaView?.destroy();panoramaView=null;panoramaColumns=null;
+  map.resetView?.();
+}
 function updateInspection(){
   const date=new Date(state.base.getTime()+state.offset*3600000);
   const obs=ephemeris(date,state.site.lat,state.site.lon);
   const view=inspectSituation(obs,state.terrain);
   map.setSun?.(obs,state.site); // Geometric globe lighting, not DEM shadows.
+  if(panoramaView&&panoramaColumns){
+    panoramaView.setObs(obs);
+    $('#panorama-bodies').textContent=panoramaBodyLine(obs,panoramaColumns);
+  }
   $('#condition-date').textContent=longDate(date);
   $('#sun-elevation').textContent=fmtDeg(obs.sun.elevation);
   $('#earth-elevation').textContent=fmtDeg(obs.earth.elevation);
@@ -768,6 +843,8 @@ function renderTravelResults(estimate,origin,target){
      <p class="travel-caveat">${escapeHTML(estimate.limitation)} ${v.terrainApplied?'Loaded terrain at the origin was applied to horizon screening; terrain along the path itself was not sampled.':''}</p>`;
 }
 $('#travel-run').addEventListener('click',runTravelEstimate);
+$('#panorama-open')?.addEventListener('click',openPanorama);
+$('#panorama-close')?.addEventListener('click',closePanorama);
 $('#travel-sync').addEventListener('click',()=>{syncTravelFromMission();toast('Travel inputs synced to the current mission configuration');});
 $('#travel-speed').addEventListener('input',()=>{if(travelEstimate)runTravelEstimate();});
 $('#travel-delay').addEventListener('input',()=>{if(travelEstimate)runTravelEstimate();});
