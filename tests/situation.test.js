@@ -55,7 +55,7 @@ test('mission control does not read terrain from globe visual texture',()=>{
   const fallback=readFileSync(new URL('../src/map.js',import.meta.url),'utf8');
   const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
   const build=readFileSync(new URL('../scripts/build.js',import.meta.url),'utf8');
-  for(const id of ['mission-verdict','mission-source','mission-sun-margin','mission-earth-margin','mission-caution','hud-clock','hud-sun','hud-earth','hud-status','hud-horizon','horizon-label','sky-horizon-note','focus-site','expand-globe','hero-explore','hero-find','map-image-status']){
+  for(const id of ['mission-verdict','mission-source','mission-sun-margin','mission-earth-margin','mission-caution','horizon-label','sky-horizon-note','focus-site','expand-globe','map-image-status']){
     assert.ok(html.includes('id="'+id+'"'),'missing view element: '+id);
     assert.ok(app.includes("'#"+id+"'")||globe.includes("'#"+id+"'"),'missing JS for: '+id);
   }
@@ -65,7 +65,7 @@ test('mission control does not read terrain from globe visual texture',()=>{
   assert.match(globe,/focusSite\(\)/);
   assert.match(fallback,/focusSite\(\)/);
   assert.match(build,/src\/situation\.js/);
-  assert.match(html,/GLOBE LIGHTING/);
+  assert.match(html,/Visual lighting/);
 });
 
 test('unverified user-supplied terrain is never labeled as NASA LOLA',()=>{

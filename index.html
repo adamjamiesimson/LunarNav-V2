@@ -7,105 +7,63 @@
   <meta name="description" content="LunarNav V2: lunar south-pole mission planning and Sun/Earth visibility screening." />
   <title>LunarNav — lunar south-pole mission planning</title>
   <link rel="stylesheet" href="/src/styles.css" />
-  <script>
-    // Show the intro before first paint; a timeout guarantees it never sticks
-    // if browser storage or application startup fails.
-    (function () {
-      try {
-        if (!sessionStorage.getItem('lunarnav:intro:session:v1')) {
-          document.documentElement.setAttribute('data-intro-loading', '');
-          window.setTimeout(() => document.documentElement.removeAttribute('data-intro-loading'), 9500);
-        }
-      } catch (error) {
-        document.documentElement.setAttribute('data-intro-loading', '');
-        window.setTimeout(() => document.documentElement.removeAttribute('data-intro-loading'), 9500);
-      }
-    })();
-  </script>
   <script type="module" src="/src/app.js"></script>
 </head>
 <body>
-  <div id="intro-loader" role="status" aria-live="polite">
-    <div class="intro-box">
-      <strong>LunarNav</strong>
-      <p>Preparing the mission workspace…</p>
-      <div class="intro-progress-track"><span class="intro-progress"></span></div>
-      <button id="intro-skip" type="button">Skip</button>
+  <dialog id="onboarding-dialog" class="onboarding-dialog" open data-stage="loading" aria-labelledby="onboarding-title" aria-describedby="onboarding-description">
+    <svg class="tour-spotlight" width="100%" height="100%" aria-hidden="true" focusable="false">
+      <defs><mask id="tour-mask" maskUnits="userSpaceOnUse"><rect width="100%" height="100%" fill="white"/><rect id="tour-cutout" x="0" y="0" width="0" height="0" rx="5" fill="black"/></mask></defs>
+      <rect width="100%" height="100%" fill="black" fill-opacity=".72" mask="url(#tour-mask)"/>
+      <rect id="tour-ring" x="0" y="0" width="0" height="0" rx="5" fill="none" stroke="#79AD8C" stroke-width="2"/>
+    </svg>
+    <div class="onboarding-card">
+      <h1 id="onboarding-title" aria-live="polite" aria-atomic="true">LunarNav</h1>
+      <p id="onboarding-description">Opening your lunar workspace…</p>
+      <div data-onboarding-panel="loading" role="status" aria-label="Loading LunarNav for five seconds">
+        <div class="loading-track" aria-hidden="true"><span></span></div>
+        <p>Loading…</p>
+      </div>
+      <div data-onboarding-panel="graphics" hidden>
+        <fieldset class="graphics-options"><legend class="sr-only">Graphics preset</legend>
+          <label><input type="radio" name="startup-graphics" value="2" /><span>Low</span><small>Relief ×2</small></label>
+          <label><input type="radio" name="startup-graphics" value="5" checked /><span>Medium</span><small>Relief ×5</small></label>
+          <label><input type="radio" name="startup-graphics" value="10" /><span>High realistic</span><small>Relief ×10</small></label>
+        </fieldset>
+        <p class="graphics-note">Visual relief exaggeration only. Real elevations and calculations are unchanged.</p>
+        <button id="graphics-continue" type="button" class="top-primary">Continue to tutorial</button>
+      </div>
+      <div data-onboarding-panel="tour" hidden>
+        <div class="tour-meta"><span id="tour-counter">01 / 10</span><button id="tour-skip" type="button">Skip tour</button></div>
+        <div id="tour-progress" class="tour-progress" role="progressbar" aria-label="Tutorial progress" aria-valuemin="1" aria-valuemax="10" aria-valuenow="1"></div>
+        <div class="tour-actions"><button id="tour-back" type="button" class="outline-button">Back</button><button id="tour-next" type="button" class="top-primary">Next feature →</button></div>
+      </div>
     </div>
-  </div>
-
-  <div id="tour-root" hidden>
-    <div id="tour-backdrop" aria-hidden="true"></div>
-    <div id="tour-spotlight" aria-hidden="true"></div>
-    <div id="tour-dialog" role="dialog" aria-modal="true" aria-labelledby="tour-title" aria-describedby="tour-description" tabindex="-1">
-      <div class="tour-topline"><span class="tour-counter" id="tour-counter">01 / 03</span><button id="tour-skip" type="button">Skip tour</button></div>
-      <h2 id="tour-title">Welcome to LunarNav.</h2>
-      <p id="tour-description">A short tour of the main tools.</p>
-      <div class="tour-progress" id="tour-progress" aria-hidden="true"></div>
-      <div class="tour-actions"><button id="tour-back" type="button">Back</button><button id="tour-next" type="button">Next</button></div>
-    </div>
-  </div>
-
-  <div id="app">
+  </dialog>
+  <div id="app" inert>
     <header class="topbar">
-      <a class="brand" href="/" data-route="home"><strong>LunarNav</strong></a>
+      <a class="brand" href="/explore" data-route="explore"><strong>LunarNav</strong></a>
       <nav class="main-nav" aria-label="Primary navigation">
-        <a class="nav-link" data-route="home" href="/">Overview</a>
-        <a class="nav-link" data-route="explore" href="/explore">Explore Locations</a>
-        <a class="nav-link" data-route="windows" href="/windows">Mission Windows</a>
-        <a class="nav-link" data-route="compare" href="/compare">Compare Sites</a>
+        <a class="nav-link" data-route="explore" href="/explore">Explore</a>
+        <a class="nav-link" data-route="planning" href="/planning">Plan Mission</a>
         <a class="nav-link" data-route="engineering" href="/engineering">Engineering</a>
-        <a class="nav-link" data-route="science" href="/science">Science</a>
+        <a class="nav-link" id="planner-help" data-route="science" href="/science" title="Help, data and scientific methods">Methods</a>
       </nav>
       <div class="top-actions">
-        <button class="outline-button" id="tour-help" type="button" title="Take the guided tour" aria-label="Open the guided tour">Take a tour</button>
         <button class="icon-button" id="share-btn" type="button" title="Copy shareable link" aria-label="Copy shareable link">↗</button>
-        <button class="top-primary" id="brief-btn">Mission briefing</button>
+        <button class="top-primary" id="brief-btn">Briefing</button>
       </div>
     </header>
 
     <main id="main-content" tabindex="-1">
 
-      <section class="home-page app-view" data-view="home" aria-label="LunarNav overview">
-        <div class="home-intro">
-          <h1>Lunar south-pole mission planning</h1>
-          <p class="home-lead">LunarNav estimates Sun and Earth visibility, mission time windows and first-order engineering constraints for candidate lunar landing sites — with the assumptions kept visible.</p>
-          <div class="home-actions">
-            <a href="/explore" data-route="explore" class="home-action-primary">Open the lunar explorer</a>
-            <a href="/windows" data-route="windows" class="home-action-secondary">Find a mission window</a>
-            <button type="button" class="home-action-secondary" id="home-tour">Take a tour</button>
-          </div>
-          <p class="home-caveat">Student prototype for NASA Space Apps Challenge 2026 · Screening estimates only, not for flight operations.</p>
-        </div>
-        <div class="home-tools">
-          <a href="/explore" data-route="explore" class="home-tool-card"><h3>Lunar explorer</h3><p>Select a study site, then follow Sun and Earth geometry over the mission window.</p></a>
-          <a href="/windows" data-route="windows" class="home-tool-card"><h3>Mission Window Finder</h3><p>Rank candidate start dates and sites, with optional terrain-aware screening.</p></a>
-          <a href="/engineering" data-route="engineering" class="home-tool-card"><h3>Engineering lab</h3><p>Estimate solar energy, battery endurance and local terrain horizons.</p></a>
-          <a href="/compare" data-route="compare" class="home-tool-card"><h3>Site comparison</h3><p>Compare candidate locations for the same UTC window and export the results.</p></a>
-        </div>
-        <p class="home-note">Terrain screening uses NASA LOLA-derived 60–80 m elevation profiles. Solar and Earth positions were checked against 90 JPL Horizons reference samples. <a href="/science" data-route="science">Methods and limitations</a></p>
-      </section>
-
-      <div class="app-view explore-page" data-view="explore" hidden>
-        <div class="explore-head">
-          <h1>Mission control for the lunar south pole</h1>
-          <p>Pick a site and a UTC window, then follow sunlight, Earth visibility and terrain constraints for that location.</p>
-          <div class="hero-ctas">
-            <button type="button" id="hero-explore" class="hero-cta-primary">Focus the globe</button>
-            <button type="button" id="hero-find" class="hero-cta-secondary">Find the best window</button>
-          </div>
-        </div>
-
-        <div class="notice" role="note">
-          <p><strong>Exploratory screening tool.</strong> The timeline and site cards use a geometric 0° horizon. Live site readouts and the terrain-mode Window Finder can use bundled NASA-derived local horizons. Hazards, terrain shadows outside the sampled horizon and radio link budgets remain uncertain — never use these estimates for flight operations.</p>
-          <button id="notice-method" type="button">How it works</button>
-        </div>
+      <div class="app-view explore-page" data-view="explore">
+        <div class="explore-head"><h1>Lunar Explorer</h1></div>
 
         <section class="cockpit" aria-label="Mission planning cockpit">
           <aside class="control-column">
             <div class="panel control-panel">
               <div class="panel-head"><h2>Mission parameters</h2></div>
-              <div class="field">
+              <div id="tour-site"><div class="field">
                 <label for="site-select">Landing site</label>
                 <div class="select-wrap"><select id="site-select" aria-label="Landing site"></select></div>
               </div>
@@ -114,7 +72,8 @@
                 <p id="selected-coord">84.79°S · 29.20°E</p>
                 <div class="site-foot"><span id="selected-type">Historic landing</span><a id="site-source" href="https://science.nasa.gov" target="_blank" rel="noopener noreferrer">Source</a></div>
               </div>
-              <div class="field-row">
+              </div>
+              <div id="tour-window"><div class="field-row">
                 <div class="field"><label for="mission-date">Start date (UTC)</label><input type="date" id="mission-date" value="2026-11-14" min="2025-01-01" max="2036-12-31" /></div>
                 <div class="field"><label for="mission-time">Start time (UTC)</label><input type="time" id="mission-time" value="12:00" step="3600" /></div>
               </div>
@@ -122,7 +81,8 @@
                 <label for="duration">Mission window (days)</label>
                 <div class="segment" id="duration" role="group" aria-label="Mission duration"><button data-days="3">3D</button><button data-days="7" class="selected">7D</button><button data-days="14">14D</button><button data-days="28">28D</button></div>
               </div>
-              <div class="field">
+              </div>
+              <div class="field" id="tour-inspection">
                 <label for="time-scrubber">Inspection time <span id="scrub-time-label">DAY 01 · 00:00</span></label>
                 <input id="time-scrubber" class="slider" type="range" min="0" max="168" value="0" step="0.5" />
                 <div class="slider-labels"><span>START</span><span id="end-label">+7 DAYS</span></div>
@@ -131,9 +91,8 @@
                   <button type="button" id="time-next" aria-label="Step forward six hours">+6H →</button>
                   <button type="button" id="time-event" title="Find next modeled Sun or Earth visibility transition">Next horizon event</button>
                 </div>
-                <p class="time-event-note" id="time-event-note" role="status">Jump to the next modeled Sun or Earth horizon crossing in this window.</p>
+                <p class="time-event-note" id="time-event-note" role="status"></p>
               </div>
-              <button class="launch-btn" id="analyze-btn">Analyze mission window</button>
             </div>
 
             <div class="panel mission-situation" id="mission-situation" aria-label="Live mission horizon status">
@@ -153,7 +112,6 @@
               <div class="panel-head map-panel-head">
                 <h2>Lunar globe</h2>
                 <div class="map-title-right">
-                  <span class="map-live" id="map-image-status">GLOBE VIEW</span>
                   <button id="celestial-view" type="button" class="map-tool view-system" aria-pressed="true" title="Show Sun and Earth in the lunar 3D scene" aria-label="Hide Sun and Earth in the lunar globe">☼ <span>Bodies on</span></button>
                   <button id="focus-site" aria-pressed="false" class="map-tool view-focus" title="Focus camera on selected site" aria-label="Focus on selected site">◎ <span>Focus</span></button>
                   <button id="reset-view" class="map-tool" title="Reset 3D view" aria-label="Reset globe orientation">↺</button>
@@ -161,26 +119,16 @@
                   <span id="zoom-label">50%</span>
                   <button id="zoom-in" class="map-tool" aria-label="Zoom in">+</button>
                   <button id="expand-globe" class="map-tool view-expand" aria-label="Expand lunar globe" aria-pressed="false" title="Enter immersive globe view">⛶</button>
-                  <label class="relief-control" for="relief-exaggeration">RELIEF
-                    <select id="relief-exaggeration" aria-label="Terrain relief exaggeration (visual only)">
-                      <option value="1">×1</option><option value="2">×2</option><option value="5" selected>×5</option><option value="10">×10</option>
+                  <label class="relief-control" for="relief-exaggeration">GRAPHICS
+                    <select id="relief-exaggeration" aria-label="Graphics preset (visual relief exaggeration only)">
+                      <option value="2">Low · ×2</option><option value="5" selected>Medium · ×5</option><option value="10">High realistic · ×10</option>
                     </select></label>
                 </div>
               </div>
               <div class="map-stage" id="map-stage">
                 <canvas id="moon-map" role="img" aria-label="Interactive lunar globe, select a point or drag to rotate. Satellite imagery is not terrain-risk data."></canvas>
-                <div class="mission-hud" aria-label="Current site observation">
-                  <div class="mission-hud-label">SITE GEOMETRY <span class="hud-separator">/</span> <time id="hud-clock">— UTC</time></div>
-                  <div class="hud-readouts">
-                    <div><span>Sun</span><strong id="hud-sun">—</strong></div>
-                    <div><span>Earth</span><strong id="hud-earth">—</strong></div>
-                    <div class="hud-visibility"><span>Outlook</span><strong id="hud-status">—</strong></div>
-                  </div>
-                  <small id="hud-horizon">GEOMETRIC HORIZON</small>
-                </div>
-                <div class="map-overlay-top"><span class="map-pill">SOUTH POLAR REGION</span><span class="map-pill subtle">NORTH ↑</span></div>
                 <div class="map-overlay-bottom">
-                  <div class="map-coordinate"><small>FOCUSED LOCATION</small><strong id="map-site-name">MONS MOUTON</strong><span id="map-coordinate">84.79°S &nbsp; 29.20°E</span></div>
+                  <div class="map-coordinate"><strong id="map-site-name">MONS MOUTON</strong><span id="map-coordinate">84.79°S &nbsp; 29.20°E</span></div>
                   <button type="button" id="panorama-open" class="panorama-button" title="Fly down to this site and view the 360° horizon panorama">View site panorama</button>
                 </div>
                 <div class="panorama-overlay" id="panorama-overlay" hidden>
@@ -203,12 +151,12 @@
                   <span class="celestial-label celestial-sun">SUN</span>
                   <span class="celestial-label celestial-moon">MOON</span>
                   <span class="celestial-label celestial-earth">EARTH</span>
-                  <span class="celestial-disclaimer">THREE SPHERES · MOON-FIXED 3D · UTC DIRECTIONS · SPHERES ENLARGED FOR VISIBILITY · DISTANCES COMPRESSED</span>
+
                 </div>
                 <div class="map-tooltip" id="map-tooltip" hidden></div>
               </div>
               <div class="map-footer">
-                <span>NASA LROC MOON TEXTURE WHEN AVAILABLE · ARTISTIC GLOBE LIGHTING · NOT TO SCALE</span>
+                <span class="map-live" id="map-image-status">GLOBE VIEW</span><span>Visual lighting; sizes and distances compressed</span>
                 <div class="celestial-time-controls" aria-label="Celestial time simulation">
                   <button type="button" id="celestial-play" aria-pressed="false" class="celestial-control-btn">▶ Simulate</button>
                   <label for="celestial-scrubber" class="celestial-time-label">UTC time</label>
@@ -252,11 +200,11 @@
 
             <div class="panel metrics-panel">
               <div class="panel-head compact"><h2>Window availability</h2><span class="mini-tag" id="metric-days">7 DAYS</span></div>
+              <button class="outline-button" id="download-csv" type="button">Mission CSV</button>
+              <p id="metrics-model" class="model-badge">Flat 0° horizon · no terrain</p>
               <div class="primary-metric">
                 <div><span>SIMULTANEOUS ACCESS</span><div class="hero-value"><strong id="dual-value">—</strong><span>%</span></div></div>
-                <div class="metric-ring" id="metric-ring"><span>☀<br/>◉</span></div>
               </div>
-              <p class="primary-metric-note">Estimated time with both the Sun and Earth above the model horizon. <span class="model-badge" id="metrics-model">—</span></p>
               <div class="metric-line"><div><span>SOLAR ACCESS</span><strong id="sun-value">—</strong></div><div class="progress"><span id="sun-bar"></span></div></div>
               <div class="metric-line"><div><span>GEOMETRIC EARTH VIS.</span><strong id="earth-value">—</strong></div><div class="progress earth-progress"><span id="earth-bar"></span></div></div>
               <div class="metric-foot"><span>LONGEST EARTH BLACKOUT</span><strong id="blackout-value">—</strong></div>
@@ -269,7 +217,7 @@
       <section class="engineering-section app-view" data-view="engineering" id="engineering" hidden aria-label="Lunar mission feasibility">
         <div class="context-bar"><span>ACTIVE MISSION</span><strong id="engineering-context">Selected lunar study site</strong><a data-route="explore" href="/explore">Change site &amp; date in the explorer</a></div>
         <div class="section-title-row">
-          <div><h2>Engineering estimates</h2><p>Translate celestial geometry into a first-order surface power and direct-to-Earth access estimate.</p></div>
+          <div><h2>Engineering</h2></div>
           <span class="sim-tag">MODEL, NOT FLIGHT DATA</span>
         </div>
         <div class="engineering-grid">
@@ -288,12 +236,12 @@
           </div>
 
           <div class="panel engineering-results">
-            <div class="panel-head"><h3>Power and communication</h3><span class="sim-tag" id="model-horizon-tag">FLAT HORIZON</span></div>
+            <div class="panel-head"><h3>Power and Earth visibility</h3><span class="sim-tag" id="model-horizon-tag">FLAT HORIZON</span></div>
             <div class="engineering-kpis">
-              <div><small>MINIMUM BATTERY CHARGE</small><strong id="eng-min-soc">—</strong><span>Fraction of usable battery</span></div>
-              <div><small>TIME WITHOUT ENOUGH POWER</small><strong id="eng-unmet">—</strong><span>Sampled battery deficit</span></div>
+              <div><small>MINIMUM BATTERY CHARGE</small><strong id="eng-min-soc">—</strong></div>
+              <div><small>TIME WITHOUT ENOUGH POWER</small><strong id="eng-unmet">—</strong></div>
               <div><small>EARTH GEOMETRIC ACCESS</small><strong id="eng-earth">—</strong><span>With antenna elevation mask</span></div>
-              <div><small>SOLAR ENERGY GENERATED</small><strong id="eng-energy">—</strong><span>Horizontal panel assumption</span></div>
+              <div><small>SOLAR ENERGY GENERATED</small><strong id="eng-energy">—</strong></div>
             </div>
             <div class="charge-chart-head"><span>BATTERY STATE OF CHARGE · SIMULATED</span><span id="eng-ending">—</span></div>
             <div id="eng-charge-chart" class="charge-chart" role="img" aria-label="Battery state of charge over mission duration"></div>
@@ -302,7 +250,7 @@
 
           <div class="panel terrain-panel">
             <div class="panel-head"><h3>Local terrain horizon (NASA LOLA)</h3><span class="sim-tag" id="terrain-badge">NOT LOADED</span></div>
-            <p class="terrain-intro">Load an actual <a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener noreferrer">NASA GSFC LOLA south-polar DEM</a> to estimate how nearby hills obstruct the Sun and Earth. Only data successfully loaded is used.</p>
+            <p class="terrain-intro">Native refinement: LOLA 60–80 m in the south cap, SLDEM2015 ~237 m at mid-latitudes. Northern polar points retain the bundled 480 m grid.</p>
             <div class="terrain-actions">
               <button class="top-primary terrain-load" id="terrain-load">Load NASA terrain</button>
               <label class="terrain-import" for="terrain-file">Or import a local .tif</label>
@@ -310,12 +258,12 @@
             </div>
             <p id="terrain-status" class="terrain-status" role="status" aria-live="polite">No DEM applied. Feasibility estimates currently use a level geometric horizon.</p>
             <div id="terrain-plot" class="terrain-plot" role="img" aria-label="Terrain horizon elevation by azimuth"></div>
-            <p class="terrain-foot">Experimental ~60–80 m DEM; 20 km horizon radius. No slope certification, small obstacles, optical limb, or flight qualification. <a href="https://doi.org/10.3847/PSJ/acf3e1" target="_blank" rel="noopener noreferrer">Barker et al. 2023</a></p>
+            <p class="terrain-foot">20 km radius; unresolved small hazards. <a href="https://doi.org/10.3847/PSJ/acf3e1" target="_blank" rel="noopener noreferrer">LOLA source</a></p>
           </div>
 
           <div class="panel travel-panel" id="travel-panel">
             <div class="panel-head"><h3>Surface traverse estimator</h3><span class="sim-tag" id="travel-horizon-tag">GEODESIC · FLAT HORIZON</span></div>
-            <p class="terrain-intro">Estimate how long a rover would take to drive between two lunar points, and what Sun/Earth visibility can be expected along the way. Origin, departure and terrain default from the current mission configuration.</p>
+
             <div class="travel-fields">
               <label>ORIGIN SITE<span id="travel-origin-name" class="travel-origin-static">Current selected site</span></label>
               <label>DESTINATION<select id="travel-destination"></select></label>
@@ -333,19 +281,54 @@
         </div>
       </section>
 
-      <section class="finder-section app-view" data-view="windows" id="finder" hidden aria-label="Find mission windows across sites and dates">
-        <div class="section-title-row finder-heading">
-          <div><h2>Mission windows</h2><p>Compare candidate sites and start dates together, using the same screening model for every combination.</p></div>
-          <span class="sim-tag" id="finder-model-badge">GEOMETRIC HORIZON · EXPERIMENTAL</span>
+      <section class="planning-page app-view" data-view="planning" id="planning" hidden aria-label="Compare landing sites and mission dates">
+        <div class="section-title-row"><h1>Plan Mission</h1></div>
+        <div class="panel planning-controls">
+          <div class="planning-toolbar">
+            <label>Start date (UTC)<input type="date" id="finder-date" value="2026-11-14" min="2025-01-01" max="2036-12-31" /></label>
+            <label>Start time (UTC)<input type="time" id="planning-time" value="12:00" step="3600" /></label>
+            <label>Mission duration<select id="finder-duration"><option value="3">3 days</option><option value="7" selected>7 days</option><option value="14">14 days</option><option value="28">28 days</option></select></label>
+            <label>Horizon model<select id="finder-mode"><option value="flat">Geometric 0°</option><option value="terrain">Loaded terrain</option></select></label>
+          </div>
+          <details class="planning-data"><summary id="finder-terrain-count">Loading terrain profiles…</summary><p id="finder-data-status" role="status">Loaded terrain compares only covered sites. No flat-horizon results are mixed in. Refine or import terrain in Engineering.</p></details>
         </div>
 
-        <section class="transit-section" id="transit" aria-label="Earth-to-Moon transit planning">
-          <div class="section-title-row transit-heading">
-            <div><span class="section-n">02B / JOURNEY</span><h3>Plan your journey to the Moon</h3><p>Estimate the spacecraft's journey from Earth to your selected lunar landing site. This planning estimate uses reference transfer durations — it is not a trajectory or delta-v solver.</p></div>
-            <span class="sim-tag" id="transit-profile-tag">REFERENCE DURATIONS · NOT A TRAJECTORY SOLVER</span>
+        <section class="panel compare-detail" aria-labelledby="site-comparison-title">
+          <div class="panel-head"><h2 id="site-comparison-title">Compare landing sites</h2><span class="model-badge" id="compare-model">—</span></div>
+          <div id="compare-table" class="compare-table" tabindex="0" aria-label="Landing site metrics; scroll horizontally on small screens" aria-live="polite"></div>
+          <div id="compare-timeline" class="compare-timeline" tabindex="0" role="img" aria-label="Sun and Earth visibility timelines for the compared sites; scroll horizontally on small screens"></div>
+          <p class="planning-note">Solar energy uses the 12 m² reference array. Configure your payload in <a href="/engineering" data-route="engineering">Engineering</a>. Earth visibility is geometry, not a radio link budget.</p>
+        </section>
+
+        <section class="panel finder-shell" id="finder" aria-labelledby="finder-title">
+          <div class="panel-head"><h2 id="finder-title">Find better dates</h2><button id="finder-export" class="outline-button" disabled>Export search CSV</button></div>
+          <div class="search-toolbar">
+            <label>Search ahead<select id="finder-range"><option value="30" selected>30 start dates</option><option value="60">60 start dates</option></select></label>
+            <label>Prioritize<select id="finder-priority"><option value="balanced" selected>Sun + Earth access</option><option value="sun">Sunlight</option><option value="earth">Earth visibility</option></select></label>
+            <span class="model-badge" id="finder-model-badge">—</span>
           </div>
-          <div class="panel transit-panel">
-            <div class="panel-head"><h3>Transit estimator</h3><span class="sim-tag" id="transit-destination-tag">DESTINATION: MONS MOUTON</span></div>
+          <p id="finder-caption" class="planning-note" role="status">Scanning mission windows…</p>
+          <div id="finder-top" class="compare-table" tabindex="0" aria-label="Recommended windows; scroll horizontally on small screens" aria-live="polite"></div>
+          <details class="planning-calendar"><summary>Date calendar</summary>
+            <div class="finder-legend"><span><i class="finder-legend-low"></i> Less access</span><span><i class="finder-legend-high"></i> More access</span></div>
+            <div class="finder-heatmap-wrap" tabindex="0" aria-label="Scrollable site and date calendar"><div id="finder-heatmap" class="finder-heatmap"></div></div>
+          </details>
+          <p class="planning-note" id="finder-shell-status" role="status"></p>
+        </section>
+
+        <details class="planning-option" id="date-comparison"><summary>Compare two dates</summary>
+          <div class="panel-head"><h3>Same site, different dates</h3><span class="model-badge" id="date-compare-model">—</span></div>
+          <div class="date-compare-fields">
+            <label>SITE<select id="date-compare-site"></select></label>
+            <label>DATE A<input type="date" id="date-compare-a" min="2025-01-01" max="2036-12-31" /></label>
+            <label>DATE B<input type="date" id="date-compare-b" min="2025-01-01" max="2036-12-31" /></label>
+          </div>
+          <div id="date-compare-table" class="compare-table" tabindex="0" aria-label="Date comparison metrics" aria-live="polite"></div>
+        </details>
+
+        <details class="planning-option" id="transit"><summary>Earth-to-Moon timing</summary>
+          <div class="panel-head"><h3>Transit estimate</h3><span id="transit-destination-tag" class="sim-tag">Destination</span></div>
+          <p class="planning-note" id="transit-profile-tag">Reference duration; not a trajectory solver.</p>
             <div class="transit-fields">
               <label>ANCHOR<select id="transit-mode"><option value="depart">Earth departure time</option><option value="land">Desired landing time</option></select></label>
               <label>UTC DATE<input type="date" id="transit-date" min="2025-01-01" max="2040-12-31" /></label>
@@ -357,95 +340,18 @@
               </select></label>
               <label>CUSTOM DURATION · h<input type="number" id="transit-custom-hours" min="48" max="720" step="1" value="100" disabled /></label>
             </div>
-            <div class="transit-actions">
-              <button id="transit-run" class="top-primary" type="button">Estimate transit</button>
-              <button id="transit-sync" class="outline-button" type="button">Sync to mission</button>
-              <span class="transit-hint" id="transit-hint">Destination uses your selected landing site.</span>
-            </div>
-            <div id="transit-results" class="transit-results" aria-live="polite"></div>
-          </div>
-        </section>
 
-        <div class="panel finder-shell">
-          <div class="finder-toolbar">
-            <label>SCAN START · UTC<input type="date" id="finder-date" value="2026-11-14" min="2025-01-01" max="2036-12-31" /></label>
-            <label>SEARCH DATES<select id="finder-range" aria-label="Number of possible start dates"><option value="30" selected>30 days</option><option value="60">60 days</option></select></label>
-            <label>MISSION LENGTH<select id="finder-duration" aria-label="Mission duration for the finder"><option value="3">3 days</option><option value="7" selected>7 days</option><option value="14">14 days</option></select></label>
-            <label>PRIORITIZE<select id="finder-priority" aria-label="Window ranking priority"><option value="balanced" selected>Balanced access</option><option value="sun">Solar access</option><option value="earth">Earth visibility</option></select></label>
-            <label>HORIZON SOURCE<select id="finder-mode" aria-label="Mission window horizon source"><option value="flat" selected>Geometric baseline</option><option value="terrain">Loaded LOLA terrain (2+ sites)</option></select></label>
-            <button id="finder-run" class="top-primary finder-run" type="button">Find windows</button>
-          </div>
-
-          <details class="terrain-details">
-            <summary><strong id="finder-terrain-count">0 of 5 terrain profiles ready</strong><span class="terrain-detail-toggle">Data source and manual options</span></summary>
-            <div class="finder-terrain-controls">
-              <div><small>Loaded terrain mode compares only locations with valid NASA-derived horizon profiles. No flat-horizon results are mixed in.</small></div>
-              <button id="finder-load-all" class="outline-button" type="button">Refresh NASA terrain</button>
-              <button id="finder-open-terrain" class="outline-button" type="button">Import a local GeoTIFF</button>
-            </div>
-            <p class="finder-data-status" id="finder-data-status" role="status" aria-live="polite">Terrain loading is optional; the bundled five-site profiles work without downloading NASA files.</p>
-          </details>
-
-          <div class="finder-meta">
-            <div><span class="finder-small-dot"></span><span id="finder-caption">Calculating candidate windows…</span></div>
-            <div class="finder-legend"><span><i class="finder-legend-low"></i> Less access</span><span><i class="finder-legend-high"></i> More access</span></div>
-          </div>
-          <div class="finder-heatmap-wrap" tabindex="0" aria-label="Horizontally scrollable site and date comparison calendar"><div id="finder-heatmap" class="finder-heatmap" aria-live="polite"></div></div>
-
-          <div class="finder-results-heading">
-            <h3>Recommended windows</h3>
-            <button id="finder-export" class="outline-button">Export all windows</button>
-          </div>
-          <div id="finder-top" class="finder-recommendations" aria-live="polite"><p>Comparing mission windows…</p></div>
-
-          <div id="finder-impact" class="finder-impact" hidden aria-label="Terrain impact on matched mission dates">
-            <div class="finder-impact-head"><h3>Terrain effect on matched dates</h3><span class="sim-tag">PERCENTAGE-POINT DIFFERENCES</span></div>
-            <p>Each result compares the <strong>same location and exact UTC window</strong> with and without the loaded terrain horizon. Negative values indicate less access. No claim about landing safety or radio-link performance.</p>
-            <div id="finder-impact-items" class="finder-impact-grid"></div>
-          </div>
-
-          <div class="finder-score-note" id="finder-shell-status" aria-live="polite">Balanced score = 70% dual + 15% sunlight + 15% Earth visibility.</div>
-          <div class="finder-notice">
-            <strong>How to read this.</strong> Each square is one candidate UTC start date; brighter squares match the selected ranking goal better. Select a square to open it in the planner. Values are sampled every four hours, use a smooth 0° flat-horizon model and were benchmarked against 90 NASA JPL Horizons observations (max sampled errors 0.480° azimuth and 0.285° elevation across three sites and seasons) — these are <strong>not universal error bounds</strong>. Terrain-mode rankings use only sites with successfully loaded local horizons.
-          </div>
-        </div>
-      </section>
-
-      <section class="comparison-section app-view" data-view="compare" id="compare" hidden>
-        <div class="context-bar"><span>ACTIVE COMPARISON WINDOW</span><strong id="compare-context">Mission study interval</strong><a data-route="explore" href="/explore">Change comparison window</a></div>
-        <div class="section-title-row">
-          <div><h2>Site comparison</h2><p>Compare candidate locations for the same UTC window, using the same screening model.</p></div>
-          <button class="outline-button" id="download-csv">Export CSV</button>
-        </div>
-        <div id="site-comparison" class="comparison-grid"></div>
-        <div class="compare-picker" role="group" aria-label="Sites to compare">
-          <span class="picker-label">SITES TO COMPARE</span>
-          <div id="compare-picks" class="compare-picks"></div>
-        </div>
-        <div class="panel compare-detail">
-          <div class="panel-head"><h3>Side-by-side comparison</h3><span class="model-badge" id="compare-model">—</span></div>
-          <div id="compare-table" class="compare-table" aria-live="polite"></div>
-          <div id="compare-timeline" class="compare-timeline" role="img" aria-label="Shared illumination and geometric Earth visibility timeline for the compared sites"></div>
-          <div id="compare-notes" class="compare-notes" aria-live="polite"></div>
-        </div>
-        <div class="panel compare-detail">
-          <div class="panel-head"><h3>Mission-date comparison</h3><span class="model-badge" id="date-compare-model">—</span></div>
-          <div class="date-compare-fields">
-            <label>SITE<select id="date-compare-site"></select></label>
-            <label>DATE A<input type="date" id="date-compare-a" min="2025-01-01" max="2036-12-31" /></label>
-            <label>DATE B<input type="date" id="date-compare-b" min="2025-01-01" max="2036-12-31" /></label>
-            <button id="date-compare-run" class="top-primary" type="button">Compare dates</button>
-          </div>
-          <div id="date-compare-table" class="compare-table" aria-live="polite"></div>
-          <div id="date-compare-notes" class="compare-notes" aria-live="polite"></div>
-        </div>
-        <div class="comparison-note">All figures are sampled estimates from one shared model — comparative planning information, not landing certification. Site labels distinguish historical landing locations, published reference coordinates and illustrative study points; illustrative points are not surveyed landing sites.</div>
+          <div class="transit-actions"><button id="transit-run" class="top-primary" type="button">Estimate transit</button><span class="planning-note" id="transit-hint" role="status"></span></div>
+          <div id="transit-results" class="transit-results" aria-live="polite"></div>
+        </details>
+        <p class="planning-note">Two-hour comparison and four-hour search samples can differ. Terrain resolution is shown per site. These screening estimates have uncertainty, not universal error bounds; illustrative points are not surveyed landing sites. <a href="/science" data-route="science">Methods and sources</a></p>
       </section>
 
       <section class="science-page app-view" data-view="science" id="science-page" hidden>
         <div class="page-intro">
           <h2>Methods and limitations</h2>
-          <p>Useful analysis starts with transparent assumptions. Here is what powers the calculations — and what they cannot tell you.</p>
+          <button type="button" class="outline-button" id="restart-tour">Replay tutorial</button>
+          <p>Select a site or click the globe, set a UTC date and duration, then inspect the timeline. Drag the globe to rotate; use Focus to centre the site. Plan Mission compares sites and dates; Engineering uses the same selected mission period.</p>
         </div>
         <div class="science-feature">
           <div>
@@ -463,8 +369,8 @@
         </div>
         <div class="science-grid">
           <article class="science-card"><h3>Geometry</h3><p>An analytical model estimates local Sun and Earth azimuth and elevation in UTC. Small errors near the horizon can change a visible/hidden decision.</p><a href="https://ssd.jpl.nasa.gov/horizons/" target="_blank" rel="noopener noreferrer">JPL Horizons</a></article>
-          <article class="science-card"><h3>Elevation data</h3><p>Derived 60–80 m/pixel profiles reach 20 km around the supported sites and custom waypoints. They do not assess slopes, small hazards, or independently validated terrain shadows.</p><a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener noreferrer">NASA elevation source</a></article>
-          <article class="science-card"><h3>Window rankings</h3><p>The balanced heuristic weights simultaneous access 70%, sunlight 15%, and Earth visibility 15%. It isn't an operational site-safety score.</p><a href="/windows" data-route="windows">Open the Window Finder</a></article>
+          <article class="science-card"><h3>Elevation data</h3><p>Archived site profiles, global and polar relief, and optional native patches have different resolutions. Results identify the applied horizon; absent terrain uses a flat 0° approximation.</p><a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener noreferrer">NASA elevation source</a></article>
+          <article class="science-card"><h3>Window rankings</h3><p>The balanced heuristic weights simultaneous access 70%, sunlight 15%, and Earth visibility 15%. It isn't an operational site-safety score.</p><a href="/planning" data-route="planning">Open the Window Finder</a></article>
           <article class="science-card"><h3>Engineering estimates</h3><p>Power calculations assume a simplified fixed solar array, constant load, and idealized battery storage. Earth visibility is not an RF link budget.</p><a href="/engineering" data-route="engineering">Open engineering</a></article>
         </div>
         <div class="panel science-detail-panel">
@@ -480,7 +386,7 @@
         </div>
         <div class="panel science-detail-panel">
           <div class="panel-head"><h3>Terrain data (NASA LOLA)</h3></div>
-          <p>Elevation source: NASA GSFC PGDA south-polar LOLA DEMs (<a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener noreferrer">Barker et al. 2023</a>), 60–80 m/pixel, covering 60°S–90°S in MOON_ME south-polar stereographic coordinates. For each site or waypoint the app reads a ~40 km patch and converts elevation to a local horizon profile: along 360 azimuth directions (1° bins), out to a 20 km radius in steps matched to the DEM pixel size, the highest terrain elevation angle — including a spherical lunar curvature correction — becomes the horizon for that azimuth. The same patches feed the 3D globe's displaced terrain (a global LOLA/Kaguya SLDEM2015 grid covers 60°S–60°N for the wider overview; the north polar cap has no merged product and is labelled as uncovered). Relief exaggeration is a visual setting only and never affects calculations. Profiles are bundled per study site (exported by CI from the NASA COG); on-demand and local GeoTIFF loading cover custom coordinates. 60–80 m pixels and 1° bins cannot resolve small hazards or sub-degree gaps.</p>
+          <p>Bundled relief covers the whole Moon: 8192 × 4096 globally (~1.33 km at the equator), plus 480 m north and south polar grids. Custom points derive a coarse horizon from these grids. Native upgrades use 60–80 m LOLA GeoTIFFs in 60°S–90°S and ~237 m SLDEM2015 rows between 60°S and 60°N, subject to external range access. The north cap currently has bundled 480 m terrain only. Each result reports its actual source and resolution.</p><p>Horizons cover 20 km, with lunar curvature and native pixel radial sampling; runtime profiles use 1° bins, archived site profiles 5°. Far-field terrain and small hazards are unresolved. Imported GeoTIFF provenance is unverified. Displacement exaggeration changes the view only. Surface-view camera calculations exist; a surface renderer is not implemented.</p>
         </div>
         <div class="panel science-detail-panel">
           <div class="panel-head"><h3>Ephemeris validation</h3><span class="sim-tag">JPL HORIZONS REFERENCE</span></div>
@@ -495,40 +401,18 @@
         </div>
         <div class="science-disclaimer">
           <p>LunarNav does not certify landing safety, continuous power, or communications. The tool is not affiliated with or endorsed by NASA.</p>
-          <button type="button" class="outline-button" id="science-detail">Full technical methodology</button>
         </div>
       </section>
 
       <footer class="footer">
         <p>NASA Space Apps Challenge 2026 · Team 1st LunarNav<br/>Independent experimental prototype. Not affiliated with or endorsed by NASA.</p>
         <div>
-          <button type="button" id="restart-tour">Take the tour</button>
           <button id="footer-method">Data &amp; methodology</button>
           <a href="https://www.spaceappschallenge.org/2026/find-a-team/1st-lunarnav/" target="_blank" rel="noopener noreferrer">Team page</a>
         </div>
       </footer>
     </main>
   </div>
-
-  <dialog id="method-dialog" class="dialog">
-    <div class="dialog-head"><h2>How these estimates work</h2><button class="dialog-close" data-close="method-dialog" aria-label="Close">×</button></div>
-    <div class="dialog-body">
-      <p><strong>LunarNav V2</strong> computes Sun and Earth azimuth and elevation for user-selected lunar coordinates and UTC dates using an analytical model.</p>
-      <div class="method-line"><span>01</span><div><h3>Celestial geometry</h3><p>Truncated analytical lunar and solar orbital series (Meeus/NOAA style) are transformed into a Moon-fixed frame using the IAU lunar rotation model. Celestial direction is converted to local azimuth/elevation.</p></div></div>
-      <div class="method-line"><span>02</span><div><h3>Visibility decision</h3><p>A body is counted as visible when its <em>center</em> is above the 0° geometric horizon. Sun and Earth percentages are approximations sampled every two hours; simultaneous availability requires both conditions at once.</p></div></div>
-      <div class="method-line"><span>03</span><div><h3>What is deliberately missing</h3><p>Optional coarse NASA LOLA elevation pixels can produce a local 20 km horizon profile; by default calculations remain flat-horizon. The first-order energy and antenna screening model does not include exact surface properties, detailed charging physics, link margin, antenna pattern, terrain below DEM resolution, disk corrections or eclipses. The 3D globe is visual context and not the DEM.</p></div></div>
-      <div class="method-line"><span>04</span><div><h3>Independent JPL benchmark</h3><p>The analytical Sun/Earth geometry was compared with 90 independently returned JPL Horizons azimuth/elevation measurements across Mons Mouton, Malapert and an approximate Shackleton Rim coordinate in November 2026, March 2027 and July 2027. Maximum sampled errors were 0.480° azimuth and 0.285° elevation. These are <em>not</em> worst-case error guarantees, especially around the horizon where a small error can change a visible/hidden decision. Reference measurements are archived in GitHub.</p></div></div>
-      <div class="method-line"><span>05</span><div><h3>Further validation</h3><p>Increase the independent JPL/NAIF SPICE benchmark coverage, use shorter adaptive time steps at rise/set transitions, validate LOLA horizon projections, and add documented engineering uncertainty before representing these outputs as operational estimates.</p></div></div>
-      <div class="reference-links">
-        <a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener noreferrer">NASA LOLA south-polar DEM</a>
-        <a href="https://github.com/adamjamiesimson/LunarNav-V2/tree/main/tests/fixtures" target="_blank" rel="noopener noreferrer">Archived JPL observations</a>
-        <a href="https://ssd.jpl.nasa.gov/horizons/manual.html" target="_blank" rel="noopener noreferrer">JPL Horizons</a>
-        <a href="https://naif.jpl.nasa.gov/naif/" target="_blank" rel="noopener noreferrer">NAIF SPICE</a>
-        <a href="https://science.nasa.gov/resource/illumination-map-of-the-moons-south-pole/" target="_blank" rel="noopener noreferrer">NASA south-pole illumination</a>
-        <a href="https://www.spaceappschallenge.org/2026/find-a-team/1st-lunarnav/" target="_blank" rel="noopener noreferrer">Challenge brief</a>
-      </div>
-    </div>
-  </dialog>
 
   <dialog id="brief-dialog" class="dialog report-dialog">
     <div class="dialog-head"><h2>Mission briefing</h2><button class="dialog-close" data-close="brief-dialog" aria-label="Close">×</button></div>
@@ -564,6 +448,6 @@
       </div>
     </section>
   </div>
-  <button type="button" id="assistant-fab" class="assistant-fab" aria-label="Open the LunarNav mission assistant" aria-expanded="false" title="Ask the mission assistant (Gemini)"><span class="assistant-fab-label">✨ Ask AI</span></button>
+  <button type="button" id="assistant-fab" class="assistant-fab" aria-label="Open the LunarNav mission assistant" aria-expanded="false" title="Ask the mission assistant (Gemini)"><span class="assistant-fab-label">Assistant</span></button>
 </body>
 </html>

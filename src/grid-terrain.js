@@ -5,12 +5,12 @@
  *
  * Deriving the horizon here gives every custom waypoint a real local sky view
  * immediately and offline: the polar grids (60°–90° in either hemisphere) at
- * 480 m, and the global grid for lower latitudes at its honest ~1.3 km
+ * 480 m, and the global grid for lower latitudes at its honest ~1.33 km
  * resolution. The horizon maths is shared: deriveHorizonFromRaster is the
  * same function used for the preset sites and the native DEM loader.
  */
 import {polarXY,polarFrameXY,deriveHorizonFromRaster} from './terrain.js';
-import {MOON_RADIUS_M} from './relief.js';
+import {MOON_RADIUS_M,globalReliefUV} from './relief.js';
 
 const GRIDS={
   south:{file:'/assets/moon-relief.png',key:null,north:false},
@@ -25,26 +25,22 @@ function loadMeta(){
     if(!r.ok)throw Error('relief metadata unavailable');
     return r.json();
   });
-  return metaPromise;
+  return metaPromise.catch(error=>{metaPromise=null;throw error;});
 }
 function loadImage(file){
   if(!imageCache.has(file)){
     imageCache.set(file,new Promise((resolve,reject)=>{
       const img=new Image();
-      img.onload=()=>resolve(img);
-      img.onerror=()=>reject(Error('relief grid unavailable: '+file));
+      img.onload=()=>{
+        // Retain at most one decoded grid (~128 MiB for the global PNG).
+        for(const key of imageCache.keys())if(key!==file)imageCache.delete(key);
+        resolve(img);
+      };
+      img.onerror=()=>{imageCache.delete(file);reject(Error('relief grid unavailable: '+file));};
       img.src=file;
     }));
   }
   return imageCache.get(file);
-}
-async function gridContext(file){
-  const img=await loadImage(file);
-  const canvas=document.createElement('canvas');
-  canvas.width=img.width;canvas.height=img.height;
-  const ctx=canvas.getContext('2d',{willReadFrequently:true});
-  ctx.drawImage(img,0,0);
-  return {img,ctx};
 }
 
 /** Polar-stereographic window (shared with the tests). */
@@ -53,7 +49,8 @@ export function gridRasterWindow({size,domainKm,north},site,{radiusKm=20}={}){
   const {x,y}=polarXY(site.lat,site.lon);
   const px=(x+DOMAIN_M)/(2*DOMAIN_M)*size;
   const py=(north?(y+DOMAIN_M)/(2*DOMAIN_M):(DOMAIN_M-y)/(2*DOMAIN_M))*size;
-  const half=Math.ceil(radiusKm*1000/gsd)+2;
+  const scale=1+(Math.hypot(x,y)/(2*MOON_RADIUS_M))**2;
+  const half=Math.ceil(radiusKm*1000*scale/gsd)+2;
   const x0=Math.round(px)-half,y0=Math.round(py)-half,w=2*half+1;
   return {x0,y0,w,gsd,
     originX:-DOMAIN_M+x0*gsd,
@@ -66,35 +63,49 @@ export function globalRasterWindow({width,height},lat,lon,{radiusKm=20}={}){
   const latGsd=Math.PI*MOON_RADIUS_M/height;
   const lonGsd=2*Math.PI*MOON_RADIUS_M*Math.max(0.05,Math.cos(lat*Math.PI/180))/width;
   const halfX=Math.ceil(radiusKm*1000/lonGsd)+2,halfY=Math.ceil(radiusKm*1000/latGsd)+2;
-  const px=(((lon%360)+360)%360/360)*width,py=((90-lat)/180)*height;
+  const uv=globalReliefUV(lat,lon);
+  const px=uv.u*width,py=uv.v*height;
   const x0=Math.round(px)-halfX,y0=Math.round(py)-halfY;
   return {x0,y0,w:2*halfX+1,h:2*halfY+1,lonGsd,latGsd,
-    originX:-halfX*lonGsd,originY:halfY*latGsd,resolutionX:lonGsd,resolutionY:-latGsd};
+    originX:(x0-px)*lonGsd,originY:(py-y0)*latGsd,resolutionX:lonGsd,resolutionY:-latGsd};
 }
 
 /** Extract a metre-valued raster window; grid edges stay NaN (NoData). */
-function readRasterWindow(ctx,x0,y0,w,h,block){
-  const sx=Math.max(0,x0),sy=Math.max(0,y0);
-  const sw=Math.min(ctx.canvas.width-sx,w),sh=Math.min(ctx.canvas.height-sy,h);
-  if(sw<4||sh<4)throw Error('site lies outside the baked relief grid');
-  const pixels=ctx.getImageData(sx,sy,sw,sh).data;
+function readRasterWindow(img,x0,y0,w,h,block,wrap=false){
+  // Read only the small requested window, never an 8192×4096 RGBA canvas.
+  const canvas=document.createElement('canvas');
+  canvas.width=w;canvas.height=h;
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  if(!ctx)throw Error('Cannot read relief pixels');
+  const sy=Math.max(0,y0),sh=Math.min(img.height,y0+h)-sy;
+  if(sh<=0)throw Error('site lies outside the baked relief grid');
+  for(let dx=0;dx<w;){
+    const source=x0+dx,sx=wrap?((source%img.width)+img.width)%img.width:Math.max(0,source);
+    if(!wrap&&source<0){dx+=Math.min(w-dx,-source);continue;}
+    const sw=Math.min(w-dx,img.width-sx);
+    if(sw<=0)break;
+    ctx.drawImage(img,sx,sy,sw,sh,dx,sy-y0,sw,sh);
+    dx+=sw;
+  }
+  const pixels=ctx.getImageData(0,0,w,h).data;
   const data=new Float32Array(w*h).fill(NaN);
   const range=block.heightMaxM-block.heightMinM;
-  for(let j=0;j<sh;j++)for(let i=0;i<sw;i++){
-    const p=(j*sw+i)*4;
+  for(let j=0;j<h;j++)for(let i=0;i<w;i++){
+    const p=(j*w+i)*4;
     const code=pixels[p]*16+pixels[p+1]/16; // 12-bit height packed into R/G
-    if(code>0)data[(j+sy-y0)*w+(i+sx-x0)]=block.heightMinM+code/4095*range;
+    if(code>0&&pixels[p+3])data[j*w+i]=block.heightMinM+code/4095*range;
   }
+  canvas.width=canvas.height=0;
   return data;
 }
 
-function finishProfile(profile,site,source,resolutionM){
+function finishProfile(profile,site,source,resolutionM,{gridDerived=true}={}){
   profile.lat=site.lat;profile.lon=site.lon;
   profile.source=source;
-  profile.provenance='Derived from the bundled NASA relief grids (data/relief.json)';
-  profile.loadedFrom='Baked relief grid';
+  profile.provenance=gridDerived?'Derived from the bundled NASA relief grids (data/relief.json)':source;
+  profile.loadedFrom=gridDerived?'Baked relief grid':'Native SLDEM2015 byte ranges';
   profile.verifiedSource=true;
-  profile.gridDerived=true;
+  profile.gridDerived=gridDerived;
   profile.resolutionM=resolutionM;
   return profile;
 }
@@ -103,9 +114,9 @@ async function deriveFromPolar(site,meta,{azimuthBins,radiusKm}){
   const cfg=site.lat>0?GRIDS.north:GRIDS.south;
   const block=cfg.key?meta[cfg.key]:meta;
   if(!block)throw Error('no baked polar grid metadata');
-  const {ctx}=await gridContext(cfg.file);
+  const img=await loadImage(cfg.file);
   const win=gridRasterWindow({size:block.size,domainKm:block.domainKm,north:cfg.north},site,{radiusKm});
-  const data=readRasterWindow(ctx,win.x0,win.y0,win.w,win.w,block);
+  const data=readRasterWindow(img,win.x0,win.y0,win.w,win.w,block);
   const profile=deriveHorizonFromRaster({data,width:win.w,height:win.w,
     originX:win.originX,originY:win.originY,resolutionX:win.resolutionX,resolutionY:win.resolutionY,noData:null},
     site,{radiusKm,azimuthBins});
@@ -117,9 +128,9 @@ async function deriveFromPolar(site,meta,{azimuthBins,radiusKm}){
 async function deriveFromGlobal(site,meta,{azimuthBins,radiusKm}){
   const block=meta.global;
   if(!block)throw Error('no baked global grid metadata');
-  const {ctx}=await gridContext(GRIDS.global.file);
+  const img=await loadImage(GRIDS.global.file);
   const win=globalRasterWindow({width:block.width,height:block.height},site.lat,site.lon,{radiusKm});
-  const data=readRasterWindow(ctx,win.x0,win.y0,win.w,win.h,block);
+  const data=readRasterWindow(img,win.x0,win.y0,win.w,win.h,block,true);
   const resolutionM=Math.max(win.latGsd,win.lonGsd);
   const profile=deriveHorizonFromRaster({data,width:win.w,height:win.h,
     originX:win.originX,originY:win.originY,resolutionX:win.resolutionX,resolutionY:win.resolutionY,noData:null},
@@ -148,86 +159,108 @@ export async function deriveGridHorizon(site,{azimuthBins=360,radiusKm=20}={}){
   return deriveFromGlobal(site,meta,opts);
 }
 
-/* ---- native-resolution (~237 m) patches for mid-latitudes ----
- * SLDEM2015 stores its 128 px/deg grid as raw float rows; a 40 km window needs
- * only ~1 KB from each of ~170 rows, so byte-range reads fetch it in a second
- * or two. The window is sampled into the polar-stereographic frame used
- * everywhere else, so the result also feeds the globe's local patch texture.
+/** Native SLDEM2015: PDS PC_REAL float32 little-endian, kilometres above R=1737.4 km.
+ * The pixel-registered cylindrical grid is 128 px/degree, 0–360°E, 60°N–60°S.
  */
 const SLDEM_IMG='/assets/sldem.img';
 const SLDEM_COLS=46080,SLDEM_ROWS=15360,SLDEM_ROW_BYTES=SLDEM_COLS*4;
-const SLDEM_PIXEL_M=10916510/360/128; // 237 m (the Moon is 30.3 km per degree)
+const SLDEM_PIXEL_M=2*Math.PI*MOON_RADIUS_M/SLDEM_COLS;
 
-async function mapConcurrent(items,fn,workers=8){
-  let next=0;
-  const run=async()=>{while(next<items.length){const i=next++;await fn(items[i],i);}};
-  await Promise.all(Array.from({length:Math.min(workers,items.length)},run));
+export function sldemPixelAt(x,y,hemisphere){
+  const lat=hemisphere*(90-2*Math.atan(Math.hypot(x,y)/(2*MOON_RADIUS_M))*180/Math.PI);
+  const lon=Math.atan2(x,y)*180/Math.PI;
+  return {row:Math.floor((60-lat)*128),col:Math.floor(((lon%360)+360)%360*128)};
 }
 
-const defaultFetchRow=(row,c0,c1)=>{
+/** Reject full-file and malformed responses before reading even one body byte. */
+export async function fetchSldemRow(row,c0,c1,{signal}={}){
+  if(!Number.isInteger(row)||row<0||row>=SLDEM_ROWS||!Number.isInteger(c0)||!Number.isInteger(c1)||c0<0||c1>SLDEM_COLS||c0>=c1)
+    throw Error('Invalid SLDEM range');
   const start=row*SLDEM_ROW_BYTES+c0*4,end=row*SLDEM_ROW_BYTES+c1*4-1;
-  const attempt=async n=>{
-    try{
-      const r=await fetch(SLDEM_IMG,{headers:{Range:`bytes=${start}-${end}`}});
-      if(!r.ok)throw Error('SLDEM range read failed: '+r.status);
-      return new Float32Array(await r.arrayBuffer());
-    }catch(error){
-      if(n>=3)throw error;
-      await new Promise(res=>setTimeout(res,500*n));
-      return attempt(n+1);
+  const response=await fetch(SLDEM_IMG,{headers:{Range:'bytes='+start+'-'+end},
+    signal:signal?AbortSignal.any([signal,AbortSignal.timeout(10000)]):AbortSignal.timeout(10000)});
+  const expected=end-start+1;
+  const valid=response.status===206&&
+    response.headers.get('content-range')==='bytes '+start+'-'+end+'/'+(SLDEM_ROWS*SLDEM_ROW_BYTES)&&
+    (!response.headers.has('content-length')||Number(response.headers.get('content-length'))===expected)&&
+    (!response.headers.has('content-type')||/^(application\/(octet-stream|binary)|image\/x-pds)(;|$)/i.test(response.headers.get('content-type')))&&
+    (!response.headers.has('content-encoding')||response.headers.get('content-encoding')==='identity');
+  if(!valid){await response.body?.cancel();throw Error('SLDEM requires an exact uncompressed 206 byte range');}
+  if(!response.body)throw Error('Empty SLDEM response');
+  const reader=response.body.getReader(),bytes=new Uint8Array(expected);
+  let length=0;
+  try{
+    while(true){
+      const {value,done}=await reader.read();
+      if(done)break;
+      if(length+value.byteLength>expected)throw Error('Oversized SLDEM response');
+      bytes.set(value,length);length+=value.byteLength;
     }
-  };
-  return attempt(0);
-};
+    if(length!==expected)throw Error('Truncated SLDEM response');
+  }catch(error){await reader.cancel();throw error;}
+  finally{reader.releaseLock();}
+  const view=new DataView(bytes.buffer);
+  return Float32Array.from({length:c1-c0},(_,i)=>view.getFloat32(i*4,true));
+}
 
-export async function deriveSldemPatch(site,{azimuthBins=360,radiusKm=20,fetchRow=defaultFetchRow}={}){
-  const half=Math.ceil(radiusKm*1000/SLDEM_PIXEL_M)+2;
-  const w=2*half+1;
+export async function deriveSldemPatch(site,{azimuthBins=360,radiusKm=20,fetchRow=fetchSldemRow,signal}={}){
+  if(!Number.isFinite(site.lat)||!Number.isFinite(site.lon)||Math.abs(site.lat)>=60)
+    throw Error('SLDEM2015 patches require coordinates between 60°S and 60°N');
+  if(!Number.isFinite(radiusKm)||radiusKm<1||radiusKm>60)throw Error('Invalid SLDEM patch radius');
+  const hemisphere=site.lat>0?1:-1;
   const {x,y}=polarFrameXY(site.lat,site.lon);
-  const originX=x-half*SLDEM_PIXEL_M,originY=y+half*SLDEM_PIXEL_M;
-  const data=new Float32Array(w*w).fill(NaN);
-  const rowsNeeded=new Map();
+  const scale=1+(Math.hypot(x,y)/(2*MOON_RADIUS_M))**2;
+  const spacing=SLDEM_PIXEL_M*scale;
+  const half=Math.ceil(radiusKm*1000/SLDEM_PIXEL_M*1.03)+2,w=2*half+1;
+  const originX=x-half*spacing,originY=y+half*spacing;
+  const data=new Float32Array(w*w).fill(NaN),rows=new Map();
   for(let j=0;j<w;j++)for(let i=0;i<w;i++){
-    const px=originX+i*SLDEM_PIXEL_M,py=originY-j*SLDEM_PIXEL_M;
-    const r=Math.hypot(px,py);
-    const lat=Math.sign(site.lat||-1)*(90-2*Math.atan(r/(2*MOON_RADIUS_M))*180/Math.PI);
-    const lon=Math.atan2(px,py)*180/Math.PI;
-    const row=Math.round((60-lat)/120*(SLDEM_ROWS-1));
+    const {row,col}=sldemPixelAt(originX+i*spacing,originY-j*spacing,hemisphere);
     if(row<0||row>=SLDEM_ROWS)continue;
-    const col=Math.round(((lon%360)+360)%360/360*(SLDEM_COLS-1));
-    if(!rowsNeeded.has(row))rowsNeeded.set(row,[col,col]);
-    const span=rowsNeeded.get(row);
-    span[0]=Math.min(span[0],col);span[1]=Math.max(span[1],col);
+    if(!rows.has(row))rows.set(row,new Map());
+    const columns=rows.get(row);
+    if(!columns.has(col))columns.set(col,[]);
+    columns.get(col).push(j*w+i);
   }
-  const rowValues=new Map();
-  await mapConcurrent([...rowsNeeded],async ([row,[c0,c1]])=>{
-    const values=await fetchRow(row,Math.max(0,c0-1),Math.min(SLDEM_COLS,c1+2));
-    rowValues.set(row,{c0:Math.max(0,c0-1),values});
-  });
-  for(let j=0;j<w;j++)for(let i=0;i<w;i++){
-    const px=originX+i*SLDEM_PIXEL_M,py=originY-j*SLDEM_PIXEL_M;
-    const r=Math.hypot(px,py);
-    const lat=Math.sign(site.lat||-1)*(90-2*Math.atan(r/(2*MOON_RADIUS_M))*180/Math.PI);
-    const lon=Math.atan2(px,py)*180/Math.PI;
-    const row=Math.round((60-lat)/120*(SLDEM_ROWS-1));
-    const entry=rowValues.get(row);
-    if(!entry)continue;
-    const col=Math.round(((lon%360)+360)%360/360*(SLDEM_COLS-1))-entry.c0;
-    const v=entry.values[col];
-    if(Number.isFinite(v))data[j*w+i]=v*1000; // km above R=1737.4 (verified from LBL)
+  // Separate spans at 0°/360°: never read a whole row across a longitude seam.
+  const spans=[];
+  for(const [row,columns] of rows){
+    const sorted=[...columns.keys()].sort((a,b)=>a-b);
+    let c0=sorted[0],previous=c0;
+    for(const col of sorted.slice(1)){
+      if(col>previous+1){spans.push({row,c0,c1:previous+1,columns});c0=col;}
+      previous=col;
+    }
+    spans.push({row,c0,c1:previous+1,columns});
   }
+  const controller=new AbortController();
+  const combined=AbortSignal.any([controller.signal,AbortSignal.timeout(30000),...(signal?[signal]:[])]);
+  let next=0;
+  try{
+    await Promise.all(Array.from({length:Math.min(8,spans.length)},async()=>{
+      while(next<spans.length){
+        combined.throwIfAborted();
+        const {row,c0,c1,columns}=spans[next++];
+        const values=await fetchRow(row,c0,c1,{signal:combined});
+        if(!(values instanceof Float32Array)||values.length!==c1-c0)throw Error('Invalid SLDEM float32 row');
+        for(let col=c0;col<c1;col++){
+          const v=values[col-c0];
+          if(!Number.isFinite(v)||Math.abs(v)>12)continue;
+          for(const index of columns.get(col)||[])data[index]=v*1000;
+        }
+      }
+    }));
+  }catch(error){controller.abort();throw error;}
   const profile=deriveHorizonFromRaster({data,width:w,height:w,
-    originX,originY,resolutionX:SLDEM_PIXEL_M,resolutionY:-SLDEM_PIXEL_M,noData:null},
-    site,{radiusKm,azimuthBins,stereoDistortion:false});
+    originX,originY,resolutionX:spacing,resolutionY:-spacing,noData:null},
+    site,{radiusKm,azimuthBins,stepMeters:SLDEM_PIXEL_M});
   let min=Infinity,max=-Infinity;
-  for(const v of data)if(Number.isFinite(v)){if(v<min)min=v;if(v>max)max=v;}
+  for(const v of data)if(Number.isFinite(v)){min=Math.min(min,v);max=Math.max(max,v);}
   profile.patch={data,width:w,height:w,originX,originY,
-    resolutionX:SLDEM_PIXEL_M,resolutionY:-SLDEM_PIXEL_M,noData:null,
+    resolutionX:spacing,resolutionY:-spacing,noData:null,hemisphere,
     minM:min,maxM:max,groundSampleM:SLDEM_PIXEL_M,units:'metres',
-    projection:'local polar-stereographic window'};
-  return finishProfile(profile,site,
-    'NASA LOLA+Kaguya SLDEM2015 patch ('+Math.round(SLDEM_PIXEL_M)+' m)',
-    SLDEM_PIXEL_M);
+    projection:'polar-stereographic window'};
+  return finishProfile(profile,site,'NASA LOLA+Kaguya SLDEM2015 patch ('+Math.round(SLDEM_PIXEL_M)+' m)',SLDEM_PIXEL_M,{gridDerived:false});
 }
 
 /* ---- elevation samplers for the panoramic surface view ---- */

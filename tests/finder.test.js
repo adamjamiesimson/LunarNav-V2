@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {findMissionWindows,finderScore,FINDER_WEIGHTS} from '../src/finder.js';
+import {findMissionWindows,finderScore,FINDER_WEIGHTS,compareFinderModels} from '../src/finder.js';
 import {sampleWindow,summarize} from '../src/astro.js';
 
 const sites=[
@@ -88,4 +88,29 @@ test('terrain mode rejects unreferenced or stale site coordinates',()=>{
  assert.equal(findMissionWindows({...conf,terrainMode:'terrain',terrainProfiles:profiles}).matrix.length,2);
  profiles.malapert.lat=0;
  assert.throws(()=>findMissionWindows({...conf,terrainMode:'terrain',terrainProfiles:profiles}),/Missing valid/);
+});
+
+test('non-noon UTC starts match planner samples, including date rollover',()=>{
+ for(const startTime of ['00:00','18:30','23:00']){
+   const scan=findMissionWindows({...conf,startDate:'2026-12-31',startTime,searchDays:3});
+   assert.equal(scan.startTime,startTime);
+   for(const row of scan.matrix)for(const w of row.windows){
+     const expected=summarize(sampleWindow({start:w.startDate+'T'+startTime+':00Z',days:3,stepHours:4,lat:row.site.lat,lon:row.site.lon}));
+     assert.equal(w.sunPct,expected.sun);assert.equal(w.earthPct,expected.earth);assert.equal(w.dualPct,expected.dual);
+   }
+ }
+ for(const startTime of ['24:00','12:60','noon'])assert.throws(()=>findMissionWindows({...conf,startTime}),/UTC time/);
+});
+test('terrain baseline differences reject mismatched UTC sampling anchors',()=>{
+ const terrainProfiles=Object.fromEntries(sites.map(site=>[site.id,{
+   lat:site.lat,lon:site.lon,coveragePct:100,source:'Synthetic zero-height test horizon',
+   azimuthDeg:[0,45,90,135,180,225,270,315],elevationDeg:Array(8).fill(0)
+ }]));
+ const flat=findMissionWindows(conf);
+ const matched=findMissionWindows({...conf,terrainMode:'terrain',terrainProfiles});
+ const differences=compareFinderModels(flat,matched);
+ assert.ok(differences.length>0);
+ assert.ok(differences.every(d=>d.deltaDualPp===0&&d.deltaSunPp===0&&d.deltaEarthPp===0));
+ const shifted=findMissionWindows({...conf,terrainMode:'terrain',terrainProfiles,startTime:'18:00'});
+ assert.throws(()=>compareFinderModels(flat,shifted),/matching|same|comparable/i);
 });

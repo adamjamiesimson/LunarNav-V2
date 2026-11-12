@@ -43,6 +43,7 @@ uniform vec4 reliefCfg; // polar: range m, min m, texel size, covered
 uniform vec4 northCfg;  // north polar: range m, min m, texel size, covered
 uniform vec4 globalCfg; // global: range m, min m, covered, unused
 uniform vec4 patchCfg;  // patch: range m, min m, texel size, covered
+uniform float patchHemisphere;
 uniform vec4 patchGeo;  // patch window: originX, originY, spanX, spanY (polar metres)
 uniform float reliefExag; // relief exaggeration (1.0 = physical scale)
 float hash(vec2 x){return fract(sin(dot(x,vec2(127.1,311.7)))*43758.5453);}
@@ -127,9 +128,12 @@ float heightAt(vec3 n){
  else if(hasGlobal)base=globalH;
  else base=0.0;
  if(patchCfg.w>0.5){
-   vec2 puv=vec2((rS*sin(lon)-patchGeo.x)/patchGeo.z,(patchGeo.y-rS*cos(lon))/patchGeo.w);
+   float patchR=2.0*1737400.0*tan((1.5707963-patchHemisphere*lat)*0.5);
+   vec2 puv=vec2((patchR*sin(lon)-patchGeo.x)/patchGeo.z,(patchGeo.y-patchR*cos(lon))/patchGeo.w);
    if(puv.x>0.0&&puv.x<1.0&&puv.y>0.0&&puv.y<1.0){
-     float patchH=hDecode(texture2D(patchMap,puv).rgb,patchCfg);
+     vec4 sampleHeight=texture2D(patchMap,puv);
+     if(sampleHeight.a<0.99)return base;
+     float patchH=hDecode(sampleHeight.rgb,patchCfg);
      // Cross-fade the native-resolution patch into the coarser grid at its
      // border, so the sub-grid relief difference cannot draw a seam.
      float edge=min(min(puv.x,1.0-puv.x),min(puv.y,1.0-puv.y));
@@ -306,7 +310,7 @@ export function createMap(canvas,{onPick,onHover}){
  try{p=program(gl);}catch(error){console.warn(error);background.remove();const status=document.querySelector('#map-image-status');if(status)status.textContent='2D POLAR SCHEMATIC';return createPolarMap(canvas,{onPick,onHover});}
  gl.useProgram(p);
  const loc=name=>gl.getUniformLocation(p,name);
- const u={resolution:loc('resolution'),forward:loc('forward'),right:loc('right'),up:loc('up'),sun:loc('sun'),zoom:loc('zoom'),hasTexture:loc('hasTexture'),showSkyBodies:loc('showSkyBodies'),hasEarthTexture:loc('hasEarthTexture'),elapsedDays:loc('elapsedDays'),sunSphere:loc('sunSphere'),earthSphere:loc('earthSphere'),spinYaw:loc('spinYaw'),spinPitch:loc('spinPitch'),moon:loc('moon'),earthImage:loc('earthImage'),reliefMap:loc('reliefMap'),globalMap:loc('globalMap'),patchMap:loc('patchMap'),northMap:loc('northMap'),reliefCfg:loc('reliefCfg'),globalCfg:loc('globalCfg'),patchCfg:loc('patchCfg'),patchGeo:loc('patchGeo'),northCfg:loc('northCfg'),reliefExag:loc('reliefExag')};
+ const u={resolution:loc('resolution'),forward:loc('forward'),right:loc('right'),up:loc('up'),sun:loc('sun'),zoom:loc('zoom'),hasTexture:loc('hasTexture'),showSkyBodies:loc('showSkyBodies'),hasEarthTexture:loc('hasEarthTexture'),elapsedDays:loc('elapsedDays'),sunSphere:loc('sunSphere'),earthSphere:loc('earthSphere'),spinYaw:loc('spinYaw'),spinPitch:loc('spinPitch'),moon:loc('moon'),earthImage:loc('earthImage'),reliefMap:loc('reliefMap'),globalMap:loc('globalMap'),patchMap:loc('patchMap'),northMap:loc('northMap'),reliefCfg:loc('reliefCfg'),globalCfg:loc('globalCfg'),patchCfg:loc('patchCfg'),patchGeo:loc('patchGeo'),patchHemisphere:loc('patchHemisphere'),northCfg:loc('northCfg'),reliefExag:loc('reliefExag')};
  const quad=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,quad);
  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
  const position=gl.getAttribLocation(p,'position');gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
@@ -353,7 +357,7 @@ export function createMap(canvas,{onPick,onHover}){
    gl.uniform4fv(u.reliefCfg,reliefCfg);
    gl.uniform4fv(u.globalCfg,globalCfg);
    gl.uniform4fv(u.patchCfg,patchCfg);
-   gl.uniform4fv(u.patchGeo,patchGeo);
+   gl.uniform4fv(u.patchGeo,patchGeo);gl.uniform1f(u.patchHemisphere,patchHemisphere);
    gl.uniform4fv(u.northCfg,northCfg);
    gl.uniform1f(u.reliefExag,reliefExag);
    const bodies=['sun','earth','moon'],rotation=celestialSpin(simulatedUTC);
@@ -574,12 +578,27 @@ export function createMap(canvas,{onPick,onHover}){
  const reliefTexture=makeDataTexture(2,false),globalTexture=makeDataTexture(3,true),patchTexture=makeDataTexture(4,false),northTexture=makeDataTexture(5,false);
  gl.uniform1i(u.reliefMap,2);gl.uniform1i(u.globalMap,3);gl.uniform1i(u.patchMap,4);gl.uniform1i(u.northMap,5);
  let reliefCfg=[0,1,1/3880,0],globalCfg=[0,1,0,0],patchCfg=[0,1,1,0],patchGeo=[0,0,1,1],northCfg=[0,1,1/3880,0];
- let reliefExag=1;
+ let reliefExag=1,patchHemisphere=-1,lastPatch=null;
+ const maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE)||4096;
+ // Cap visual uploads at 4096 (32 MiB RGBA global) or 2048 on small screens; retain the original
+ // 8192×4096 scientific asset. Nearest sampling preserves the packed height codes.
+ const textureLimit=Math.min(window.matchMedia?.('(max-width: 820px)').matches?2048:4096,maxTextureSize);
  const uploadRelief=(unit,tex,img)=>{
    gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,tex);
    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
    gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,gl.NONE); // heights are data, not colour
-   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);
+   let source=img,canvas=null;
+   if(img.width>textureLimit||img.height>textureLimit){
+     canvas=document.createElement('canvas');
+     const scale=textureLimit/Math.max(img.width,img.height);
+     canvas.width=Math.max(1,Math.floor(img.width*scale));canvas.height=Math.max(1,Math.floor(img.height*scale));
+     const ctx=canvas.getContext('2d');
+     if(!ctx)throw Error('Relief resize unavailable');
+     ctx.imageSmoothingEnabled=false;ctx.drawImage(img,0,0,canvas.width,canvas.height);source=canvas;
+   }
+   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,source);
+   if(canvas)canvas.width=canvas.height=0;
+   if(gl.getError()!==gl.NO_ERROR)throw Error('Relief texture upload failed');
  };
  fetch('data/relief.json').then(r=>r.ok?r.json():null).then(meta=>{
    if(!meta)return;
@@ -589,13 +608,25 @@ export function createMap(canvas,{onPick,onHover}){
    request();
  }).catch(()=>{});
  const globalImg=new Image();globalImg.decoding='async';
- globalImg.onload=()=>{uploadRelief(3,globalTexture,globalImg);globalCfg[2]=1;request();};
+ globalImg.onload=()=>{
+   try{uploadRelief(3,globalTexture,globalImg);globalCfg[2]=1;}
+   catch(error){console.warn('global relief unavailable:',error);globalCfg[2]=0;}
+   finally{globalImg.onload=null;globalImg.src='';request();}
+ };
  globalImg.src='/assets/moon-relief-global.png';
  const northImg=new Image();northImg.decoding='async';
- northImg.onload=()=>{uploadRelief(5,northTexture,northImg);northCfg[3]=1;request();};
+ northImg.onload=()=>{
+   try{uploadRelief(5,northTexture,northImg);northCfg[3]=1;}
+   catch(error){console.warn('north relief unavailable:',error);northCfg[3]=0;}
+   finally{northImg.onload=null;northImg.src='';request();}
+ };
  northImg.src='/assets/moon-relief-north.png';
  const reliefImg=new Image();reliefImg.decoding='async';
- reliefImg.onload=()=>{uploadRelief(2,reliefTexture,reliefImg);reliefCfg[3]=1;request();};
+ reliefImg.onload=()=>{
+   try{uploadRelief(2,reliefTexture,reliefImg);reliefCfg[3]=1;}
+   catch(error){console.warn('relief relief unavailable:',error);reliefCfg[3]=0;}
+   finally{reliefImg.onload=null;reliefImg.src='';request();}
+ };
  reliefImg.src='/assets/moon-relief.png';
  const earthImg=new Image();earthImg.crossOrigin='anonymous';earthImg.decoding='async';
  earthImg.onload=()=>{
@@ -689,18 +720,28 @@ export function createMap(canvas,{onPick,onHover}){
    },
    setTerrainRose(profile){terrainRose=profile||null;request();},
    setTerrainPatch(patch){
-     if(!patch||!patch.data){patchCfg[3]=0;request();return;}
+     if(patch===lastPatch)return;
+     lastPatch=patch;
+     if(!patch||!patch.data){
+       patchCfg[3]=0;
+       gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,patchTexture);
+       gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array(4));
+       request();return;
+     }
      const {data,width,height,originX,originY,resolutionX,resolutionY,minM,maxM}=patch;
      const range=(maxM-minM)||1;
+     if(width>maxTextureSize||height>maxTextureSize){patchCfg[3]=0;request();return;}
+     patchHemisphere=patch.hemisphere||-1;
      const codes=new Uint8Array(width*height*4);
      for(let i=0;i<data.length;i++){
-       const v=Math.max(0,Math.min(4095,Math.round(((Number(data[i])||0)-minM)/range*4095)));
-       codes[i*4]=v>>4;codes[i*4+1]=(v&15)<<4;codes[i*4+3]=255;
+       const valid=Number.isFinite(data[i])&&(patch.noData==null||data[i]!==Number(patch.noData));
+       const v=valid?Math.max(0,Math.min(4095,Math.round((data[i]-minM)/range*4095))):0;
+       codes[i*4]=v>>4;codes[i*4+1]=(v&15)<<4;codes[i*4+3]=valid?255:0;
      }
      gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,patchTexture);
      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,width,height,0,gl.RGBA,gl.UNSIGNED_BYTE,codes);
-     patchCfg=[range,minM,1/Math.max(width,height),1];
+     patchCfg=[range,minM,1/Math.max(width,height),gl.getError()===gl.NO_ERROR?1:0];
      patchGeo=[originX,originY,width*resolutionX,height*Math.abs(resolutionY)];
      request();
    },

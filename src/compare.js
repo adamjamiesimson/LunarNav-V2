@@ -8,14 +8,8 @@
  * ranks a site as suitable for a mission: outputs are comparative planning
  * information only.
  */
-import {sampleWindow,summarize,longestDualWindow} from './astro.js';
+import {sampleWindow,summarize,longestDualWindow,longestRunHours} from './astro.js';
 import {simulateMission,DEFAULT_ENGINEERING} from './mission.js';
-
-const longestRunHours=(intervals,stepHours,predicate)=>{
-  let best=0,run=0;
-  for(const item of intervals){run=predicate(item)?run+stepHours:0;best=Math.max(best,run);}
-  return best;
-};
 
 /** Metrics for one site over one mission window (fixed sampling resolution). */
 export function windowMetrics({start,days,lat,lon,profile=null,stepHours=2}={}){
@@ -33,6 +27,7 @@ export function windowMetrics({start,days,lat,lon,profile=null,stepHours=2}={}){
     longestDarknessHours:longestRunHours(intervals,stepHours,s=>!s.sun.visible),
     maxSunElevationDeg,
     earthVisibilityPct:stats.earth,
+    longestEarthBlackoutHours:stats.longestBlackoutHours,
     longestEarthVisibilityHours:longestRunHours(intervals,stepHours,s=>s.earth.visible),
     simultaneousPct:stats.dual,
     longestSimultaneousHours:longestDualWindow(samples).hours,
@@ -45,11 +40,9 @@ export function comparisonRows(entries){
   const cell=(fn,unit,digits=1)=>entries.map(e=>({value:fn(e.metrics),unit,digits}));
   return [
     {label:'Total illumination',values:cell(m=>m.illuminationHours,'h')},
-    {label:'Total darkness',values:cell(m=>m.darknessHours,'h')},
     {label:'Longest continuous darkness',values:cell(m=>m.longestDarknessHours,'h')},
-    {label:'Max solar elevation',values:cell(m=>m.maxSunElevationDeg,'°')},
     {label:'Geometric Earth visibility',values:cell(m=>m.earthVisibilityPct,'%')},
-    {label:'Longest continuous Earth view',values:cell(m=>m.longestEarthVisibilityHours,'h')},
+    {label:'Longest Earth-view gap',values:cell(m=>m.longestEarthBlackoutHours,'h')},
     {label:'Simultaneous Sun + Earth',values:cell(m=>m.simultaneousPct,'%')},
     {label:'Estimated solar energy',values:cell(m=>m.solarEnergyWh/1000,'kWh')}
   ];

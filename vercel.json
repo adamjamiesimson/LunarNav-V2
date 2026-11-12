@@ -23,10 +23,14 @@
     },
     {
       "source": "/assets/sldem.img",
-      "destination": "http://imbrium.mit.edu/DATA/SLDEM2015/GLOBAL/FLOAT_IMG/SLDEM2015_128_60S_60N_000_360_FLOAT.IMG"
+      "destination": "https://imbrium.mit.edu/DATA/SLDEM2015/GLOBAL/FLOAT_IMG/SLDEM2015_128_60S_60N_000_360_FLOAT.IMG"
     },
     {
       "source": "/explore",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/planning",
       "destination": "/index.html"
     },
     {

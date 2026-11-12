@@ -1,111 +1,63 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {JSDOM} from 'jsdom';
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const app=readFileSync(new URL('../src/app.js',import.meta.url),'utf8');
 const build=readFileSync(new URL('../scripts/build.js',import.meta.url),'utf8');
-test('mission finder controls exist and map onto JS event listeners',()=>{
- for(const id of [
-   'finder-date','finder-range','finder-duration','finder-priority','finder-run',
-   'finder-heatmap','finder-top','finder-caption','finder-shell-status','finder-export'
- ]){
-   assert.ok(html.includes('id="'+id+'"'),'Missing HTML control: '+id);
-   assert.ok(app.includes("'#"+id+"'"),'Missing JS integration for: '+id);
- }
+const doc=new JSDOM(html).window.document;
+test('one planning workflow contains shared mission inputs, comparison and search',()=>{
+ const plan=doc.querySelector('[data-view="planning"]');
+ for(const id of ['finder-date','planning-time','finder-duration','finder-mode','compare-table','compare-timeline','finder-range','finder-priority','finder-top','finder-heatmap','finder-export'])assert.ok(plan.querySelector('#'+id),'missing planning input/result '+id);
+ for(const id of ['finder-run','compare-picks','site-comparison','finder-impact','finder-load-all','date-compare-run','transit-sync'])assert.equal(doc.getElementById(id),null,'redundant control remains '+id);
+ assert.ok(doc.querySelector('[data-view="explore"] #download-csv'));
 });
-test('new analytics dependency included in deployable static build',()=>{
- assert.match(app,/from '\.\/finder\.js'/);
- assert.match(build,/src\/finder\.js/);
- assert.match(html,/data-route="windows"/);
+test('planning dependencies are included in the static build',()=>{
+ for(const module of ['finder','compare','terrain-cache','router','transit'])assert.ok(build.includes('src/'+module+'.js'));
+ assert.match(build,/data\/lola-horizons\.json/);
 });
-test('navigation uses deliberate screening language rather than unqualified accuracy claims',()=>{
- assert.match(html,/flat-horizon/i);
- assert.match(html,/not universal error bounds/i);
- assert.match(html,/four hours/i);
+test('planning keeps screening limitations and resolution visible',()=>{
+ assert.match(doc.querySelector('[data-view="planning"]').textContent,/not universal error bounds/i);
+ assert.match(html,/Two-hour comparison and four-hour search/);
+ assert.match(html,/not surveyed landing sites/);
+ assert.match(html,/Earth visibility is geometry/);
 });
-
-test('terrain-aware finder mode advertises honest site coverage and exposes loading controls',()=>{
- for(const id of ['finder-mode','finder-load-all','finder-open-terrain','finder-terrain-count','finder-data-status']){
-   assert.ok(html.includes('id="'+id+'"'),'Missing coverage UI: '+id);
-   assert.ok(app.includes("'#"+id+"'"),'Missing coverage JS: '+id);
- }
+test('terrain coverage is explicit and refinement remains in Engineering',()=>{
+ for(const id of ['finder-terrain-count','finder-data-status'])assert.ok(doc.getElementById(id));
  assert.match(html,/No flat-horizon results are mixed in/i);
- assert.match(app,/getCachedTerrain/);
+ assert.ok(doc.querySelector('[data-view="engineering"] #terrain-load'));
+ assert.ok(doc.querySelector('[data-view="engineering"] #terrain-file'));
 });
-
-test('Phase 5 terrain comparison UI and source-backed catalog are wired into production',()=>{
-  for(const id of ['finder-impact','finder-impact-items']){
-    assert.ok(html.includes('id="'+id+'"'),'Missing comparison panel '+id);
-    assert.ok(app.includes("'#"+id+"'"),'Missing comparison integration for '+id);
-  }
-  assert.match(app,/loadBundledTerrain/);
-  assert.match(app,/compareFinderModels/);
-  assert.match(build,/src\/terrain-cache\.js/);
-  assert.match(build,/data\/lola-horizons\.json/);
-  assert.match(app,/delta_dual_pp/);
+test('search export retains terrain baseline differences and provenance',()=>{
+ assert.match(app,/compareFinderModels/);assert.match(app,/delta_dual_pp/);
+ assert.match(app,/data_source/);assert.match(app,/state.finder.startTime/);
 });
-
-test('Multipage workspace keeps all live tool DOM nodes while showing one view at a time',()=>{
- const views=['home','explore','windows','engineering','compare','science'];
- for(const view of views)assert.ok(html.includes('data-view="'+view+'"'),'Missing view '+view);
- for(const route of views)assert.ok(html.includes('data-route="'+route+'"'),'Missing nav route '+route);
- assert.match(html,/src="\/src\/app\.js"/);
- assert.match(html,/href="\/src\/styles\.css"/);
- assert.match(app,/history\.pushState/);
- assert.match(app,/popstate/);
- assert.match(build,/src\/router\.js/);
- assert.match(app,/navigatePage\('explore'\)/);
- assert.match(app,/navigatePage\('engineering'\)/);
-});
-
-test('Earth-to-Moon transit estimator lives once, inside the Mission Windows page',()=>{
-  // Exactly one journey section exists and it is a descendant of the windows app-view.
-  assert.equal(html.split('id=\"transit\"').length-1,1,'exactly one transit section is allowed in the DOM');
-  const views=['home','explore','engineering','windows','compare','science'];
-  const transitSection=html.indexOf('id=\"transit\"');
-  for(const view of views){
-    const start=html.indexOf('data-view=\"'+view+'\"');
-    assert.ok(start>0, 'view exists: '+view);
-    let end;
-    if(view==='home')end=html.indexOf('data-view=\"explore\"');
-    else if(view==='explore')end=html.indexOf('data-view=\"engineering\"');
-    else if(view==='engineering')end=html.indexOf('data-view=\"windows\"');
-    else if(view==='windows')end=html.indexOf('data-view=\"compare\"');
-    else if(view==='compare')end=html.indexOf('data-view=\"science\"');
-    else end=html.length;
-    if(view!=='windows'){
-      assert.ok(transitSection<start||transitSection>=end,view+' must not contain the transit section');
-    }else{
-      assert.ok(transitSection>start&&transitSection<end,'transit section must be inside the Mission Windows view');
-    }
-  }
-  // It sits immediately after the windows page heading and before the finder shell.
-  assert.ok(transitSection>html.indexOf('data-view=\"windows\"'),'transit section is inside the windows view');
-  assert.ok(transitSection<html.indexOf('finder-shell'),'transit section appears before the finder analysis tools');
-  assert.ok(transitSection<html.indexOf('data-view=\"compare\"'),'transit section never leaks into the comparison page');
-  assert.match(html,/Plan your journey to the Moon/i);
-  assert.match(html,/02B \/ JOURNEY/,'journey numbering follows the Mission Windows section sequence');
-  for(const id of ['transit-mode','transit-date','transit-time','transit-profile','transit-custom-hours',
-    'transit-run','transit-sync','transit-results','transit-hint','transit-destination-tag','transit-profile-tag']){
-    assert.ok(html.includes('id="'+id+'"'),'Missing transit control: '+id);
-    assert.ok(app.includes("'#"+id+"'"),'Missing transit JS integration for: '+id);
-  }
-  assert.match(app,/estimateEarthMoonTransit/);
-  assert.match(build,/src\/transit\.js/);
-});
-
-test('Earth and Sun are part of the existing Moon globe, not a separate 3D scene',()=>{
- const globe=readFileSync(new URL('../src/globe.js',import.meta.url),'utf8');
- for(const id of ['celestial-view','celestial-scrubber','celestial-play','celestial-speed','celestial-clock','celestial-reset']){
-   assert.ok(html.includes('id="'+id+'"'),'missing control '+id);
-   assert.ok(app.includes("'#"+id+"'"),'missing control handler '+id);
+test('four views retain live modules with one navigation route each',()=>{
+ assert.equal(doc.querySelectorAll('[data-view]').length,4);
+ for(const view of ['explore','planning','engineering','science']){
+   assert.equal(doc.querySelectorAll('[data-view="'+view+'"]').length,1);
+   assert.equal(doc.querySelectorAll('a.nav-link[data-route="'+view+'"]').length,1);
  }
+ assert.match(app,/history\.pushState/);assert.match(app,/popstate/);
+});
+test('date comparison and transit are optional details after core results',()=>{
+ const plan=doc.querySelector('[data-view="planning"]');
+ for(const id of ['date-comparison','transit']){
+   assert.equal(doc.querySelectorAll('#'+id).length,1);
+   const detail=plan.querySelector('details#'+id);
+   assert.ok(detail&&!detail.open);
+   assert.ok(html.indexOf('id="'+id+'"')>html.indexOf('id="finder-top"'));
+ }
+ for(const id of ['transit-mode','transit-date','transit-time','transit-profile','transit-custom-hours','transit-run','transit-results','transit-hint','transit-destination-tag','transit-profile-tag']){
+   assert.ok(plan.querySelector('#'+id),'missing transit control '+id);
+   assert.ok(app.includes("'#"+id+"'"),'missing transit integration '+id);
+ }
+});
+test('Earth and Sun remain in the Moon globe with UTC simulation controls',()=>{
+ const globe=readFileSync(new URL('../src/globe.js',import.meta.url),'utf8');
+ for(const id of ['celestial-view','celestial-scrubber','celestial-play','celestial-speed','celestial-clock','celestial-reset'])assert.ok(doc.getElementById(id));
  assert.match(globe,/skyBodies\(a,sunlight,earthlight/);
  assert.match(globe,/horizontalToLunarVector\(obs.earth/);
  assert.match(globe,/setCelestialVisible\(enabled\)/);
- assert.match(globe,/showSkyBodies>0\.5/);
- assert.match(globe,/celestialDrag/);
- assert.match(build,/src\/celestial\.js/);
- assert.match(html,/SPHERES ENLARGED FOR VISIBILITY/);
- assert.ok(!app.includes('setSystemView('),'old separate-system toggle still wired');
+ assert.match(build,/src\/celestial\.js/);assert.match(html,/sizes and distances compressed/);
 });
