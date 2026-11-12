@@ -116,7 +116,7 @@
                   <button id="focus-site" aria-pressed="false" class="map-tool view-focus" title="Focus camera on selected site" aria-label="Focus on selected site">◎ <span>Focus</span></button>
                   <button id="reset-view" class="map-tool" title="Reset 3D view" aria-label="Reset globe orientation">↺</button>
                   <button id="zoom-out" class="map-tool" aria-label="Zoom out">−</button>
-                  <span id="zoom-label">100%</span>
+                  <span id="zoom-label">50%</span>
                   <button id="zoom-in" class="map-tool" aria-label="Zoom in">+</button>
                   <button id="expand-globe" class="map-tool view-expand" aria-label="Expand lunar globe" aria-pressed="false" title="Enter immersive globe view">⛶</button>
                   <label class="relief-control" for="relief-exaggeration">GRAPHICS
@@ -129,7 +129,23 @@
                 <canvas id="moon-map" role="img" aria-label="Interactive lunar globe, select a point or drag to rotate. Satellite imagery is not terrain-risk data."></canvas>
                 <div class="map-overlay-bottom">
                   <div class="map-coordinate"><strong id="map-site-name">MONS MOUTON</strong><span id="map-coordinate">84.79°S &nbsp; 29.20°E</span></div>
-                  <div class="map-legend"><span><i class="pin-legend"></i> Study sites</span><span><i class="ring-legend"></i> South-polar parallels</span></div>
+                  <button type="button" id="panorama-open" class="panorama-button" title="Fly down to this site and view the 360° horizon panorama">View site panorama</button>
+                </div>
+                <div class="panorama-overlay" id="panorama-overlay" hidden>
+                  <div class="panorama-head">
+                    <strong id="panorama-title">SURFACE PANORAMA</strong>
+                    <span id="panorama-subtitle"></span>
+                    <span id="panorama-heading">HEADING 0°</span>
+                    <button type="button" id="panorama-close" class="celestial-control-btn">Close panorama</button>
+                  </div>
+                  <div class="panorama-viewport">
+                    <canvas id="panorama-canvas" width="1440" height="520" aria-label="First-person 360-degree surface view ray-marched from NASA terrain. Drag to look around, scroll to zoom, arrow keys turn the view; Sun and Earth sit at their real positions in the lunar sky."></canvas>
+                    <canvas id="panorama-hud" aria-hidden="true"></canvas>
+                  </div>
+                  <div class="panorama-foot">
+                    <span id="panorama-note">3D surface ray-marched from NASA LOLA/Kaguya DEM heights · terrain lit by the real Sun direction · ground micro-texture (rocks, dips, mottling) procedural and artistic · Sun (0.53°) and Earth (1.98°) at true angular size · star field decorative · drag to look, scroll to zoom</span>
+                    <span id="panorama-bodies"></span>
+                  </div>
                 </div>
                 <div class="celestial-annotations" aria-hidden="true">
                   <span class="celestial-label celestial-sun">SUN</span>

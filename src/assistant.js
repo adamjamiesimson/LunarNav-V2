@@ -14,6 +14,14 @@
 const WELCOME = 'Ask about the selected mission, visibility, power, windows or travel. Calculations use the planner’s models; an API key must be configured on the server.';
 const STORAGE_KEY = 'lunarnav:assistant:history:v1';
 
+function assistantErrorHint(message){
+  const text=String(message||'');
+  if(/deadline|timed out|timeout/i.test(text))
+    return 'The AI provider timed out — press **Send** to ask again. History and context are kept for the retry.';
+  if(/api key|API_KEY|401|403|rejected/i.test(text))
+    return 'Verify that **GEMINI_API_KEY** is configured on the Vercel deployment, then try again.';
+  return 'Check that you are online and that the server is configured, then retry. History and context remain available.';
+}
 function escapeHTML(str){
   return String(str).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
@@ -237,7 +245,7 @@ async function sendMessage(text){
     pushMessage('assistant', body.reply || 'No reply received.', body.tools || []);
   } catch (error){
     typing.remove();
-    pushMessage('assistant', `**The assistant could not complete that request.**\n\n${escapeHTML(error.message)}\n\n> Verify that **GEMINI_API_KEY** is configured on the Vercel deployment and that you are online. History and context remain available for a retry.`);
+    pushMessage('assistant', `**The assistant could not complete that request.**\n\n${escapeHTML(error.message)}\n\n> ${assistantErrorHint(error.message)}`);
   } finally {
     typing.remove();
     busy = false;
