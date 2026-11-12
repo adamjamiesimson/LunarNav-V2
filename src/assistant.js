@@ -91,7 +91,7 @@ function toggle(open){
   const show = open ?? ui.root.hidden;
   ui.root.hidden = !show;
   ui.fab.setAttribute('aria-expanded', String(show));
-  ui.fab.setAttribute('aria-label', show ? 'Close the LunarNav mission assistant' : 'Open the LunarNav mission assistant');
+  ui.fab.setAttribute('aria-label', show ? 'Close Ask Spacey AI' : 'Open Ask Spacey AI');
   document.body.classList.toggle('assistant-open', show);
   if (show){
     updateContextBanner();
