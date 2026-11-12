@@ -96,7 +96,7 @@ main{padding:0 var(--gutter);min-height:calc(100vh - 120px)}
 #tour-counter{font:13px/1.45 var(--font)}
 #tour-skip{border:0;background:transparent;color:var(--muted);padding:4px 0;font-size:14px}
 #tour-skip:hover{color:var(--text)}
-.tour-progress{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px;margin-bottom:16px}
+.tour-progress{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:4px;margin-bottom:16px}
 .tour-progress span{height:4px;border-radius:2px;background:var(--line)}
 .tour-progress .complete{background:var(--accent)}
 .tour-actions{display:flex;gap:10px}

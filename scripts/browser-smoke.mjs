@@ -195,7 +195,7 @@ async function checkTourStep(page,step,expectedPage){
     const target=document.querySelector('.tour-target'),ring=document.querySelector('#tour-ring');
     const r=ring.getBoundingClientRect(),card=document.querySelector('.onboarding-card').getBoundingClientRect(),t=target.getBoundingClientRect();
     return {page:document.body.dataset.page,count:document.querySelectorAll('.tour-target').length,
-      visible:!target.closest('[data-view]').hidden,
+      visible:!target.closest('[data-view]')?.hidden,
       ringOnScreen:r.width>24&&r.height>=24&&r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1,
       marksTarget:r.left<t.right&&r.right>t.left&&r.top<t.bottom&&r.bottom>t.top,
       cardOnScreen:card.left>=0&&card.top>=0&&card.right<=innerWidth+1&&card.bottom<=innerHeight+1,
@@ -451,16 +451,16 @@ try{
   await visitor.locator('input[name="startup-graphics"][value="10"]').check();
   await visitor.locator('#graphics-continue').click();
   assert((await visitor.locator('#relief-exaggeration').inputValue())==='10','high realistic preset did not set ×10 relief');
-  assert((await visitor.locator('#tour-counter').textContent())==='01 / 10','tutorial did not start at step one');
+  assert((await visitor.locator('#tour-counter').textContent())==='01 / 12','tutorial did not start at step one');
   await checkTourStep(visitor,1,'explore');
   await visitor.screenshot({path:'smoke-artifacts/tutorial.png'});
   await visitor.locator('#tour-next').click();
   await visitor.locator('#tour-back').click();
-  assert((await visitor.locator('#tour-counter').textContent())==='01 / 10','tutorial Back failed');
-  const tourPages=['explore','explore','explore','explore','explore','explore','planning','planning','engineering','engineering'];
-  for(let i=0;i<10;i++){
+  assert((await visitor.locator('#tour-counter').textContent())==='01 / 12','tutorial Back failed');
+  const tourPages=['explore','explore','explore','explore','explore','explore','planning','planning','engineering','engineering','explore','explore'];
+  for(let i=0;i<tourPages.length;i++){
     await checkTourStep(visitor,i+1,tourPages[i]);
-    if([2,6,9].includes(i))await visitor.screenshot({path:'smoke-artifacts/tutorial-desktop-'+(i+1)+'.png'});
+    if([2,6,9,10,11].includes(i))await visitor.screenshot({path:'smoke-artifacts/tutorial-desktop-'+(i+1)+'.png'});
     await visitor.locator('#tour-next').click();
   }
   assert(!await visitor.locator('#onboarding-dialog').evaluate(el=>el.open),'tutorial did not finish');
@@ -480,14 +480,14 @@ try{
   await mobile.locator('a.nav-link[data-route="science"]').click();
   const tourURL=mobile.url(),tourDate=await mobile.locator('#mission-date').inputValue();
   await mobile.locator('#restart-tour').click();
-  for(let i=0;i<10;i++){
+  for(let i=0;i<tourPages.length;i++){
     await checkTourStep(mobile,i+1,tourPages[i]);
     if(i===2){
       await mobile.setViewportSize({width:360,height:640});await checkTourStep(mobile,3,'explore');
       await mobile.screenshot({path:'smoke-artifacts/tutorial-mobile-short.png'});
       await mobile.setViewportSize({width:390,height:844});await checkTourStep(mobile,3,'explore');
     }
-    if([0,6,9].includes(i))await mobile.screenshot({path:'smoke-artifacts/tutorial-mobile-'+(i+1)+'.png'});
+    if([0,6,9,10,11].includes(i))await mobile.screenshot({path:'smoke-artifacts/tutorial-mobile-'+(i+1)+'.png'});
     await mobile.locator('#tour-next').click();
   }
   assert(await mobile.locator('#science-page').isVisible()&&mobile.url()===tourURL,'tour changed the return page/history');
