@@ -321,10 +321,9 @@ export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
       ctx.strokeStyle=color;ctx.lineWidth=1;
       ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y-26);ctx.stroke();
       ctx.fillStyle=color;ctx.textAlign='center';
-      const name=body===obs.sun?'SUN':'EARTH';
+      const name=body===obs.sun?'Sun':'Earth';
       const status=bodyLabel?bodyLabel(body):'';
-      ctx.fillText(name+' · '+body.azimuth.toFixed(0)+'° AZ · '+body.elevation.toFixed(1)+'° EL',x,y-34);
-      if(status)ctx.fillText(status,x,y-20);
+      ctx.fillText(status==='Above horizon'?name:name+' · '+status,x,y-34);
       ctx.textAlign='left';
     }
     ctx.lineWidth=1;

@@ -17,14 +17,17 @@ test('planning dependencies are included in the static build',()=>{
  assert.match(build,/data\/lola-horizons\.json/);
 });
 test('planning keeps screening limitations and resolution visible',()=>{
- assert.match(doc.querySelector('[data-view="planning"]').textContent,/not universal error bounds/i);
- assert.match(html,/Two-hour comparison and four-hour search/);
- assert.match(html,/not surveyed landing sites/);
- assert.match(html,/Earth visibility is geometry/);
+ const plan=doc.querySelector('[data-view="planning"]');
+ const methods=doc.querySelector('[data-view="science"]');
+ assert.match(methods.textContent,/comparisons sample every 2 hours\. The mission-window search samples every 4 hours/i);
+ assert.ok(plan.querySelector('a[data-route="science"]'));
+ assert.match(methods.textContent,/measured errors are specific to the sample/i);
+ assert.match(methods.textContent,/illustrative points lack site surveys/i);
+ assert.match(methods.textContent,/Earth visibility uses line-of-sight geometry/i);
 });
 test('terrain coverage is explicit and refinement remains in Engineering',()=>{
  for(const id of ['finder-terrain-count','finder-data-status'])assert.ok(doc.getElementById(id));
- assert.match(html,/No flat-horizon results are mixed in/i);
+ assert.match(doc.getElementById('finder-data-status').textContent,/only sites with a loaded profile/i);
  assert.ok(doc.querySelector('[data-view="engineering"] #terrain-load'));
  assert.ok(doc.querySelector('[data-view="engineering"] #terrain-file'));
 });
@@ -59,5 +62,7 @@ test('Earth and Sun remain in the Moon globe with UTC simulation controls',()=>{
  assert.match(globe,/skyBodies\(a,sunlight,earthlight/);
  assert.match(globe,/horizontalToLunarVector\(obs.earth/);
  assert.match(globe,/setCelestialVisible\(enabled\)/);
- assert.match(build,/src\/celestial\.js/);assert.match(html,/sizes and distances compressed/);
+ assert.match(build,/src\/celestial\.js/);const methods=doc.querySelector('[data-view="science"]');
+ assert.match(methods.textContent,/compressed sizes and distances/);
+ assert.ok(methods.querySelector('a[href="https://svs.gsfc.nasa.gov/4720/"]'));
 });

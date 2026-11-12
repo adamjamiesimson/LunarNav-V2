@@ -58,10 +58,121 @@ async function trackGPU(page){
     WebGLRenderingContext.prototype.texImage2D=function(...args){
       const result=upload.apply(this,args),source=args[5];
       const width=args.length===9?args[3]:source.width,height=args.length===9?args[4]:source.height;
-      window.gpuUploads.push({width,height,bytes:args[8]?.byteLength||null,error:this.getError()});
+      window.gpuUploads.push({canvas:this.canvas.id,width,height,bytes:args[8]?.byteLength||null,error:this.getError()});
       return result;
     };
   });
+}
+async function trackPanorama(page,{fallback=false}={}){
+  await page.addInitScript(useFallback=>{
+    const probe=window.panoramaProbe={grids:[],frame:null,skyline:null};
+    if(useFallback){
+      const getContext=HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext=function(type,...args){
+        if(this.id==='panorama-canvas'&&type==='webgl')return null;
+        return getContext.call(this,type,...args);
+      };
+    }
+    const read=CanvasRenderingContext2D.prototype.getImageData;
+    CanvasRenderingContext2D.prototype.getImageData=function(...args){
+      const pixels=read.apply(this,args);
+      if(!this.canvas.isConnected&&pixels.width>50&&pixels.width<300&&pixels.height<300){
+        const codes=new Set();
+        for(let i=0;i<pixels.data.length;i+=68){
+          const code=pixels.data[i]*16+pixels.data[i+1]/16;
+          if(code&&pixels.data[i+3])codes.add(code);
+        }
+        probe.grids.push(codes.size);
+      }
+      return pixels;
+    };
+    if(useFallback){
+      const write=CanvasRenderingContext2D.prototype.putImageData;
+      CanvasRenderingContext2D.prototype.putImageData=function(pixels,...args){
+        if(this.canvas.id==='panorama-canvas'&&!probe.skyline){
+          const rows=[];
+          for(let x=0;x<pixels.width;x+=40){
+            for(let y=0;y<pixels.height;y++){
+              const offset=(y*pixels.width+x)*4;
+              if(pixels.data[offset]===201&&pixels.data[offset+1]===155&&pixels.data[offset+2]===82){
+                rows.push(y);
+                break;
+              }
+            }
+          }
+          probe.skyline=rows;
+        }
+        return write.call(this,pixels,...args);
+      };
+    }else{
+      const draw=WebGLRenderingContext.prototype.drawArrays;
+      WebGLRenderingContext.prototype.drawArrays=function(...args){
+        const result=draw.apply(this,args);
+        if(this.canvas.id!=='panorama-canvas'||this.drawingBufferWidth<200)return result;
+        const program=this.getParameter(this.CURRENT_PROGRAM);
+        const uniform=name=>this.getUniform(program,this.getUniformLocation(program,name));
+        const fov=uniform('uTanFov');
+        if(!probe.frame){
+          const colors=new Set(),pixel=new Uint8Array(4);
+          for(const x of [.2,.5,.8])for(const y of [.15,.35,.65,.85]){
+            this.readPixels(Math.floor(x*this.drawingBufferWidth),Math.floor(y*this.drawingBufferHeight),
+              1,1,this.RGBA,this.UNSIGNED_BYTE,pixel);
+            colors.add(pixel.join(','));
+          }
+          probe.frame={colors:colors.size,sun:Array.from(uniform('uSunDir')),earth:Array.from(uniform('uEarthDir'))};
+        }
+        probe.frame.fov=fov;
+        return result;
+      };
+    }
+  },fallback);
+}
+async function openPanorama(page){
+  await page.locator('#panorama-open').click();
+  assert(await page.locator('#panorama-open').isDisabled(),'panorama did not begin the camera fly-in');
+  await page.locator('#panorama-overlay.visible').waitFor({timeout:45000});
+  await page.waitForFunction(()=>getComputedStyle(document.querySelector('#panorama-overlay')).opacity==='1');
+  assert(await page.evaluate(()=>panoramaProbe.grids.some(count=>count>20)),'panorama loader did not sample varied elevations from the bundled grid');
+}
+async function closePanorama(page){
+  await page.locator('#panorama-close').click();
+  assert(await page.locator('#panorama-overlay').isHidden(),'close did not return to the globe');
+  assert(await page.locator('#moon-map').isVisible()&&await page.locator('#panorama-open').isEnabled(),'globe controls were not restored');
+}
+async function checkPanorama(page,mobile=false){
+  await openPanorama(page);
+  await page.waitForFunction(()=>panoramaProbe.frame?.colors>2);
+  const frame=await page.evaluate(()=>panoramaProbe.frame);
+  assert([frame.sun,frame.earth].every(direction=>Math.abs(Math.hypot(...direction)-1)<.001),'surface shader did not receive Sun and Earth directions');
+  const canvas=page.locator('#panorama-canvas');
+  await canvas.scrollIntoViewIfNeeded();
+  const rect=await canvas.boundingBox();
+  assert(rect.width>200&&rect.height>140,'surface viewport is too small');
+  const x=Math.round(rect.x+rect.width/2),y=Math.round(rect.y+rect.height/2);
+  const heading=()=>page.locator('#panorama-heading').textContent();
+  const waitForTurn=previous=>page.waitForFunction(value=>document.querySelector('#panorama-heading').textContent!==value,previous);
+  const initial=await heading();
+  if(mobile){
+    const cdp=await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+50,y}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await cdp.detach();
+    await waitForTurn(initial);
+  }else{
+    await page.mouse.move(x,y);
+    await page.mouse.down();
+    await page.mouse.move(x+50,y,{steps:3});
+    await page.mouse.up();
+    await waitForTurn(initial);
+    const dragged=await heading();
+    await canvas.press('ArrowRight');
+    await waitForTurn(dragged);
+    await canvas.press('=');
+    await page.waitForFunction(fov=>panoramaProbe.frame.fov<fov,frame.fov);
+  }
+  await page.screenshot({path:'smoke-artifacts/'+(mobile?'mobile-':'')+'panorama.png'});
+  await closePanorama(page);
 }
 async function checkCSV(page,selector){
   const [download]=await Promise.all([page.waitForEvent('download'),page.locator(selector).click()]);
@@ -98,21 +209,24 @@ async function checkTourStep(page,step,expectedPage){
 const errors=[];
 try{
   await ready();
-  browser=await chromium.launch({headless:true,args:['--use-gl=angle','--use-angle=swiftshader']});
+  browser=await chromium.launch({headless:true,args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
   const page=await browser.newPage({viewport:{width:1440,height:900},reducedMotion:'reduce'});
   await trackGPU(page);
+  await trackPanorama(page);
   page.on('pageerror',err=>errors.push('desktop '+err.message));
   await offNetwork(page);
   await page.goto(host+'/',{waitUntil:'domcontentloaded'});
   await completeWelcome(page,'2');
   await page.waitForFunction(()=>document.body.dataset.page==='explore');
   mkdirSync('smoke-artifacts',{recursive:true});
-  await page.waitForFunction(()=>document.querySelector('#mission-verdict')?.textContent!=='COMPUTING…');
+  await page.waitForFunction(()=>document.querySelector('#mission-verdict')?.textContent!=='Calculating…');
   await page.waitForFunction(()=>document.querySelector('#finder-terrain-count')?.textContent?.startsWith('5 of 5'),{timeout:20000});
   const initial=await page.locator('#mission-verdict').textContent();
-  assert(/VISIBILITY|ONLY|OBSTRUCTED/.test(initial),'no live mission verdict');
-  const imageStatus=await page.locator('#map-image-status').textContent();
-  assert(/GLOBE|PROCEDURAL|SCHEMATIC|LROC/.test(imageStatus),'no truthful globe image status');
+  assert(/visibility|only|obstructed/i.test(initial),'no live mission verdict');
+  await page.locator('#map-image-status[data-imagery="loaded"]').waitFor({state:'attached'});
+  assert(await page.locator('#map-image-status').isHidden(),'successful Moon imagery showed a redundant status');
+  assert(await page.evaluate(()=>gpuUploads.some(upload=>upload.width===2048&&upload.height===1024&&upload.error===0)),
+    'the LROC texture did not reach WebGL');
   for(const value of ['2','5','10']){
     await page.locator('#relief-exaggeration').selectOption(value);
     await page.waitForFunction(n=>window.reliefValues.at(-1)===Number(n),value);
@@ -165,16 +279,16 @@ try{
   assert(!await page.locator('#date-compare-table').isVisible(),'date comparison should start collapsed');
   assert(!await page.locator('#transit-run').isVisible(),'transit should start collapsed');
   await page.locator('#finder-mode').selectOption('flat');
-  await page.waitForFunction(()=>document.querySelector('#finder-model-badge').textContent.includes('GEOMETRIC'));
-  assert((await page.locator('#compare-model').textContent()).includes('FLAT 0°'),'comparison did not share horizon');
+  await page.waitForFunction(()=>document.querySelector('#finder-model-badge').textContent.includes('Flat 0° geometric horizon'));
+  assert((await page.locator('#compare-model').textContent()).includes('Flat 0° horizon'),'comparison did not share horizon');
   await page.locator('#planning-time').fill('18:00');await page.locator('#planning-time').dispatchEvent('change');
   await page.locator('#finder-duration').selectOption('14');
   await page.waitForFunction(()=>document.querySelector('#finder-caption').textContent.includes('14-day')&&document.querySelector('#finder-shell-status').textContent.includes('18:00 UTC'));
   await page.locator('.planning-calendar summary').click();
   assert(await page.locator('.finder-day').count()===150,'date calendar lost sites/dates');
   await page.locator('#finder-mode').selectOption('terrain');
-  await page.waitForFunction(()=>document.querySelector('#finder-model-badge').textContent.includes('LOADED LOCAL'));
-  assert((await page.locator('#compare-model').textContent()).includes('LOADED TERRAIN'),'comparison did not switch horizon');
+  await page.waitForFunction(()=>document.querySelector('#finder-model-badge').textContent.includes('Loaded terrain horizons'));
+  assert((await page.locator('#compare-model').textContent()).includes('Loaded terrain'),'comparison did not switch horizon');
   const [searchDownload]=await Promise.all([page.waitForEvent('download'),page.locator('#finder-export').click()]);
   const searchCSV=readFileSync(await searchDownload.path(),'utf8');
   assert(searchCSV.includes('T18:00:00Z')&&searchCSV.includes('delta_dual_pp')&&searchCSV.includes('data_source'),'CSV lost UTC, baseline or provenance');
@@ -240,6 +354,10 @@ try{
   await page.waitForSelector('#travel-results .travel-summary',{state:'visible'});
   const travelDistance=await page.locator('#travel-results .travel-summary').textContent();
   assert(/\d+(\.\d+)? km/.test(travelDistance),'travel estimate did not report a distance');
+  const traverseModel=await page.locator('#travel-horizon-tag').textContent();
+  const usesOriginTerrain=(await page.locator('.travel-visibility').textContent()).includes('Terrain at origin');
+  assert(usesOriginTerrain?traverseModel.startsWith('NASA terrain'):traverseModel==='Flat 0° horizon',
+    'the traverse label did not match the horizon used in the result');
   const energy=await page.locator('#eng-energy').textContent();
   await page.locator('#eng-area').fill('0');
   assert((await page.locator('#eng-energy').textContent())==='0.0 kWh','solar-area input did not update engineering');
@@ -250,7 +368,7 @@ try{
   await checkCSV(page,'#finder-export');
   await page.locator('#transit summary').click();
   await page.locator('#transit-run').click();
-  assert((await page.locator('#transit-results').textContent()).includes('LUNAR ARRIVAL'),'transit results missing');
+  assert((await page.locator('#transit-results').textContent()).includes('Lunar arrival'),'transit results missing');
   await page.locator('#brief-btn').click();
   assert(await page.locator('#brief-content .report-grid').isVisible(),'briefing did not contain computed results');
   await page.pdf({path:'smoke-artifacts/mission-brief.pdf'});
@@ -278,16 +396,18 @@ try{
   await page.locator('a.nav-link[data-route="explore"]').click();
   await page.waitForSelector('#toast:not(.show)');
   await page.screenshot({path:'smoke-artifacts/desktop.png',fullPage:false});
+  await checkPanorama(page);
 
   const mobile=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'});
   await trackGPU(mobile);
+  await trackPanorama(mobile);
   mobile.on('pageerror',err=>errors.push('mobile '+err.message));
   await offNetwork(mobile);
   await mobile.goto(host+'/explore?site=nobile&date=2026-11-14&days=7',{waitUntil:'domcontentloaded'});
   await mobile.locator('#onboarding-dialog[data-stage="graphics"]').waitFor();
   await mobile.screenshot({path:'smoke-artifacts/mobile-graphics.png'});
   await completeWelcome(mobile);
-  await mobile.waitForFunction(()=>document.querySelector('#mission-verdict')?.textContent!=='COMPUTING…');
+  await mobile.waitForFunction(()=>document.querySelector('#mission-verdict')?.textContent!=='Calculating…');
   const mobileNav=await mobile.locator('.main-nav').boundingBox();
   assert(mobileNav&&mobileNav.height>=40,'mobile navigation is not visible/tappable');
   const mobileLinks=await mobile.locator('.main-nav a.nav-link:visible').count();
@@ -305,6 +425,7 @@ try{
   assert(new URL(mobile.url()).pathname==='/planning','mobile Back lost Plan Mission');
   await mobile.locator('a.nav-link[data-route="explore"]').click();
   await mobile.screenshot({path:'smoke-artifacts/mobile.png',fullPage:false});
+  await checkPanorama(mobile,true);
   for(const route of ['planning','engineering','science','explore']){
     await mobile.locator('a.nav-link[data-route="'+route+'"]').click();
     const overflow=await mobile.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
@@ -347,7 +468,9 @@ try{
   await visitor.reload({waitUntil:'domcontentloaded'});
   assert(await visitor.locator('#onboarding-dialog[data-stage="loading"]').isVisible(),'onboarding did not replay on reload');
   await completeWelcome(visitor);
-  await visitor.waitForFunction(()=>document.querySelector('#map-image-status').textContent.includes('PROCEDURAL'));
+  const imageFallback=visitor.locator('#map-image-status[data-imagery="fallback"]');
+  await imageFallback.waitFor();
+  assert((await imageFallback.textContent()).includes('Showing a simulated surface'),'fallback imagery was not disclosed');
   await visitor.locator('#planner-help').click();
   assert(await visitor.locator('#science-page').isVisible(),'optional help did not open Methods');
   await visitor.locator('#restart-tour').click();
@@ -419,16 +542,35 @@ try{
   assert((await terrainPage.locator('#selected-name').textContent())==='Nobile Region','stale terrain restored old site');
   assert(!(await terrainPage.locator('#terrain-status').textContent()).includes('SLDEM2015'),'stale terrain replaced current profile');
 
+  // Leave the production loader and renderer modules intact. Block only the
+  // surface canvas WebGL context so the real DEM samples drive the 2D skyline.
+  const fallback=await browser.newPage({viewport:{width:1024,height:768},reducedMotion:'reduce'});
+  fallback.on('pageerror',error=>errors.push('panorama fallback '+error.message));
+  await trackPanorama(fallback,{fallback:true});
+  await offNetwork(fallback);
+  await fallback.goto(host+'/explore',{waitUntil:'domcontentloaded'});
+  await completeWelcome(fallback);
+  await openPanorama(fallback);
+  const skyline=await fallback.evaluate(()=>panoramaProbe.skyline);
+  assert(skyline?.length>10&&new Set(skyline).size>3,'the 2D panorama did not render a varying DEM skyline');
+  await closePanorama(fallback);
+  await fallback.close();
+
+  const {size:polarGridSize}=JSON.parse(readFileSync('dist/data/relief.json','utf8'));
   const metrics={};
   for(const [name,target,limit] of [['desktop',page,4096],['mobile',mobile,2048]]){
     const uploads=await target.evaluate(()=>gpuUploads);
     assert(uploads.every(u=>u.error===0),name+' WebGL upload error');
-    assert(uploads.filter(u=>u.bytes===null).every(u=>u.width<=limit&&u.height<=limit),name+' exceeded texture budget');
+    const globeTextures=uploads.filter(u=>u.canvas==='moon-globe'&&u.bytes===null);
+    assert(globeTextures.length>0&&globeTextures.every(u=>u.width<=limit&&u.height<=limit),name+' globe exceeded texture budget');
+    const surfaceTextures=uploads.filter(u=>u.canvas==='panorama-canvas'&&u.bytes===null);
+    assert(surfaceTextures.length===1&&surfaceTextures[0].width===polarGridSize&&surfaceTextures[0].height===polarGridSize,
+      name+' surface panorama did not upload its single full-resolution polar grid');
     metrics[name]=await target.evaluate(()=>({uploads:gpuUploads,jsHeapBytes:performance.memory?.usedJSHeapSize||null}));
   }
   writeFileSync('smoke-artifacts/render-metrics.json',JSON.stringify(metrics,null,2));
   assert(errors.length===0,'uncaught JavaScript errors: '+errors.join(' | '));
-  console.log('Browser smoke PASS: four pages, shared planning inputs, recommendations, date comparison, transit, direct URLs, back/forward, desktop/mobile, science refresh, globe, terrain Finder and exports.');
+  console.log('Browser smoke PASS: four pages, shared planning inputs, recommendations, date comparison, transit, direct URLs, back/forward, desktop/mobile, science refresh, globe, real terrain panoramas, terrain Finder and exports.');
 }catch(error){
   console.error('Browser smoke FAIL:',error.message);
   if(errors.length)console.error('JavaScript errors:',errors.join(' | '));

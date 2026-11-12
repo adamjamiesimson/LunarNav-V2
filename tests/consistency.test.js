@@ -74,8 +74,8 @@ test('Earth visibility is never presented as confirmed communication',()=>{
 test('every results panel exposes its horizon model, including the flat fallback',()=>{
   for(const id of ['timeline-model','metrics-model','compare-model','date-compare-model'])
     assert.ok(html.includes('id="'+id+'"'),'missing model badge '+id);
-  assert.match(app,/Flat 0° horizon · no terrain/);
-  assert.match(app,/LOADED TERRAIN/);
+  assert.match(app,/Flat 0° horizon/);
+  assert.match(app,/Loaded terrain · /);
   assert.match(app,/SITES.filter\(site=>!terrainMode\|\|getCachedTerrain\(site\)\)/);
 });
 
@@ -94,7 +94,7 @@ test('site classifications are preserved and surfaced to the user',()=>{
   assert.ok(kinds.has('Illustrative point'));
   assert.ok(SITES.every(s=>s.kind&&s.source),'every site keeps a classification and a source link');
   assert.match(app,/site\.kind/,'site classification reaches the interface');
-  assert.match(html,/not surveyed landing sites/);
+  assert.match(html,/Illustrative points lack site surveys/);
 });
 
 test('assistant site comparison applies the same loaded per-site horizon as the planner',()=>{

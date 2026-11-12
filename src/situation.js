@@ -46,9 +46,7 @@ export function buildSkyDiagram(obs,profile=null){
       const point=plotPosition(az,horizonAt(profile,az));
       return point.x.toFixed(2)+','+point.y.toFixed(2);
     }).join(' ');
-    skyline='<polygon points="'+points+'" fill="rgba(201,155,82,.10)" stroke="#BBBBBB" stroke-width="2" stroke-linejoin="round"/>'+
-      '<text x="140" y="285" text-anchor="middle" fill="#D9A85F" font-family="monospace" font-size="8">'+
-      (profile.verifiedSource===true?'LINE = LOCAL LOLA HORIZON':'LINE = UNVERIFIED DEM HORIZON')+'</text>';
+    skyline='<polygon points="'+points+'" fill="rgba(201,155,82,.10)" stroke="#BBBBBB" stroke-width="2" stroke-linejoin="round"/>';
   }
   const grid='<circle cx="140" cy="140" r="102" fill="#22282C" stroke="#3A424A"/>'+
     '<circle cx="140" cy="140" r="68" fill="none" stroke="#3A424A" stroke-dasharray="3 6"/>'+
@@ -60,8 +58,8 @@ export function buildSkyDiagram(obs,profile=null){
     '<text x="256" y="143" text-anchor="middle" fill="#98A2A8" font-size="10">E</text>';
   return '<svg viewBox="0 0 280 290" role="img" aria-label="Local sky visibility, with Sun and Earth positions'+
     (profile?(profile.verifiedSource===true?' and NASA-derived local terrain horizon':' and user-supplied unverified terrain horizon'):' and geometric horizon')+'">'+grid+skyline+
-    trace(obs.sun,'#BBBBBB','SUN',situation.sunVisible,situation.sunBarrier)+
-    trace(obs.earth,'#F2F2F2','EARTH',situation.earthVisible,situation.earthBarrier)+
+    trace(obs.sun,'#BBBBBB','Sun',situation.sunVisible,situation.sunBarrier)+
+    trace(obs.earth,'#F2F2F2','Earth',situation.earthVisible,situation.earthBarrier)+
     '<circle cx="140" cy="140" r="3" fill="#98A2A8"/></svg>';
 }
 
