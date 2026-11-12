@@ -258,6 +258,13 @@ try{
   await page.locator('[data-close="brief-dialog"]').click();
 
   // Gemini assistant floats above the app, opens without an API key, and shows a friendly failure.
+  // Local preview serves static files only; emulate Vercel's missing-key API response.
+  // This validates the UI error path without contacting Gemini or requiring credentials.
+  await page.route('**/api/chat',route=>route.fulfill({
+    status:500,
+    contentType:'application/json',
+    body:JSON.stringify({error:'Gemini API key is not configured on the server (GEMINI_API_KEY).'})
+  }));
   assert(await page.locator('#assistant-fab').isVisible(),'assistant launcher button missing');
   await page.locator('#assistant-fab').click();
   await page.waitForSelector('#assistant-root:not([hidden])',{state:'visible'});
