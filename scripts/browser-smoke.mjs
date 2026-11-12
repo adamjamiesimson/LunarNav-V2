@@ -354,6 +354,10 @@ try{
   await page.waitForSelector('#travel-results .travel-summary',{state:'visible'});
   const travelDistance=await page.locator('#travel-results .travel-summary').textContent();
   assert(/\d+(\.\d+)? km/.test(travelDistance),'travel estimate did not report a distance');
+  const traverseModel=await page.locator('#travel-horizon-tag').textContent();
+  const usesOriginTerrain=(await page.locator('.travel-visibility').textContent()).includes('Terrain at origin');
+  assert(usesOriginTerrain?traverseModel.startsWith('NASA terrain'):traverseModel==='Flat 0° horizon',
+    'the traverse label did not match the horizon used in the result');
   const energy=await page.locator('#eng-energy').textContent();
   await page.locator('#eng-area').fill('0');
   assert((await page.locator('#eng-energy').textContent())==='0.0 kWh','solar-area input did not update engineering');

@@ -750,7 +750,6 @@ function syncTravelFromMission(){
   $('#travel-time').value=state.time;
   $('#travel-origin-name').textContent=state.site.name+' · '+fmtCoord(state.site.lat,state.site.lon);
   populateTravelDestinations();
-  $('#travel-horizon-tag').textContent=horizonBadgeText(state.terrain);
 }
 let travelEstimate=null;
 function runTravelEstimate(){
@@ -763,18 +762,20 @@ function runTravelEstimate(){
   const speed=Number($('#travel-speed').value)||10;
   const delay=Number($('#travel-delay').value)||0;
   try{
+    const profile=origin.id===state.site.id?getCachedTerrain(origin):terrainProfiles.get(terrainKey(origin))||null;
     travelEstimate=estimateSurfaceTraverse({
       originLat:origin.lat,originLon:origin.lon,
       destinationLat:target.lat,destinationLon:target.lon,
       departUTC,speedKph:speed,delayHours:delay,
-      profile:origin.id===state.site.id?getCachedTerrain(origin):terrainProfiles.get(terrainKey(origin))||null
+      profile
     });
-    renderTravelResults(travelEstimate,origin,target);
+    renderTravelResults(travelEstimate,origin,target,profile);
     toast('Surface traverse estimated');
   }catch(e){toast(e.message||'Could not estimate the traverse.');}
 }
-function renderTravelResults(estimate,origin,target){
+function renderTravelResults(estimate,origin,target,profile){
   const v=estimate.visibility;
+  $('#travel-horizon-tag').textContent=horizonBadgeText(estimate.terrainProfileApplied?profile:null);
   const sunLabel=s=>s?`${Number.isFinite(s)?s.toFixed(0):'—'}% illuminated`:'Sampling unavailable';
   $('#travel-results').innerHTML=
     `<div class="travel-summary"><div><small>Route</small><strong>${escapeHTML(origin.name)} → ${escapeHTML(target.name)}</strong><span>${escapeHTML(fmtCoord(origin.lat,origin.lon))} → ${escapeHTML(fmtCoord(target.lat,target.lon))}</span></div>
