@@ -45,7 +45,7 @@ test('tutorial supports Back, completion, cleanup and returning to the original 
   for(let i=0;i<TOUR_STEPS.length;i++){
     const target=ui.doc.querySelector(TOUR_STEPS[i].target);
     assert.equal(ui.page,TOUR_STEPS[i].page);
-    assert.equal(target.closest('[data-view]').hidden,false,'target must be on the visible page');
+    assert.equal(target.closest('[data-view]')?.hidden??false,false,'target must be on the visible page');
     assert.ok(target.classList.contains('tour-target'));
     assert.equal(ui.doc.querySelectorAll('.tour-target').length,1);
     assert.equal(ui.doc.querySelector('#tour-progress').getAttribute('aria-valuenow'),String(i+1));
