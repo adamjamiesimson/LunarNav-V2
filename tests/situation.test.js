@@ -65,7 +65,7 @@ test('mission control does not read terrain from globe visual texture',()=>{
   assert.match(globe,/focusSite\(\)/);
   assert.match(fallback,/focusSite\(\)/);
   assert.match(build,/src\/situation\.js/);
-  assert.match(html,/Visual lighting/);
+  assert.match(html,/Illustrative lighting/);
 });
 
 test('unverified user-supplied terrain is never labeled as NASA LOLA',()=>{

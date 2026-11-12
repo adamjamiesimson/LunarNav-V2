@@ -190,7 +190,10 @@ function buildMessageNode(role, text, tools = []){
     ? `<div class="assistant-tool-log">${tools.map(t =>
         `<span class="assistant-tool-chip ${t.ok ? 'ok' : 'fail'}" title="${escapeHTML(t.args ? JSON.stringify(t.args).slice(0,200) : '')}">${escapeHTML(t.name)} · ${escapeHTML(t.summary)}</span>`).join('')}</div>`
     : '';
-  node.innerHTML = `<div class="assistant-message-bubble assistant-answer">${renderMarkdown(text)}${toolsHtml}</div>`;
+  const welcome = text === WELCOME && tools.length === 0;
+  if (welcome) node.classList.add('assistant-welcome');
+  const displayedText = welcome ? 'Ask about the current site, visibility, mission windows, power or travel.' : text;
+  node.innerHTML = `<div class="assistant-message-bubble assistant-answer">${renderMarkdown(displayedText)}${toolsHtml}</div>`;
   return node;
 }
 function showTyping(){

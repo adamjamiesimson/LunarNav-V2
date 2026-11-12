@@ -107,10 +107,10 @@ try{
   await completeWelcome(page,'2');
   await page.waitForFunction(()=>document.body.dataset.page==='explore');
   mkdirSync('smoke-artifacts',{recursive:true});
-  await page.waitForFunction(()=>document.querySelector('#mission-verdict')?.textContent!=='COMPUTING…');
+  await page.waitForFunction(()=>document.querySelector('#mission-verdict')?.textContent!=='Calculating…');
   await page.waitForFunction(()=>document.querySelector('#finder-terrain-count')?.textContent?.startsWith('5 of 5'),{timeout:20000});
   const initial=await page.locator('#mission-verdict').textContent();
-  assert(/VISIBILITY|ONLY|OBSTRUCTED/.test(initial),'no live mission verdict');
+  assert(/visibility|only|obstructed/i.test(initial),'no live mission verdict');
   const imageStatus=await page.locator('#map-image-status').textContent();
   assert(/GLOBE|PROCEDURAL|SCHEMATIC|LROC/.test(imageStatus),'no truthful globe image status');
   for(const value of ['2','5','10']){
@@ -165,16 +165,16 @@ try{
   assert(!await page.locator('#date-compare-table').isVisible(),'date comparison should start collapsed');
   assert(!await page.locator('#transit-run').isVisible(),'transit should start collapsed');
   await page.locator('#finder-mode').selectOption('flat');
-  await page.waitForFunction(()=>document.querySelector('#finder-model-badge').textContent.includes('GEOMETRIC'));
-  assert((await page.locator('#compare-model').textContent()).includes('FLAT 0°'),'comparison did not share horizon');
+  await page.waitForFunction(()=>document.querySelector('#finder-model-badge').textContent.includes('Flat 0° geometric horizon'));
+  assert((await page.locator('#compare-model').textContent()).includes('Flat 0° horizon'),'comparison did not share horizon');
   await page.locator('#planning-time').fill('18:00');await page.locator('#planning-time').dispatchEvent('change');
   await page.locator('#finder-duration').selectOption('14');
   await page.waitForFunction(()=>document.querySelector('#finder-caption').textContent.includes('14-day')&&document.querySelector('#finder-shell-status').textContent.includes('18:00 UTC'));
   await page.locator('.planning-calendar summary').click();
   assert(await page.locator('.finder-day').count()===150,'date calendar lost sites/dates');
   await page.locator('#finder-mode').selectOption('terrain');
-  await page.waitForFunction(()=>document.querySelector('#finder-model-badge').textContent.includes('LOADED LOCAL'));
-  assert((await page.locator('#compare-model').textContent()).includes('LOADED TERRAIN'),'comparison did not switch horizon');
+  await page.waitForFunction(()=>document.querySelector('#finder-model-badge').textContent.includes('Loaded terrain horizons'));
+  assert((await page.locator('#compare-model').textContent()).includes('Loaded terrain'),'comparison did not switch horizon');
   const [searchDownload]=await Promise.all([page.waitForEvent('download'),page.locator('#finder-export').click()]);
   const searchCSV=readFileSync(await searchDownload.path(),'utf8');
   assert(searchCSV.includes('T18:00:00Z')&&searchCSV.includes('delta_dual_pp')&&searchCSV.includes('data_source'),'CSV lost UTC, baseline or provenance');
@@ -250,7 +250,7 @@ try{
   await checkCSV(page,'#finder-export');
   await page.locator('#transit summary').click();
   await page.locator('#transit-run').click();
-  assert((await page.locator('#transit-results').textContent()).includes('LUNAR ARRIVAL'),'transit results missing');
+  assert((await page.locator('#transit-results').textContent()).includes('Lunar arrival'),'transit results missing');
   await page.locator('#brief-btn').click();
   assert(await page.locator('#brief-content .report-grid').isVisible(),'briefing did not contain computed results');
   await page.pdf({path:'smoke-artifacts/mission-brief.pdf'});
@@ -287,7 +287,7 @@ try{
   await mobile.locator('#onboarding-dialog[data-stage="graphics"]').waitFor();
   await mobile.screenshot({path:'smoke-artifacts/mobile-graphics.png'});
   await completeWelcome(mobile);
-  await mobile.waitForFunction(()=>document.querySelector('#mission-verdict')?.textContent!=='COMPUTING…');
+  await mobile.waitForFunction(()=>document.querySelector('#mission-verdict')?.textContent!=='Calculating…');
   const mobileNav=await mobile.locator('.main-nav').boundingBox();
   assert(mobileNav&&mobileNav.height>=40,'mobile navigation is not visible/tappable');
   const mobileLinks=await mobile.locator('.main-nav a.nav-link:visible').count();

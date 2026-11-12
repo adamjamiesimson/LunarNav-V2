@@ -1,6 +1,6 @@
 export const LOADING_DURATION_MS=5000;
 export const TOUR_STEPS=[
-  {page:'explore',target:'#tour-site',title:'Choose a landing site',text:'Pick a lunar study site. Check its coordinates, classification and source: an illustrative point is not a surveyed landing site.'},
+  {page:'explore',target:'#tour-site',title:'Choose a landing site',text:'Choose a study site and check its coordinates, classification and source. Illustrative points are for exploration.'},
   {page:'explore',target:'#tour-window',title:'Set the mission window',text:'Choose the UTC start date, time and duration. Explore, Plan Mission and Engineering share this mission period.'},
   {page:'explore',target:'#map-stage',title:'Explore the lunar globe',text:'Drag to rotate the Moon, or select a point to create a custom waypoint. Sun and Earth markers show modeled directions; their sizes and distances are compressed.'},
   {page:'explore',target:'#tour-inspection',title:'Inspect a moment in time',text:'Move the time slider, step six hours, or jump to the next modeled horizon event. Watch the Sun and Earth conditions change at your selected site.'},
@@ -8,8 +8,8 @@ export const TOUR_STEPS=[
   {page:'explore',target:'.timeline-panel',title:'Read the visibility timeline',text:'Compare sunlight, Earth view and their overlap across the mission. Dark gaps expose outages. Click or drag the timeline to inspect a UTC moment.'},
   {page:'planning',target:'#compare-table',title:'Compare landing sites',text:'Compare illumination, longest darkness, Earth visibility and gaps, simultaneous access, and reference solar energy. The shared horizon selector keeps flat and loaded-terrain comparisons distinct.'},
   {page:'planning',target:'#finder-top',title:'Find a better mission window',text:'These three recommendations rank candidate dates by the selected priority. Use window opens Explore with that site, UTC start and duration. The calendar and CSV retain the wider search.'},
-  {page:'engineering',target:'.terrain-actions',title:'Refine the local horizon',text:'Load NASA terrain or import a compatible GeoTIFF for the selected site. Check source, coverage and resolution in the terrain status. Refinement can fail; an existing profile or labeled flat fallback remains.'},
-  {page:'engineering',target:'.engineering-controls',title:'Size power and battery',text:'Set solar area, efficiency, payload load and battery capacity to test the modeled energy balance. Review charge and power shortfalls in the results, then export engineering CSV. These are simplified screening assumptions.'}
+  {page:'engineering',target:'.terrain-actions',title:'Refine the local horizon',text:'Load NASA terrain or import a compatible GeoTIFF. The terrain status shows the source, coverage and resolution. If refinement fails, the current horizon stays in use.'},
+  {page:'engineering',target:'.engineering-controls',title:'Size power and battery',text:'Set solar area, efficiency, payload load and battery capacity. Review the modeled charge and power shortfalls, then export the engineering CSV.'}
 ];
 
 /** Loading → graphics → a spotlight tour on every visit. No visit flags. */
@@ -93,12 +93,12 @@ export function initOnboarding({navigateView,getPage,onGraphicsChange,doc=docume
     target?.classList.remove('tour-target');observer?.disconnect();
     const current=TOUR_STEPS[step];
     navigateView(current.page);
-    title.textContent=`Step ${step+1} — ${current.title}`;description.textContent=current.text;
+    title.textContent=current.title;description.textContent=current.text;
     counter.textContent=`${String(step+1).padStart(2,'0')} / ${TOUR_STEPS.length}`;
     progress.setAttribute('aria-valuenow',String(step+1));
     progress.setAttribute('aria-valuetext',`${step+1} of ${TOUR_STEPS.length} features`);
     progress.innerHTML=TOUR_STEPS.map((_,i)=>`<span class="${i<=step?'complete':''}"></span>`).join('');
-    back.disabled=step===0;next.textContent=step===TOUR_STEPS.length-1?'Start exploring':'Next feature →';
+    back.disabled=step===0;next.textContent=step===TOUR_STEPS.length-1?'Start exploring':'Next';
     target=doc.querySelector(current.target);
     target?.classList.add('tour-target');
     target?.scrollIntoView?.({block:'center',inline:'nearest',behavior:'instant'});
@@ -112,8 +112,8 @@ export function initOnboarding({navigateView,getPage,onGraphicsChange,doc=docume
   }
   open();
   clock.setTimeout(()=>{
-    show('graphics');title.textContent='Choose your graphics';
-    description.textContent='Choose how strongly the lunar terrain is shown.';
+    show('graphics');title.textContent='Choose terrain relief';
+    description.textContent='Set how much the globe exaggerates elevation.';
     dialog.querySelector('input[name="startup-graphics"]:checked').focus();
   },LOADING_DURATION_MS);
   listen('graphics-continue',()=>{

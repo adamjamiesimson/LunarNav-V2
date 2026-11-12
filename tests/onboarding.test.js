@@ -82,12 +82,12 @@ test('spotlight mask and navigation provide an accessible ten-feature tour',()=>
   assert.equal(ui.doc.querySelector('#tour-progress').getAttribute('aria-valuemax'),'10');
   assert.equal(ui.doc.querySelector('#onboarding-title').getAttribute('aria-live'),'polite');
   assert.equal(ui.doc.activeElement,ui.doc.querySelector('#tour-next'));
-  assert.match(ui.doc.querySelector('#onboarding-title').textContent,/Step 1/);
+  assert.equal(ui.doc.querySelector('#onboarding-title').textContent,TOUR_STEPS[0].title);
 });
 test('graphics selection and scientific controls retain accessible labels and visual-only explanation',()=>{
   const doc=setup().doc;
   for(const id of ['mission-date','mission-time','time-scrubber','relief-exaggeration'])assert.ok(doc.querySelector('label[for="'+id+'"]'),id);
   assert.equal(doc.querySelector('input[name="startup-graphics"]:checked').value,'5');
-  assert.match(doc.querySelector('.graphics-note').textContent,/calculations are unchanged/);
+  assert.match(doc.querySelector('.graphics-note').textContent,/Relief exaggeration affects the view only/);
   assert.deepEqual([...doc.querySelector('#relief-exaggeration').options].map(o=>o.value),['2','5','10']);
 });
