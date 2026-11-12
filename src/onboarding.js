@@ -9,7 +9,9 @@ export const TOUR_STEPS=[
   {page:'planning',target:'#compare-table',title:'Compare landing sites',text:'Compare the same dates across sites. The horizon setting applies to the whole table.'},
   {page:'planning',target:'#finder-top',title:'Find a better mission window',text:'Use a recommendation to open its site and dates in Explore. Open the calendar to see more dates.'},
   {page:'engineering',target:'.terrain-actions',title:'Refine the local horizon',text:'Load NASA terrain or import a GeoTIFF to refine the horizon. Check the source and coverage below.'},
-  {page:'engineering',target:'.engineering-controls',title:'Size power and battery',text:'Set solar area, efficiency, payload load and battery capacity. Review the modeled charge and power shortfalls, then export the engineering CSV.'}
+  {page:'engineering',target:'.engineering-controls',title:'Size power and battery',text:'Set solar area, efficiency, payload load and battery capacity. Review the modeled charge and power shortfalls, then export the engineering CSV.'},
+  {page:'explore',target:'#panorama-open',title:'Explore the surface panorama',text:'Open Surface panorama to look around from your selected site. Drag to turn and zoom to inspect the terrain, Sun and Earth.'},
+  {page:'explore',target:'#assistant-fab',title:'Ask the AI assistant',text:'Open Assistant to ask about your site, visibility, mission windows or engineering results.'}
 ];
 
 /** Loading → graphics → a spotlight tour on every visit. No visit flags. */
@@ -95,6 +97,7 @@ export function initOnboarding({navigateView,getPage,onGraphicsChange,doc=docume
     navigateView(current.page);
     title.textContent=current.title;description.textContent=current.text;
     counter.textContent=`${String(step+1).padStart(2,'0')} / ${TOUR_STEPS.length}`;
+    progress.setAttribute('aria-valuemax',String(TOUR_STEPS.length));
     progress.setAttribute('aria-valuenow',String(step+1));
     progress.setAttribute('aria-valuetext',`${step+1} of ${TOUR_STEPS.length} features`);
     progress.innerHTML=TOUR_STEPS.map((_,i)=>`<span class="${i<=step?'complete':''}"></span>`).join('');

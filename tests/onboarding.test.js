@@ -35,13 +35,17 @@ test('all requested graphics presets apply the exact relief multiplier before th
 test('tutorial supports Back, completion, cleanup and returning to the original route',()=>{
   const ui=setup();ui.advance();ui.doc.querySelector('#graphics-continue').click();
   assert.equal(ui.doc.querySelector('#tour-back').disabled,true);
-  ui.doc.querySelector('#tour-next').click();assert.equal(ui.doc.querySelector('#tour-counter').textContent,'02 / 10');
-  ui.doc.querySelector('#tour-back').click();assert.equal(ui.doc.querySelector('#tour-counter').textContent,'01 / 10');
-  assert.equal(TOUR_STEPS.length,10);
+  ui.doc.querySelector('#tour-next').click();assert.equal(ui.doc.querySelector('#tour-counter').textContent,'02 / 12');
+  ui.doc.querySelector('#tour-back').click();assert.equal(ui.doc.querySelector('#tour-counter').textContent,'01 / 12');
+  assert.equal(TOUR_STEPS.length,12);
+  assert.equal(TOUR_STEPS[10].target,'#panorama-open');
+  assert.equal(TOUR_STEPS[11].target,'#assistant-fab');
+  assert.equal(TOUR_STEPS[10].page,'explore');
+  assert.equal(TOUR_STEPS[11].page,'explore');
   for(let i=0;i<TOUR_STEPS.length;i++){
     const target=ui.doc.querySelector(TOUR_STEPS[i].target);
     assert.equal(ui.page,TOUR_STEPS[i].page);
-    assert.equal(target.closest('[data-view]').hidden,false,'target must be on the visible page');
+    assert.equal(target.closest('[data-view]')?.hidden??false,false,'target must be on the visible page');
     assert.ok(target.classList.contains('tour-target'));
     assert.equal(ui.doc.querySelectorAll('.tour-target').length,1);
     assert.equal(ui.doc.querySelector('#tour-progress').getAttribute('aria-valuenow'),String(i+1));
@@ -55,7 +59,7 @@ test('tutorial can be skipped or replayed without changing site and time inputs'
   const ui=setup();ui.advance();
   const date=ui.doc.querySelector('#mission-date').value;
   ui.doc.querySelector('#graphics-continue').click();ui.doc.querySelector('#tour-skip').click();
-  ui.doc.querySelector('#restart-tour').click();assert.equal(ui.doc.querySelector('#tour-counter').textContent,'01 / 10');
+  ui.doc.querySelector('#restart-tour').click();assert.equal(ui.doc.querySelector('#tour-counter').textContent,'01 / 12');
   ui.doc.querySelector('#tour-skip').click();assert.equal(ui.doc.querySelector('#mission-date').value,date);
   assert.equal(ui.page,'science');
 });
@@ -75,11 +79,11 @@ test('cross-page Back, skip and Escape restore the entry page and mission inputs
   assert.deepEqual([...ui.doc.querySelectorAll('#app input,#app select')].map(el=>el.value),values);
 });
 
-test('spotlight mask and navigation provide an accessible ten-feature tour',()=>{
+test('spotlight mask and navigation provide an accessible twelve-feature tour',()=>{
   const ui=setup();ui.advance();ui.doc.querySelector('#graphics-continue').click();
   assert.ok(ui.doc.querySelector('#tour-mask #tour-cutout'));
   assert.equal(ui.doc.querySelector('.tour-spotlight').getAttribute('aria-hidden'),'true');
-  assert.equal(ui.doc.querySelector('#tour-progress').getAttribute('aria-valuemax'),'10');
+  assert.equal(ui.doc.querySelector('#tour-progress').getAttribute('aria-valuemax'),'12');
   assert.equal(ui.doc.querySelector('#onboarding-title').getAttribute('aria-live'),'polite');
   assert.equal(ui.doc.activeElement,ui.doc.querySelector('#tour-next'));
   assert.equal(ui.doc.querySelector('#onboarding-title').textContent,TOUR_STEPS[0].title);
