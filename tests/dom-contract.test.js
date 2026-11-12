@@ -35,6 +35,18 @@ test('search export retains terrain baseline differences and provenance',()=>{
  assert.match(app,/compareFinderModels/);assert.match(app,/delta_dual_pp/);
  assert.match(app,/data_source/);assert.match(app,/state.finder.startTime/);
 });
+test('Spacey AI uses the same functional launcher with an accessible sparkle icon',()=>{
+ const fab=doc.getElementById('assistant-fab');
+ assert.ok(fab);
+ assert.equal(fab.tagName,'BUTTON');
+ assert.equal(fab.querySelector('.assistant-fab-label').textContent,'Ask Spacey AI');
+ assert.equal(fab.getAttribute('aria-label'),'Open Ask Spacey AI');
+ assert.equal(fab.getAttribute('aria-expanded'),'false');
+ assert.equal(fab.querySelector('svg.assistant-fab-icon')?.getAttribute('aria-hidden'),'true');
+ const assistant=readFileSync(new URL('../src/assistant.js',import.meta.url),'utf8');
+ assert.match(assistant,/Close Ask Spacey AI/);
+ assert.match(assistant,/Open Ask Spacey AI/);
+});
 test('four views retain live modules with one navigation route each',()=>{
  assert.equal(doc.querySelectorAll('[data-view]').length,4);
  for(const view of ['explore','planning','engineering','science']){

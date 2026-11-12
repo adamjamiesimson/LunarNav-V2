@@ -384,8 +384,12 @@ try{
     body:JSON.stringify({error:'Gemini API key is not configured on the server (GEMINI_API_KEY).'})
   }));
   assert(await page.locator('#assistant-fab').isVisible(),'assistant launcher button missing');
+  assert((await page.locator('#assistant-fab').innerText()).trim()==='Ask Spacey AI','assistant launcher label incorrect');
+  assert(await page.locator('#assistant-fab svg.assistant-fab-icon').count()===1,'assistant sparkle icon missing');
+  assert(await page.locator('#assistant-fab').getAttribute('aria-label')==='Open Ask Spacey AI','assistant launcher accessibility label incorrect');
   await page.locator('#assistant-fab').click();
   await page.waitForSelector('#assistant-root:not([hidden])',{state:'visible'});
+  assert(await page.locator('#assistant-fab').getAttribute('aria-label')==='Close Ask Spacey AI','assistant close accessibility label incorrect');
   assert(await page.locator('.assistant-message.assistant').count()>=1,'assistant welcome message missing');
   await page.locator('#assistant-input').fill('Which location has the most simultaneous Sun and Earth visibility?');
   await page.locator('#assistant-send').click();
@@ -393,6 +397,7 @@ try{
   assert((await page.locator('#assistant-messages').textContent()).includes('GEMINI_API_KEY'),'assistant did not surface the configuration message');
   await page.locator('#assistant-close').click();
   assert(await page.locator('#assistant-root').isHidden(),'assistant did not close');
+  assert(await page.locator('#assistant-fab').getAttribute('aria-label')==='Open Ask Spacey AI','assistant launcher did not reset accessible label');
   await page.locator('a.nav-link[data-route="explore"]').click();
   await page.waitForSelector('#toast:not(.show)');
   await page.screenshot({path:'smoke-artifacts/desktop.png',fullPage:false});

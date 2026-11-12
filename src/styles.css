@@ -474,9 +474,13 @@ body.globe-immersive .map-stage{flex:1;height:auto;min-height:240px}
 @media(max-width:650px){.date-compare-fields{grid-template-columns:1fr}}
 
 /* Mission assistant (floating launcher) */
-.assistant-fab{position:fixed;min-height:44px;right:16px;bottom:16px;z-index:64;display:flex;align-items:center;
-  background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:8px 12px;font-size:14px}
-.assistant-fab:hover{border-color:var(--accent)}
+.assistant-fab{position:fixed;min-height:44px;right:16px;bottom:16px;z-index:64;display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  padding:9px 13px;background:#30214e;color:#dbc9fa;border:1px solid #8e58dc;border-radius:11px;
+  font:600 14px/1.25 var(--font);white-space:nowrap;transition:background-color .15s,border-color .15s,color .15s}
+.assistant-fab-icon{width:20px;height:20px;flex:none;color:#c8a4ff}
+.assistant-fab:hover{background:#3b275f;border-color:#ab7bf1;color:#f1e9ff}
+.assistant-fab:active{background:#28193f}
+.assistant-fab:focus-visible{outline:2px solid #c8a4ff;outline-offset:3px}
 .assistant-root{position:fixed;inset:0;z-index:70;display:flex;justify-content:flex-end;pointer-events:none}
 .assistant-root[hidden]{display:none}
 .assistant-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5);pointer-events:auto}
