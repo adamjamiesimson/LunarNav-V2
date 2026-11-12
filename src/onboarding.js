@@ -1,14 +1,14 @@
 export const LOADING_DURATION_MS=5000;
 export const TOUR_STEPS=[
-  {page:'explore',target:'#tour-site',title:'Choose a landing site',text:'Choose a study site and check its coordinates, classification and source. Illustrative points are for exploration.'},
+  {page:'explore',target:'#tour-site',title:'Choose a landing site',text:'Choose a site to see its coordinates and source.'},
   {page:'explore',target:'#tour-window',title:'Set the mission window',text:'Choose the UTC start date, time and duration. Explore, Plan Mission and Engineering share this mission period.'},
-  {page:'explore',target:'#map-stage',title:'Explore the lunar globe',text:'Drag to rotate the Moon, or select a point to create a custom waypoint. Sun and Earth markers show modeled directions; their sizes and distances are compressed.'},
-  {page:'explore',target:'#tour-inspection',title:'Inspect a moment in time',text:'Move the time slider, step six hours, or jump to the next modeled horizon event. Watch the Sun and Earth conditions change at your selected site.'},
-  {page:'explore',target:'#mission-situation',title:'Read the site outlook',text:'Sun and Earth clearance show whether each body is above the applied horizon. Check the horizon source; geometric Earth view is not a radio-link guarantee.'},
-  {page:'explore',target:'.timeline-panel',title:'Read the visibility timeline',text:'Compare sunlight, Earth view and their overlap across the mission. Dark gaps expose outages. Click or drag the timeline to inspect a UTC moment.'},
-  {page:'planning',target:'#compare-table',title:'Compare landing sites',text:'Compare illumination, longest darkness, Earth visibility and gaps, simultaneous access, and reference solar energy. The shared horizon selector keeps flat and loaded-terrain comparisons distinct.'},
-  {page:'planning',target:'#finder-top',title:'Find a better mission window',text:'These three recommendations rank candidate dates by the selected priority. Use window opens Explore with that site, UTC start and duration. The calendar and CSV retain the wider search.'},
-  {page:'engineering',target:'.terrain-actions',title:'Refine the local horizon',text:'Load NASA terrain or import a compatible GeoTIFF. The terrain status shows the source, coverage and resolution. If refinement fails, the current horizon stays in use.'},
+  {page:'explore',target:'#map-stage',title:'Explore the lunar globe',text:'Drag to rotate the Moon. Select a point to create a waypoint.'},
+  {page:'explore',target:'#tour-inspection',title:'Inspect a moment in time',text:'Use the slider, step six hours, or jump to the next visibility change.'},
+  {page:'explore',target:'#mission-situation',title:'Read the site outlook',text:'Clearance is the angle above or below the horizon used for this site.'},
+  {page:'explore',target:'.timeline-panel',title:'Read the visibility timeline',text:'See when sunlight and Earth visibility overlap. Select a point on the timeline to inspect that time.'},
+  {page:'planning',target:'#compare-table',title:'Compare landing sites',text:'Compare the same dates across sites. The horizon setting applies to the whole table.'},
+  {page:'planning',target:'#finder-top',title:'Find a better mission window',text:'Use a recommendation to open its site and dates in Explore. Open the calendar to see more dates.'},
+  {page:'engineering',target:'.terrain-actions',title:'Refine the local horizon',text:'Load NASA terrain or import a GeoTIFF to refine the horizon. Check the source and coverage below.'},
   {page:'engineering',target:'.engineering-controls',title:'Size power and battery',text:'Set solar area, efficiency, payload load and battery capacity. Review the modeled charge and power shortfalls, then export the engineering CSV.'}
 ];
 

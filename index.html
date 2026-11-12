@@ -18,7 +18,7 @@
     </svg>
     <div class="onboarding-card">
       <h1 id="onboarding-title" aria-live="polite" aria-atomic="true">LunarNav</h1>
-      <p id="onboarding-description">Preparing the lunar workspace…</p>
+      <p id="onboarding-description">Loading LunarNav…</p>
       <div data-onboarding-panel="loading" role="status" aria-label="Loading LunarNav for five seconds">
         <div class="loading-track" aria-hidden="true"><span></span></div>
       </div>
@@ -45,7 +45,7 @@
         <a class="nav-link" data-route="explore" href="/explore">Explore</a>
         <a class="nav-link" data-route="planning" href="/planning">Plan Mission</a>
         <a class="nav-link" data-route="engineering" href="/engineering">Engineering</a>
-        <a class="nav-link" id="planner-help" data-route="science" href="/science" title="Science, sources and methods">Methods</a>
+        <a class="nav-link" id="planner-help" data-route="science" href="/science">Methods</a>
       </nav>
       <div class="top-actions">
         <button class="icon-button" id="share-btn" type="button" title="Copy shareable link" aria-label="Copy shareable link">↗</button>
@@ -88,7 +88,7 @@
                 <div class="time-jump-controls" role="group" aria-label="Navigate lunar mission time">
                   <button type="button" id="time-back" aria-label="Step back six hours">−6 h</button>
                   <button type="button" id="time-next" aria-label="Step forward six hours">+6 h</button>
-                  <button type="button" id="time-event" title="Find next modeled Sun or Earth visibility transition">Next horizon event</button>
+                  <button type="button" id="time-event">Next visibility change</button>
                 </div>
                 <p class="time-event-note" id="time-event-note" role="status"></p>
               </div>
@@ -111,7 +111,7 @@
               <div class="panel-head map-panel-head">
                 <h2>Lunar globe</h2>
                 <div class="map-title-right">
-                  <button id="celestial-view" type="button" class="map-tool view-system" aria-pressed="true" title="Show Sun and Earth in the lunar 3D scene" aria-label="Hide Sun and Earth in the lunar globe">☼ <span>Bodies on</span></button>
+                  <button id="celestial-view" type="button" class="map-tool view-system" aria-pressed="true" aria-label="Hide Sun and Earth in the lunar globe"><span>Sun &amp; Earth</span></button>
                   <button id="focus-site" aria-pressed="false" class="map-tool view-focus" title="Focus camera on selected site" aria-label="Focus on selected site">◎ <span>Focus</span></button>
                   <button id="reset-view" class="map-tool" title="Reset 3D view" aria-label="Reset globe orientation">↺</button>
                   <div class="map-zoom-controls" role="group" aria-label="Globe zoom">
@@ -130,7 +130,7 @@
                 <canvas id="moon-map" role="img" aria-label="Interactive lunar globe. Select a point or drag to rotate."></canvas>
                 <div class="map-overlay-bottom">
                   <div class="map-coordinate"><strong id="map-site-name">Mons Mouton</strong><span id="map-coordinate">84.79°S &nbsp; 29.20°E</span></div>
-                  <button type="button" id="panorama-open" class="panorama-button" title="Fly down to this site and view the 360° horizon panorama">View site panorama</button>
+                  <button type="button" id="panorama-open" class="panorama-button">Surface panorama</button>
                 </div>
                 <div class="panorama-overlay" id="panorama-overlay" hidden>
                   <div class="panorama-head">
@@ -144,7 +144,7 @@
                     <canvas id="panorama-hud" aria-hidden="true"></canvas>
                   </div>
                   <div class="panorama-foot">
-                    <span id="panorama-note">Drag to look, scroll to zoom. Surface texture is illustrative.</span>
+                    <span id="panorama-note">Drag to look around. Scroll to zoom.</span>
                     <span id="panorama-bodies"></span>
                   </div>
                 </div>
@@ -157,9 +157,9 @@
                 <div class="map-tooltip" id="map-tooltip" hidden></div>
               </div>
               <div class="map-footer">
-                <span class="map-live" id="map-image-status">Globe view</span><span>Illustrative lighting. Sun and Earth sizes and distances compressed.</span>
+                <span class="map-live" id="map-image-status" role="status" data-imagery="loading"></span>
                 <div class="celestial-time-controls" aria-label="Celestial time simulation">
-                  <button type="button" id="celestial-play" aria-pressed="false" class="celestial-control-btn">▶ Simulate</button>
+                  <button type="button" id="celestial-play" aria-pressed="false" class="celestial-control-btn">Play</button>
                   <label for="celestial-scrubber" class="celestial-time-label">UTC time</label>
                   <input type="range" id="celestial-scrubber" aria-label="Simulated UTC time in hours after mission start" min="0" max="714" value="0" step="0.25" />
                   <output id="celestial-clock" for="celestial-scrubber">2026-11-14 12:00 UTC</output>
@@ -170,7 +170,7 @@
                     <option value="24" selected>24 h/s</option>
                     <option value="72">72 h/s</option>
                   </select>
-                  <button type="button" id="celestial-reset" class="celestial-control-btn" title="Reset manually rotated Earth and Sun">Reset spins</button>
+                  <button type="button" id="celestial-reset" class="celestial-control-btn" title="Reset Sun and Earth rotation">Reset rotation</button>
                 </div>
               </div>
             </div>
@@ -180,7 +180,7 @@
                 <h2>Visibility timeline</h2>
                 <div class="time-legend"><span><i class="sun-color"></i> Sun above horizon</span><span><i class="earth-color"></i> Geometric Earth view</span><span><i class="dual-color"></i> Both</span></div>
               </div>
-              <div class="timeline-hint">Click or drag to inspect a time. <span class="model-badge" id="timeline-model">—</span></div>
+              <div class="timeline-hint"><span class="model-badge" id="timeline-model">—</span></div>
               <div class="timeline-graph" id="timeline-graph" role="group" aria-label="Sunlight, Earth and simultaneous operational visibility over time"></div>
               <div class="timeline-bottom"><span id="timeline-start">14 NOV 2026</span><span>UTC</span><span id="timeline-end">21 NOV 2026</span></div>
             </div>
@@ -229,7 +229,7 @@
               <label>Earth antenna mask <small>° elevation</small><input id="eng-earthcutoff" type="number" min="0" max="90" step="1" value="5" /></label>
               <label>System derating <small>%</small><input id="eng-derate" type="number" min="0" max="100" step="5" value="80" /></label>
             </div>
-            <p class="assumption-caption">Fixed horizontal array, constant load and a full battery at mission start. <a href="/science" data-route="science">Model assumptions</a></p>
+            <p class="assumption-caption"><a href="/science" data-route="science">Power model assumptions</a></p>
             <button id="export-model" class="outline-button engineering-export">Export engineering CSV</button>
           </div>
 
@@ -241,14 +241,13 @@
               <div><small>Geometric Earth visibility</small><strong id="eng-earth">—</strong><span>With antenna elevation mask</span></div>
               <div><small>Solar energy generated</small><strong id="eng-energy">—</strong></div>
             </div>
-            <div class="charge-chart-head"><span>Simulated battery charge</span><span id="eng-ending">—</span></div>
+            <div class="charge-chart-head"><span>Battery charge</span><span id="eng-ending">—</span></div>
             <div id="eng-charge-chart" class="charge-chart" role="img" aria-label="Battery state of charge over mission duration"></div>
-            <p id="eng-summary" class="engineering-verdict" role="status">Computing approximate mission energy balance…</p>
+            <p id="eng-summary" class="engineering-verdict" role="status">Calculating power…</p>
           </div>
 
           <div class="panel terrain-panel">
             <div class="panel-head"><h2>Local terrain horizon</h2><span class="sim-tag" id="terrain-badge">Flat 0° horizon</span></div>
-            <p class="terrain-intro">Use a higher-resolution elevation model where available.</p>
             <div class="terrain-actions">
               <button class="top-primary terrain-load" id="terrain-load">Load NASA terrain</button>
               <label class="terrain-import" for="terrain-file">Import GeoTIFF</label>
@@ -272,7 +271,7 @@
             </div>
             <div class="travel-actions">
               <button id="travel-run" class="top-primary" type="button">Estimate traverse</button>
-              <button id="travel-sync" class="outline-button" type="button">Sync to mission</button>
+              <button id="travel-sync" class="outline-button" type="button">Use mission date and time</button>
             </div>
             <div id="travel-results" class="travel-results" aria-live="polite"></div>
           </div>
@@ -295,7 +294,7 @@
           <div class="panel-head"><h2 id="site-comparison-title">Compare landing sites</h2><span class="model-badge" id="compare-model">—</span></div>
           <div id="compare-table" class="compare-table" tabindex="0" aria-label="Landing site metrics; scroll horizontally on small screens" aria-live="polite"></div>
           <div id="compare-timeline" class="compare-timeline" tabindex="0" role="img" aria-label="Sun and Earth visibility timelines for the compared sites; scroll horizontally on small screens"></div>
-          <p class="planning-note">Solar energy uses a 12 m² reference array. <a href="/engineering" data-route="engineering">Configure your own system</a>.</p>
+          <p class="planning-note">Solar energy uses a 12 m² reference array. <a href="/engineering" data-route="engineering">Power settings</a>.</p>
         </section>
 
         <section class="panel finder-shell" id="finder" aria-labelledby="finder-title">
@@ -326,14 +325,14 @@
 
         <details class="planning-option" id="transit"><summary>Earth-to-Moon timing</summary>
           <p class="transit-destination">Destination <strong id="transit-destination-tag">Selected site</strong></p>
-          <p class="planning-note" id="transit-profile-tag">Direct transfer reference: about 3.5 days.</p>
+          <p class="planning-note" id="transit-profile-tag">About 3.5 days</p>
             <div class="transit-fields">
               <label>Schedule by<select id="transit-mode"><option value="depart">Earth departure time</option><option value="land">Desired landing time</option></select></label>
               <label>Date (UTC)<input type="date" id="transit-date" min="2025-01-01" max="2040-12-31" /></label>
               <label>Time (UTC)<input type="time" id="transit-time" step="3600" /></label>
               <label>Transfer profile<select id="transit-profile">
-                <option value="direct">Direct transfer (~3–4 days)</option>
-                <option value="extended">Extended / fuel-efficient (~7.5 days)</option>
+                <option value="direct">Direct transfer</option>
+                <option value="extended">Low-energy transfer</option>
                 <option value="custom">Custom transit duration</option>
               </select></label>
               <label>Custom duration (h)<input type="number" id="transit-custom-hours" min="48" max="720" step="1" value="100" disabled /></label>
@@ -342,7 +341,7 @@
           <div class="transit-actions"><button id="transit-run" class="top-primary" type="button">Estimate transit</button><span class="planning-note" id="transit-hint" role="status"></span></div>
           <div id="transit-results" class="transit-results" aria-live="polite"></div>
         </details>
-        <p class="planning-note">Comparison samples every 2 hours. The date search samples every 4 hours, so results can differ. <a href="/science" data-route="science">Methods and sources</a></p>
+        <p class="planning-note"><a href="/science" data-route="science">Sampling and ranking methods</a></p>
       </section>
 
       <section class="science-page app-view" data-view="science" id="science-page" hidden>
@@ -366,7 +365,7 @@
             <article class="science-card">
               <h2>Visibility and mission windows</h2>
               <p>Local azimuth and elevation come from a truncated analytical ephemeris. A body counts as visible when its center is above the applied horizon. The model omits disc radius, refraction, eclipses and spacecraft shadows.</p>
-              <p>Earth visibility uses line-of-sight geometry. A radio link budget is required to assess communications. Comparison uses two-hour samples and the date search uses four-hour samples. The balanced ranking weights simultaneous access at 70%, sunlight at 15% and Earth visibility at 15%.</p>
+              <p>Earth visibility uses line-of-sight geometry. A radio link budget is required to assess communications. Site and date comparisons sample every 2 hours. The mission-window search samples every 4 hours, so results can differ. The balanced ranking weights simultaneous access at 70%, sunlight at 15% and Earth visibility at 15%.</p>
               <a href="/planning" data-route="planning">Open mission planning</a>
             </article>
             <article class="science-card">
@@ -376,9 +375,10 @@
             </article>
             <article class="science-card">
               <h2>Terrain and surface views</h2>
+              <p>The globe uses NASA LROC imagery with illustrative lighting. The Sun and Earth are shown at modeled directions with compressed sizes and distances. Globe relief exaggeration affects the display only. <a href="https://svs.gsfc.nasa.gov/4720/" target="_blank" rel="noopener noreferrer">NASA Moon imagery</a>.</p>
               <p>Bundled relief uses an 8192 × 4096 global grid (~1.33 km at the equator) and 480 m polar grids. Custom points use these grids for a coarse horizon. Native refinement uses 60–80 m LOLA GeoTIFFs south of 60°S and ~237 m SLDEM2015 between 60°S and 60°N, subject to external range access. The north cap uses the bundled 480 m grid.</p>
               <p>Horizon profiles sample to 20 km with lunar curvature and radial steps at DEM resolution. Runtime profiles use 1° azimuth bins and archived profiles use 5°. Small hazards, narrow occlusions and terrain beyond the sample radius may be missed. Imported GeoTIFF provenance is unverified. Sites without terrain use a flat 0° horizon.</p>
-              <p>The panorama renders NASA LOLA and Kaguya elevation data and uses the modeled Sun direction. Surface texture and stars are illustrative. The panorama renders the Sun (0.53°) and Earth (1.98°) at their approximate apparent sizes. Globe relief exaggeration affects the display only.</p>
+              <p>The surface panorama uses NASA LOLA and Kaguya elevations and the modeled Sun direction. Surface texture and stars are illustrative. The Sun (0.53°) and Earth (1.98°) appear at their approximate angular sizes.</p>
               <a href="https://pgda.gsfc.nasa.gov/products/90" target="_blank" rel="noopener noreferrer">NASA elevation products</a>
             </article>
             <article class="science-card">
@@ -395,7 +395,7 @@
       </section>
 
       <footer class="footer">
-        <p>NASA Space Apps Challenge 2026 · Team 1st LunarNav</p>
+        <p>Team 1st LunarNav · NASA Space Apps 2026</p>
         <div>
           <button id="footer-method">Data &amp; methodology</button>
           <a href="https://www.spaceappschallenge.org/2026/find-a-team/1st-lunarnav/" target="_blank" rel="noopener noreferrer">Team page</a>
@@ -438,6 +438,6 @@
       </div>
     </section>
   </div>
-  <button type="button" id="assistant-fab" class="assistant-fab" aria-label="Open the LunarNav mission assistant" aria-expanded="false" title="Ask the mission assistant (Gemini)"><span class="assistant-fab-label">Assistant</span></button>
+  <button type="button" id="assistant-fab" class="assistant-fab" aria-label="Open the LunarNav mission assistant" aria-expanded="false"><span class="assistant-fab-label">Assistant</span></button>
 </body>
 </html>

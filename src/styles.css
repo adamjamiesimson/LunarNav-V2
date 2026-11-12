@@ -173,7 +173,8 @@ main{padding:0 var(--gutter);min-height:calc(100vh - 120px)}
 .map-panel{padding:clamp(12px,1.35vw,20px)}
 .map-panel-head{align-items:center;margin-bottom:12px}
 .map-title-right{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.map-live{font-size:13px;color:var(--muted);white-space:nowrap}
+.map-live{font-size:14px;color:var(--muted)}
+.map-live:empty{position:absolute}
 .map-tool{width:36px;height:36px;display:inline-grid;place-items:center;background:var(--panel-alt);
   border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px}
 .map-tool:hover{background:var(--control-line)}
@@ -335,7 +336,6 @@ body.globe-immersive .map-stage{flex:1;height:auto;min-height:240px}
 .charge-chart{width:100%;height:100px;margin-top:8px;border-bottom:1px solid var(--line)}
 .charge-chart svg,.terrain-plot svg{width:100%;height:100%;display:block}
 .engineering-verdict{margin:12px 0 0;padding:12px 0 0;border-top:1px solid var(--line);color:var(--muted);font-size:14px;line-height:1.6}
-.terrain-intro{font-size:13px;color:var(--muted);line-height:1.6;margin:10px 0 12px}
 .terrain-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .terrain-load{padding:8px 13px}
 .terrain-import{font-size:13px;color:var(--accent);cursor:pointer;text-decoration:underline}
@@ -545,7 +545,7 @@ body.globe-immersive .map-stage{flex:1;height:auto;min-height:240px}
   .control-column,.insight-column{grid-template-columns:minmax(0,1fr)}
   .map-title-right{justify-content:flex-start;column-gap:6px}
   .map-stage{height:clamp(330px,54vh,420px)}
-  .map-overlay-bottom{left:8px;right:8px;bottom:31px;gap:5px}
+  .map-overlay-bottom{left:8px;right:8px;bottom:8px;gap:5px}
   .map-coordinate{min-width:0}
   .panorama-button{padding:7px 8px;max-width:50%;font-size:13px}
   .panorama-head{grid-template-columns:minmax(0,1fr) auto;gap:3px 8px}
@@ -601,6 +601,7 @@ body.globe-immersive .map-stage{flex:1;height:auto;min-height:240px}
 .planning-data{margin-top:12px;font-size:13px;color:var(--muted)}
 .planning-data summary,.planning-calendar summary{cursor:pointer;width:fit-content;padding:6px 0}
 .planning-note{font-size:14px;line-height:1.6;color:var(--muted);margin:10px 0 0}
+.planning-note:empty{display:none}
 .planning-note a,.planning-data a{color:var(--text);text-underline-offset:3px}
 .planning-site{min-height:32px;padding:2px 0;border:0;background:transparent;color:var(--text);font:inherit;text-align:right;cursor:pointer;white-space:normal}
 .planning-site:hover{text-decoration:underline;text-underline-offset:3px}

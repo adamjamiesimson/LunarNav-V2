@@ -41,13 +41,12 @@ test('local sky shows a real azimuth-dependent skyline only with a loaded terrai
   const plain=buildSkyDiagram(obs);
   const terrain=buildSkyDiagram(obs,profile);
   assert.match(plain,/geometric horizon/);
-  assert.doesNotMatch(plain,/LOLA HORIZON/);
+  assert.doesNotMatch(plain,/<polygon/);
   assert.match(terrain,/NASA-derived local terrain horizon/);
-  assert.match(terrain,/LOCAL LOLA HORIZON/);
-  assert.match(terrain,/<polygon points="/);
+   assert.match(terrain,/<polygon points="/);
   assert.match(terrain,/<circle/);
-  assert.match(terrain,/SUN/);
-  assert.match(terrain,/EARTH/);
+  assert.match(terrain,/>Sun<\/text>/);
+  assert.match(terrain,/>Earth<\/text>/);
 });
 test('mission control does not read terrain from globe visual texture',()=>{
   const app=readFileSync(new URL('../src/app.js',import.meta.url),'utf8');
@@ -65,7 +64,7 @@ test('mission control does not read terrain from globe visual texture',()=>{
   assert.match(globe,/focusSite\(\)/);
   assert.match(fallback,/focusSite\(\)/);
   assert.match(build,/src\/situation\.js/);
-  assert.match(html,/Illustrative lighting/);
+  assert.match(html,/NASA LROC imagery with illustrative lighting/);
 });
 
 test('unverified user-supplied terrain is never labeled as NASA LOLA',()=>{
@@ -74,7 +73,7 @@ test('unverified user-supplied terrain is never labeled as NASA LOLA',()=>{
   assert.match(result.source,/UNVERIFIED/);
   assert.doesNotMatch(result.source,/LOLA/);
   const chart=buildSkyDiagram(obs,userProfile);
-  assert.match(chart,/UNVERIFIED DEM HORIZON/);
+  assert.match(chart,/user-supplied unverified terrain horizon/);
   assert.doesNotMatch(chart,/NASA-derived local terrain horizon/);
 });
 

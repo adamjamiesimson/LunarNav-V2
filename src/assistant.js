@@ -108,10 +108,11 @@ function focusInput(){
 }
 function updateContextBanner(){
   if (!ui.contextText) return;
-  const c = collectContext();
-  ui.contextText.textContent = c.label
-    ? `${c.label}` + (c.terrainApplied ? ' · DEM APPLIED' : ' · FLAT HORIZON')
-    : 'Configure a mission to begin analysis.';
+  const {site,date,time,days,terrain} = collectContext();
+  const horizon = terrain?.applied ? (terrain.verifiedSource ? 'Terrain horizon' : 'Unverified terrain') : 'Flat 0° horizon';
+  ui.contextText.textContent = site && date && time
+    ? `${site.name} · ${date} ${time} UTC · ${days} days · ${horizon}`
+    : 'Choose a site in Explore.';
 }
 
 function collectContext(){
@@ -200,7 +201,7 @@ function showTyping(){
   const node = document.createElement('div');
   node.className = 'assistant-message assistant typing';
   node.id = 'assistant-typing';
-  node.innerHTML = '<div class="assistant-message-bubble"><span class="assistant-typing-dots"><i></i><i></i><i></i></span><span class="assistant-typing-label">Consulting Gemini…</span></div>';
+  node.innerHTML = '<div class="assistant-message-bubble"><span class="assistant-typing-dots"><i></i><i></i><i></i></span><span class="assistant-typing-label">Waiting for Gemini…</span></div>';
   ui.messages.appendChild(node);
   ui.messages.scrollTop = ui.messages.scrollHeight;
   return node;

@@ -8,7 +8,7 @@
  * Celestial directions follow the ephemeris; their displayed size/distance is
  * deliberately compressed for inspection. The 2D polar fallback remains.
  */
-import {SITES,fmtCoord} from './sites.js';
+import {SITES} from './sites.js';
 import {createMap as createPolarMap} from './map.js';
 import {skyBodies,hitCelestialBody,celestialSpin,horizontalToLunarVector} from './celestial.js';
 
@@ -298,16 +298,22 @@ function program(gl){
 
 export function createMap(canvas,{onPick,onHover}){
  const stage=canvas.parentElement;
+ const imageryStatus=document.querySelector('#map-image-status');
+ const setImageryStatus=(state,message='')=>{
+   if(!imageryStatus)return;
+   imageryStatus.dataset.imagery=state;
+   imageryStatus.textContent=message;
+ };
  const background=document.createElement('canvas');
  background.id='moon-globe';background.setAttribute('aria-hidden','true');
  stage.insertBefore(background,canvas);
  let gl;
  try{gl=background.getContext('webgl',{alpha:false,antialias:true,depth:false});}
  catch(error){console.warn('3D globe unavailable',error);}
- if(!gl){background.remove();const status=document.querySelector('#map-image-status');if(status)status.textContent='2D POLAR SCHEMATIC';return createPolarMap(canvas,{onPick,onHover});}
+ if(!gl){background.remove();setImageryStatus('schematic','3D unavailable. Showing the polar map.');return createPolarMap(canvas,{onPick,onHover});}
 
  let p;
- try{p=program(gl);}catch(error){console.warn(error);background.remove();const status=document.querySelector('#map-image-status');if(status)status.textContent='2D POLAR SCHEMATIC';return createPolarMap(canvas,{onPick,onHover});}
+ try{p=program(gl);}catch(error){console.warn(error);background.remove();setImageryStatus('schematic','3D unavailable. Showing the polar map.');return createPolarMap(canvas,{onPick,onHover});}
  gl.useProgram(p);
  const loc=name=>gl.getUniformLocation(p,name);
  const u={resolution:loc('resolution'),forward:loc('forward'),right:loc('right'),up:loc('up'),sun:loc('sun'),zoom:loc('zoom'),hasTexture:loc('hasTexture'),showSkyBodies:loc('showSkyBodies'),hasEarthTexture:loc('hasEarthTexture'),elapsedDays:loc('elapsedDays'),sunSphere:loc('sunSphere'),earthSphere:loc('earthSphere'),spinYaw:loc('spinYaw'),spinPitch:loc('spinPitch'),moon:loc('moon'),earthImage:loc('earthImage'),reliefMap:loc('reliefMap'),globalMap:loc('globalMap'),patchMap:loc('patchMap'),northMap:loc('northMap'),reliefCfg:loc('reliefCfg'),globalCfg:loc('globalCfg'),patchCfg:loc('patchCfg'),patchGeo:loc('patchGeo'),patchHemisphere:loc('patchHemisphere'),northCfg:loc('northCfg'),reliefExag:loc('reliefExag')};
@@ -329,8 +335,6 @@ export function createMap(canvas,{onPick,onHover}){
  let terrainRose=null;
  const manualSpin={sun:{yaw:0,pitch:0},earth:{yaw:0,pitch:0},moon:{yaw:0,pitch:0}};
  stage.classList.add('show-celestial-bodies');
- let imageStatus='GLOBE VISUALIZATION';
- const setImageStatus=text=>{imageStatus=text;const el=document.querySelector('#map-image-status');if(el)el.textContent=imageStatus;};
  let sunlight=norm([0.5,0.32,-0.75]),earthlight=norm([0.22,0.18,0.95]),w=0,h=0,dpr=1,frame=0;
  let origin=null,dragging=false,moved=false,suppressCelestialClick=false;
  const ctx=canvas.getContext('2d');
@@ -406,9 +410,8 @@ export function createMap(canvas,{onPick,onHover}){
      if(selected){
        const rightSide=pos.x<w-160,tx=pos.x+(rightSide?22:-22);
        ctx.beginPath();ctx.moveTo(pos.x+(rightSide?16:-16),pos.y);ctx.lineTo(tx+(rightSide?12:-12),pos.y-17);ctx.strokeStyle='rgba(217,242,225,0.73)';ctx.stroke();
-       ctx.textAlign=rightSide?'left':'right';ctx.font='600 11px "Space Grotesk",sans-serif';
-       ctx.fillStyle='#f5faf4';ctx.shadowColor='#000';ctx.shadowBlur=5;ctx.fillText(point.name.toUpperCase(),tx+(rightSide?16:-16),pos.y-22);
-       ctx.font='10px "DM Mono",monospace';ctx.fillStyle='#c5d9d6';ctx.fillText(fmtCoord(point.lat,point.lon),tx+(rightSide?16:-16),pos.y-7);
+       ctx.textAlign=rightSide?'left':'right';ctx.font='600 13px "Segoe UI",sans-serif';
+       ctx.fillStyle='#f5faf4';ctx.shadowColor='#000';ctx.shadowBlur=5;ctx.fillText(point.name,tx+(rightSide?16:-16),pos.y-17);
      }
      ctx.restore();
    }
@@ -431,8 +434,6 @@ export function createMap(canvas,{onPick,onHover}){
       }
     }
   }
-  ctx.save();ctx.textAlign='center';ctx.fillStyle='rgba(185,210,218,0.65)';ctx.font='10px "DM Mono",monospace';
-   ctx.fillText('DRAG TO ORBIT  ·  CLICK TO INSPECT',w/2,h-23);ctx.restore();
  }
  function positionCelestialLabels(){
    const annotations=stage.querySelector('.celestial-annotations');
@@ -652,13 +653,13 @@ export function createMap(canvas,{onPick,onHover}){
      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);
      gl.generateMipmap(gl.TEXTURE_2D);
-     loaded=true;setImageStatus('NASA LROC IMAGERY · LOADED');request();
-   }catch(e){console.warn('LROC map not available; using procedural texture.',e);}
+     loaded=true;setImageryStatus('loaded');request();
+   }catch(e){console.warn('LROC map not available; using procedural texture.',e);setImageryStatus('fallback','Moon imagery unavailable. Showing a simulated surface.');}
  };
  let triedDirect=false;
  img.onerror=()=>{
    if(!triedDirect){triedDirect=true;img.src='https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg';}
-   else{console.warn('NASA globe imagery could not load; procedural visual fallback is active.');setImageStatus('PROCEDURAL MOON · IMAGE UNAVAILABLE');}
+   else{console.warn('NASA globe imagery could not load; procedural visual fallback is active.');setImageryStatus('fallback','Moon imagery unavailable. Showing a simulated surface.');}
  };
  img.src='/assets/lroc-color.jpg';
  if(typeof ResizeObserver!=='undefined')new ResizeObserver(size).observe(stage);

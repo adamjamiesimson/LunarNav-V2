@@ -281,6 +281,8 @@ export function sampleBilinear(data,width,height,fx,fy){
  * covers the rest of the radius. Heights are metres above R=1737.4 km.
  */
 export async function loadSiteHeights(site,{radiusKm=45,patch=null}={}){
+  if(!Number.isFinite(site?.lat)||Math.abs(site.lat)>90||!Number.isFinite(site.lon))
+    throw Error('Invalid panorama coordinates');
   const meta=await loadMeta();
   const polar=Math.abs(site.lat)>=60;
   let win,data,resolutionM;
@@ -288,19 +290,21 @@ export async function loadSiteHeights(site,{radiusKm=45,patch=null}={}){
     const cfg=site.lat>0?GRIDS.north:GRIDS.south;
     const block=cfg.key?meta[cfg.key]:meta;
     if(!block)throw Error('no baked polar grid metadata');
-    const {ctx}=await gridContext(cfg.file);
+    const img=await loadImage(cfg.file);
     win=gridRasterWindow({size:block.size,domainKm:block.domainKm,north:cfg.north},site,{radiusKm});
-    data=readRasterWindow(ctx,win.x0,win.y0,win.w,win.w,block);
+    data=readRasterWindow(img,win.x0,win.y0,win.w,win.w,block);
     resolutionM=block.horizontalGroundSampleM;
   }else{
     const block=meta.global;
     if(!block)throw Error('no baked global grid metadata');
-    const {ctx}=await gridContext(GRIDS.global.file);
+    const img=await loadImage(GRIDS.global.file);
     win=globalRasterWindow({width:block.width,height:block.height},site.lat,site.lon,{radiusKm});
-    data=readRasterWindow(ctx,win.x0,win.y0,win.w,win.h,block);
+    data=readRasterWindow(img,win.x0,win.y0,win.w,win.h,block,true);
     resolutionM=Math.max(win.latGsd,win.lonGsd);
   }
-  const sampleFrame=(x,y)=>sampleBilinear(data,win.w,win.h,(x-win.originX)/win.resolutionX,(y-win.originY)/win.resolutionY);
+  if(!data.some(Number.isFinite))throw Error('No elevation data near this site');
+  const height=polar?win.w:win.h;
+  const sampleFrame=(x,y)=>sampleBilinear(data,win.w,height,(x-win.originX)/win.resolutionX,(y-win.originY)/win.resolutionY);
   const heightAt=(lat,lon)=>{
     if(patch&&patch.data){
       const p=polarFrameXY(lat,lon);
@@ -312,7 +316,8 @@ export async function loadSiteHeights(site,{radiusKm=45,patch=null}={}){
       const p=polarXY(lat,lon);
       return sampleFrame(p.x,p.y);
     }
-    const x=MOON_RADIUS_M*Math.cos(site.lat*Math.PI/180)*(lon-site.lon)*Math.PI/180;
+    const deltaLon=(((lon-site.lon+180)%360)+360)%360-180;
+    const x=MOON_RADIUS_M*Math.cos(site.lat*Math.PI/180)*deltaLon*Math.PI/180;
     const y=MOON_RADIUS_M*(lat-site.lat)*Math.PI/180;
     return sampleFrame(x,y);
   };

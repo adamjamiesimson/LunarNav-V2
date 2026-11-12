@@ -19,7 +19,7 @@ test('planning dependencies are included in the static build',()=>{
 test('planning keeps screening limitations and resolution visible',()=>{
  const plan=doc.querySelector('[data-view="planning"]');
  const methods=doc.querySelector('[data-view="science"]');
- assert.match(plan.textContent,/Comparison samples every 2 hours\. The date search samples every 4 hours/i);
+ assert.match(methods.textContent,/comparisons sample every 2 hours\. The mission-window search samples every 4 hours/i);
  assert.ok(plan.querySelector('a[data-route="science"]'));
  assert.match(methods.textContent,/measured errors are specific to the sample/i);
  assert.match(methods.textContent,/illustrative points lack site surveys/i);
@@ -62,5 +62,7 @@ test('Earth and Sun remain in the Moon globe with UTC simulation controls',()=>{
  assert.match(globe,/skyBodies\(a,sunlight,earthlight/);
  assert.match(globe,/horizontalToLunarVector\(obs.earth/);
  assert.match(globe,/setCelestialVisible\(enabled\)/);
- assert.match(build,/src\/celestial\.js/);assert.match(html,/sizes and distances compressed/);
+ assert.match(build,/src\/celestial\.js/);const methods=doc.querySelector('[data-view="science"]');
+ assert.match(methods.textContent,/compressed sizes and distances/);
+ assert.ok(methods.querySelector('a[href="https://svs.gsfc.nasa.gov/4720/"]'));
 });
