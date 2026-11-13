@@ -1,7 +1,7 @@
 /**
  * Lunar surface traverse estimator. Great-circle (haversine) distance on a
  * sphere of radius 1737.4 km, with the planner's analytical ephemeris sampled
- * along the journey. Geodesic distance only — no slope, obstacle or
+ * along the journey. Geodesic distance only : no slope, obstacle or
  * traversability model, so a straight-line distance is not a safe route.
  */
 import {ephemeris} from './astro.js';

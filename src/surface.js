@@ -61,7 +61,7 @@ export function surfaceCamera({lat,lon,heightM=0,observerHeightM=1.7,headingDeg=
 /**
  * Terrain-aware visibility of a body direction from the surface: the body
  * clears the local horizon when its elevation exceeds the terrain horizon in
- * that azimuth. Geometric line of sight only — never a radio-link guarantee.
+ * that azimuth. Geometric line of sight only : never a radio-link guarantee.
  */
 export function bodyClearsTerrain(direction,lat,lon,profile=null){
   const {azimuth,elevation}=localHorizontal(direction,lat,lon);
