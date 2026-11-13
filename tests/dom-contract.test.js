@@ -22,7 +22,7 @@ test('planning keeps screening limitations and resolution visible',()=>{
  assert.match(methods.textContent,/comparisons sample every 2 hours\. The mission-window search samples every 4 hours/i);
  assert.ok(plan.querySelector('a[data-route="science"]'));
  assert.match(methods.textContent,/measured errors are specific to the sample/i);
- assert.match(methods.textContent,/illustrative points lack site surveys/i);
+ assert.match(methods.textContent,/The model does not solve trajectories/i);
  assert.match(methods.textContent,/Earth visibility uses line-of-sight geometry/i);
 });
 test('terrain coverage is explicit and refinement remains in Engineering',()=>{
