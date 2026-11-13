@@ -65,7 +65,7 @@ main{padding:0 var(--gutter);min-height:calc(100vh - 120px)}
 #brief-btn{background:var(--panel-alt);border-color:var(--control-line);color:var(--text)}
 #brief-btn:hover{background:var(--control-line)}
 
-/* Every-visit welcome: ten-second splash, graphics selection, then tutorial. */
+/* Every-visit welcome: ten-second splash, five-second notice, graphics, then tutorial. */
 .onboarding-dialog{position:fixed;inset:0;z-index:150;margin:0;width:100%;max-width:none;
   height:100dvh;max-height:none;border:0;padding:20px;background:var(--bg);color:var(--text);overflow:auto}
 .onboarding-dialog[open]{display:grid;place-items:center}
@@ -95,6 +95,17 @@ main{padding:0 var(--gutter);min-height:calc(100vh - 120px)}
 .loading-progress-fill{display:block;height:100%;width:0%;border-radius:inherit;background:#f0f0f4;transition:width .1s linear}
 .loading-percent{font:500 clamp(14px,1.6vw,16px)/1.2 var(--font);color:#cfd0d6;font-variant-numeric:tabular-nums;letter-spacing:.02em}
 @media(prefers-reduced-motion:reduce){.loading-progress-fill{transition:none}}
+.onboarding-dialog[data-stage="notice"]{background:#07090d}
+.onboarding-dialog[data-stage="notice"] .onboarding-card{
+  width:min(580px,100%);padding:clamp(26px,5vw,46px);
+  border:1px solid #343941;border-radius:12px;background:#141920;
+}
+.onboarding-dialog[data-stage="notice"] #onboarding-title{
+  font-size:clamp(24px,4vw,32px);line-height:1.25;margin:0 0 18px;
+}
+.onboarding-dialog[data-stage="notice"] #onboarding-description{
+  font-size:clamp(16px,2.2vw,18px);line-height:1.7;color:#d0d6dd;margin:0;
+}
 .graphics-options{border:0;padding:0;margin:0 0 16px;display:grid;gap:8px}
 .graphics-options label{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:6px;cursor:pointer}
 .graphics-options label:has(:checked){border-color:var(--accent);background:var(--accent-soft)}

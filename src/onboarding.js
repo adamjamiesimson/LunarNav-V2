@@ -1,4 +1,5 @@
 export const LOADING_DURATION_MS=10000;
+export const NOTICE_DURATION_MS=5000;
 export const TOUR_STEPS=[
   {page:'explore',target:'#tour-site',title:'Choose a landing site',text:'Choose a site to see its coordinates and source.'},
   {page:'explore',target:'#tour-window',title:'Set the mission window',text:'Choose the UTC start date, time and duration. Explore, Plan Mission and Engineering share this mission period.'},
@@ -14,7 +15,7 @@ export const TOUR_STEPS=[
   {page:'explore',target:'#assistant-fab',title:'Ask the AI assistant',text:'Open Assistant to ask about your site, visibility, mission windows or engineering results.'}
 ];
 
-/** Loading → graphics → a spotlight tour on every visit. No visit flags. */
+/** Loading → memory notice → graphics → spotlight tour on every visit. No visit flags. */
 export function initOnboarding({navigateView,getPage,onGraphicsChange,doc=document,clock=window}={}){
   const dialog=doc.getElementById('onboarding-dialog'),app=doc.getElementById('app');
   const title=doc.getElementById('onboarding-title'),description=doc.getElementById('onboarding-description');
@@ -130,9 +131,14 @@ export function initOnboarding({navigateView,getPage,onGraphicsChange,doc=docume
   clock.setTimeout(()=>{
     if(progressTimer!=null)clock.clearInterval?.(progressTimer);
     updateLoading(100);
-    show('graphics');title.textContent='Choose terrain relief';
-    description.textContent='Set how much the globe exaggerates elevation.';
-    dialog.querySelector('input[name="startup-graphics"]:checked').focus();
+    show('notice');
+    title.textContent='Before you explore';
+    description.textContent="LunarNav's features have been tested. The 3D tools can use substantial browser memory. If something doesn't work, try opening LunarNav in an incognito tab.";
+    clock.setTimeout(()=>{
+      show('graphics');title.textContent='Choose terrain relief';
+      description.textContent='Set how much the globe exaggerates elevation.';
+      dialog.querySelector('input[name="startup-graphics"]:checked').focus();
+    },NOTICE_DURATION_MS);
   },LOADING_DURATION_MS);
   listen('graphics-continue',()=>{
     onGraphicsChange(Number(dialog.querySelector('input[name="startup-graphics"]:checked').value));startTour();
@@ -143,6 +149,6 @@ export function initOnboarding({navigateView,getPage,onGraphicsChange,doc=docume
   doc.getElementById('restart-tour').addEventListener('click',startTour);
   clock.addEventListener?.('resize',schedulePosition);
   clock.addEventListener?.('scroll',schedulePosition,{passive:true});
-  dialog.addEventListener('cancel',event=>{event.preventDefault();if(stage!=='loading')finish();});
+  dialog.addEventListener('cancel',event=>{event.preventDefault();if(stage!=='loading'&&stage!=='notice')finish();});
   return {startTour,finish};
 }
