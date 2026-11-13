@@ -439,7 +439,7 @@ try{
   const visitor=await browser.newPage({viewport:{width:1280,height:800}});
   visitor.on('pageerror',error=>errors.push(error.message));
   await offNetwork(visitor);
-  await visitor.route('**/assets/*',route=>route.abort());
+  await visitor.route('**/assets/*',route=>route.request().url().endsWith('/lunarnav-loading.webp')?route.continue():route.abort());
   await visitor.addInitScript(()=>{
     sessionStorage.setItem('lunarnav:intro:session:v1','1');
     localStorage.setItem('lunarnav:onboarding:complete:v1','1');
@@ -447,6 +447,9 @@ try{
   const arrival=Date.now();
   await visitor.goto(host+'/',{waitUntil:'domcontentloaded'});
   assert(await visitor.locator('#onboarding-dialog[data-stage="loading"]').isVisible(),'five-second loading screen missing');
+  await visitor.waitForFunction(()=>document.querySelector('.loading-artwork')?.naturalWidth===650,{timeout:5000});
+  assert(await visitor.locator('.loading-artwork').isVisible(),'moonlit splash artwork is not visible');
+  assert(!(await visitor.locator('.onboarding-card h1').isVisible()),'old title is visible over splash artwork');
   await visitor.mouse.click(5,5);
   assert(await visitor.locator('#onboarding-dialog').evaluate(el=>el.open),'loading backdrop click stranded the workspace');
   await visitor.screenshot({path:'smoke-artifacts/loading.png'});

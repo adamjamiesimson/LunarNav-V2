@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {existsSync,readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 import {initOnboarding,LOADING_DURATION_MS,TOUR_STEPS} from '../src/onboarding.js';
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
@@ -22,6 +22,17 @@ test('every visit starts with a five-second loading screen before graphics',()=>
     ui.advance();assert.equal(ui.doc.querySelector('#onboarding-dialog').dataset.stage,'graphics');
   }
   assert.doesNotMatch(readFileSync(new URL('../src/onboarding.js',import.meta.url),'utf8'),/localStorage|sessionStorage/);
+});
+test('loading screen uses bundled LunarNav artwork rather than decorative progress',()=>{
+  const ui=setup(),image=ui.doc.querySelector('[data-onboarding-panel="loading"] img.loading-artwork');
+  assert.ok(image,'loading artwork is missing');
+  assert.equal(image.getAttribute('src'),'/assets/lunarnav-loading.webp');
+  assert.equal(image.getAttribute('alt'),'1st LunarNav moonlit logo');
+  assert.equal(ui.doc.querySelector('.loading-track'),null);
+  assert.ok(existsSync(new URL('../assets/lunarnav-loading.webp',import.meta.url)));
+  ui.advance();
+  assert.equal(ui.doc.querySelector('[data-onboarding-panel="loading"]').hidden,true);
+  assert.equal(ui.doc.querySelector('[data-onboarding-panel="graphics"]').hidden,false);
 });
 test('all requested graphics presets apply the exact relief multiplier before the tutorial',()=>{
   for(const value of [2,5,10]){
