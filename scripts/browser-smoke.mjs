@@ -449,12 +449,22 @@ try{
   assert(await visitor.locator('#onboarding-dialog[data-stage="loading"]').isVisible(),'five-second loading screen missing');
   await visitor.waitForFunction(()=>document.querySelector('.loading-artwork')?.naturalWidth===650,{timeout:5000});
   assert(await visitor.locator('.loading-artwork').isVisible(),'moonlit splash artwork is not visible');
-  assert(!(await visitor.locator('.onboarding-card h1').isVisible()),'old title is visible over splash artwork');
+  assert(await visitor.locator('.onboarding-card h1').evaluate(el=>getComputedStyle(el).clipPath==='inset(50%)'),'loading title is not visually clipped');
+  assert(await visitor.locator('#loading-progress').isVisible(),'loading bar is missing');
+  assert(await visitor.locator('#loading-percent').isVisible(),'loading percentage is missing');
+  const placement=await visitor.evaluate(()=>{
+    const logo=document.querySelector('.loading-artwork').getBoundingClientRect();
+    const bar=document.querySelector('#loading-progress').getBoundingClientRect();
+    const percentage=document.querySelector('#loading-percent').getBoundingClientRect();
+    return {belowLogo:bar.top>logo.top+logo.height*.58&&bar.top<logo.top+logo.height*.75,percentBelow:percentage.top>bar.bottom};
+  });
+  assert(placement.belowLogo&&placement.percentBelow,'loading bar and percentage are not placed beneath the logo');
   await visitor.mouse.click(5,5);
   assert(await visitor.locator('#onboarding-dialog').evaluate(el=>el.open),'loading backdrop click stranded the workspace');
   await visitor.screenshot({path:'smoke-artifacts/loading.png'});
   await visitor.locator('#onboarding-dialog[data-stage="graphics"]').waitFor();
-  assert(Date.now()-arrival>=4900,'loading screen ended before five seconds');
+  assert(Date.now()-arrival>=9900,'loading screen ended before ten seconds');
+  assert((await visitor.locator('#loading-percent').textContent())==='100%','loading percentage did not complete at 100%');
   await visitor.screenshot({path:'smoke-artifacts/graphics.png'});
   await visitor.locator('input[name="startup-graphics"][value="10"]').check();
   await visitor.locator('#graphics-continue').click();
