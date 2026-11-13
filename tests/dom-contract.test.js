@@ -78,3 +78,12 @@ test('Earth and Sun remain in the Moon globe with UTC simulation controls',()=>{
  assert.match(methods.textContent,/compressed sizes and distances/);
  assert.ok(methods.querySelector('a[href="https://svs.gsfc.nasa.gov/4720/"]'));
 });
+
+test('Methods omits the standalone Scope of use section while retaining other scientific context',()=>{
+ const methods=doc.querySelector('[data-view="science"]');
+ assert.ok(methods);
+ assert.equal(methods.querySelector('.science-disclaimer'),null);
+ assert.doesNotMatch(methods.textContent,/Scope of use|Illustrative points lack site surveys/);
+ assert.match(methods.textContent,/Traverse and transit estimates/);
+ assert.match(methods.textContent,/terrain horizon at the origin/);
+});
