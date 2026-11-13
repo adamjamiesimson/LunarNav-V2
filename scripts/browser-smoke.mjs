@@ -288,7 +288,12 @@ try{
   assert((await page.locator('#compare-model').textContent()).includes('Flat 0° horizon'),'comparison did not share horizon');
   await page.locator('#planning-time').fill('18:00');await page.locator('#planning-time').dispatchEvent('change');
   await page.locator('#finder-duration').selectOption('14');
-  await page.waitForFunction(()=>document.querySelector('#finder-caption').textContent.includes('14-day')&&document.querySelector('#finder-shell-status').textContent.includes('18:00 UTC'));
+  await page.waitForFunction(()=>
+    document.querySelector('#finder-duration')?.value==='14' &&
+    document.querySelector('#planning-time')?.value==='18:00' &&
+    document.querySelector('#finder-caption')?.textContent?.includes('Results ready for') &&
+    document.querySelector('#finder-top')?.textContent?.includes('18:00 UTC')
+  );
   await page.locator('.planning-calendar summary').click();
   assert(await page.locator('.finder-day').count()===150,'date calendar lost sites/dates');
   await page.locator('#finder-mode').selectOption('terrain');
