@@ -75,7 +75,7 @@ test('every results panel exposes its horizon model, including the flat fallback
   for(const id of ['timeline-model','metrics-model','compare-model','date-compare-model'])
     assert.ok(html.includes('id="'+id+'"'),'missing model badge '+id);
   assert.match(app,/Flat 0° horizon/);
-  assert.match(app,/Loaded terrain · /);
+  assert.match(app,/Loaded terrain: /);
   assert.match(app,/SITES.filter\(site=>!terrainMode\|\|getCachedTerrain\(site\)\)/);
 });
 

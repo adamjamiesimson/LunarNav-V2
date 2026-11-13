@@ -323,7 +323,7 @@ export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
       ctx.fillStyle=color;ctx.textAlign='center';
       const name=body===obs.sun?'Sun':'Earth';
       const status=bodyLabel?bodyLabel(body):'';
-      ctx.fillText(status==='Above horizon'?name:name+' · '+status,x,y-34);
+      ctx.fillText(status==='Above horizon'?name:name+': '+status,x,y-34);
       ctx.textAlign='left';
     }
     ctx.lineWidth=1;

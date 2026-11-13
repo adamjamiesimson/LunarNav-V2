@@ -545,6 +545,7 @@ body.globe-immersive .map-stage{flex:1;height:auto;min-height:240px}
 .assistant-message-bubble code{font:14px/1.45 var(--font);background:var(--bg);border:1px solid var(--line);
   border-radius:3px;padding:1px 4px}
 .assistant-message-bubble ul,.assistant-message-bubble ol{margin:6px 0;padding-left:18px}
+.assistant-message-bubble ul{list-style:none;padding-left:0}
 .assistant-message-bubble p{margin:6px 0}
 .assistant-message-bubble p:first-child{margin-top:0}
 .assistant-tool-log{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}

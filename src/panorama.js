@@ -174,7 +174,7 @@ export function createPanoramaView(canvas,{site,panorama,obs}={}){
     ctx.font='11px ui-monospace, SFMono-Regular, Menlo, monospace';
     ctx.textAlign='center';ctx.textBaseline='bottom';
     const status=obstructed?(body.elevation<0?'Below horizon':'Behind terrain'):body.elevation.toFixed(1)+'° EL';
-    ctx.fillText(label+' · '+body.azimuth.toFixed(0)+'° AZ · '+status,x,y-radius-5);
+    ctx.fillText(label+': '+body.azimuth.toFixed(0)+'° AZ: '+status,x,y-radius-5);
     ctx.textAlign='left';ctx.textBaseline='middle';
   }
 
