@@ -180,7 +180,13 @@ async function checkCSV(page,selector){
   assert(download.suggestedFilename().endsWith('.csv')&&text.split('\n').length>2,'CSV has no data: '+selector);
 }
 async function completeWelcome(page,preset='5'){
-  await page.locator('#onboarding-dialog[data-stage="graphics"]').waitFor();
+  const graphics=page.locator('#onboarding-dialog[data-stage="graphics"]');
+  if(!await graphics.isVisible()){
+    await page.locator('#onboarding-dialog[data-stage="notice"]').waitFor();
+    await page.locator('#notice-okay').click();
+    assert(await graphics.isVisible(),'Okay did not immediately skip the notice');
+  }
+  await graphics.waitFor();
   await page.locator(`input[name="startup-graphics"][value="${preset}"]`).check();
   await page.locator('#graphics-continue').click();
   assert((await page.locator('#relief-exaggeration').inputValue())===preset,'startup preset was not applied');
@@ -420,6 +426,8 @@ try{
   mobile.on('pageerror',err=>errors.push('mobile '+err.message));
   await offNetwork(mobile);
   await mobile.goto(host+'/explore?site=nobile&date=2026-11-14&days=7',{waitUntil:'domcontentloaded'});
+  await mobile.locator('#onboarding-dialog[data-stage="notice"]').waitFor();
+  await mobile.locator('#notice-okay').click();
   await mobile.locator('#onboarding-dialog[data-stage="graphics"]').waitFor();
   await mobile.screenshot({path:'smoke-artifacts/mobile-graphics.png'});
   await completeWelcome(mobile);
@@ -481,10 +489,20 @@ try{
   assert((await visitor.locator('#onboarding-title').textContent())==='Before you explore','notice title missing');
   assert((await visitor.locator('#onboarding-description').textContent()).includes('incognito tab'),'memory and troubleshooting notice missing');
   assert(await visitor.locator('[data-onboarding-panel="graphics"]').isHidden(),'graphics selector appeared during notice');
+  assert(await visitor.locator('#notice-okay').isVisible(),'notice Okay button is missing');
+  const appearance=await visitor.locator('#onboarding-dialog').evaluate(el=>{
+    const dialog=getComputedStyle(el);
+    const panel=getComputedStyle(el.querySelector('.onboarding-card'));
+    const ok=el.querySelector('#notice-okay');
+    return {black:dialog.backgroundColor==='rgb(0, 0, 0)',transparent:panel.backgroundColor==='rgba(0, 0, 0, 0)',
+      noBorder:panel.borderTopWidth==='0px',noRadius:panel.borderTopLeftRadius==='0px',focus:document.activeElement===ok};
+  });
+  assert(appearance.black&&appearance.transparent&&appearance.noBorder&&appearance.noRadius&&appearance.focus,
+    'notice should be centered text on pure black with a focused Okay button: '+JSON.stringify(appearance));
   await visitor.screenshot({path:'smoke-artifacts/memory-notice.png'});
   await visitor.locator('#onboarding-dialog[data-stage="graphics"]').waitFor();
-  assert(Date.now()-noticeAt>=4900,'memory notice ended before five seconds');
-  assert(Date.now()-arrival>=14900,'graphics selector appeared too early');
+  assert(Date.now()-noticeAt>=9900,'memory notice ended before ten seconds');
+  assert(Date.now()-arrival>=19900,'graphics selector appeared too early');
   await visitor.screenshot({path:'smoke-artifacts/graphics.png'});
   await visitor.locator('input[name="startup-graphics"][value="10"]').check();
   await visitor.locator('#graphics-continue').click();

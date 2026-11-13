@@ -12,16 +12,17 @@ function setup(page='science'){
     setTimeout(fn,ms){timer=fn;delay=ms;return 1;},
     setInterval(fn,ms){interval=fn;return 2;},
     clearInterval(){interval=null;},
-    scrollTo(){},clearTimeout(){}
+    scrollTo(){},clearTimeout(){timer=null;}
   };
   initOnboarding({doc,clock,getPage:()=>current,navigateView:p=>{
     current=p;for(const view of doc.querySelectorAll('[data-view]'))view.hidden=view.dataset.view!==p;
   },onGraphicsChange:p=>{preset=p;}});
-  function advance(){elapsed+=delay;timer();}
+  function advance(){if(!timer)throw new Error('No scheduled timeout');const callback=timer;timer=null;elapsed+=delay;callback();}
   return {doc,advance,advanceToGraphics:()=>{advance();advance();},tick:ms=>{elapsed=ms;interval?.();},
+    get pendingTimer(){return timer;},
     get delay(){return delay;},get page(){return current;},get preset(){return preset;}};
 }
-test('every visit shows ten seconds of loading then five seconds of notice before graphics',()=>{
+test('every visit shows ten seconds of loading then ten seconds of notice before graphics',()=>{
   for(let i=0;i<2;i++){
     const ui=setup();
     assert.equal(LOADING_DURATION_MS,10000);assert.equal(ui.delay,10000);
@@ -29,7 +30,7 @@ test('every visit shows ten seconds of loading then five seconds of notice befor
     assert.equal(ui.doc.querySelector('[data-onboarding-panel="graphics"]').hidden,true);
     ui.advance();assert.equal(ui.doc.querySelector('#onboarding-dialog').dataset.stage,'notice');
     assert.equal(ui.delay,NOTICE_DURATION_MS);
-    assert.equal(ui.delay,5000);
+    assert.equal(ui.delay,10000);
     assert.equal(ui.doc.querySelector('#onboarding-title').textContent,'Before you explore');
     assert.match(ui.doc.querySelector('#onboarding-description').textContent,/incognito tab/);
     assert.equal(ui.doc.querySelector('[data-onboarding-panel="graphics"]').hidden,true);
@@ -70,6 +71,32 @@ test('notice is not dismissible via Escape before graphics selection',()=>{
   assert.equal(ui.doc.querySelector('#app').inert,true);
   ui.advance();
   assert.equal(ui.doc.querySelector('#onboarding-dialog').dataset.stage,'graphics');
+});
+test('Okay skips the ten-second notice and its timer cannot advance the flow again',()=>{
+  const ui=setup();
+  ui.advance();
+  assert.equal(ui.doc.querySelector('#onboarding-dialog').dataset.stage,'notice');
+  const button=ui.doc.getElementById('notice-okay');
+  assert.equal(button.textContent,'Okay');
+  assert.equal(ui.doc.activeElement,button);
+  assert.equal(ui.delay,NOTICE_DURATION_MS);
+  const staleTimer=ui.pendingTimer;
+  button.click();
+  assert.equal(ui.doc.querySelector('#onboarding-dialog').dataset.stage,'graphics');
+  assert.equal(ui.doc.activeElement?.getAttribute('name'),'startup-graphics');
+  assert.equal(ui.pendingTimer,null,'notice timer must be cleared when Okay is clicked');
+  staleTimer();
+  button.click();
+  assert.equal(ui.doc.querySelector('#onboarding-dialog').dataset.stage,'graphics');
+  assert.equal(ui.doc.querySelector('#app').inert,true);
+});
+test('notice markup has an accessible button and no decorative text beyond the message',()=>{
+  const doc=setup().doc;
+  const panel=doc.querySelector('[data-onboarding-panel="notice"]');
+  assert.ok(panel);
+  assert.equal(panel.querySelectorAll('button').length,1);
+  assert.equal(panel.querySelector('button').getAttribute('id'),'notice-okay');
+  assert.equal(panel.querySelector('button').getAttribute('type'),'button');
 });
 test('all requested graphics presets apply the exact relief multiplier before the tutorial',()=>{
   for(const value of [2,5,10]){
@@ -143,4 +170,9 @@ test('graphics selection and scientific controls retain accessible labels and vi
   assert.equal(doc.querySelector('.graphics-note'),null);
   assert.match(doc.querySelector('#relief-exaggeration').getAttribute('aria-label'),/visual relief exaggeration only/);
   assert.deepEqual([...doc.querySelector('#relief-exaggeration').options].map(o=>o.value),['2','5','10']);
+  const options=[...doc.querySelectorAll('.graphics-options label')];
+  assert.deepEqual(options.map(o=>o.querySelector('span').firstChild.textContent.trim()),['Low graphics','Medium graphics','High graphics']);
+  assert.deepEqual(options.map(o=>o.querySelector('.graphics-profile-hint').textContent),
+    ['(better performance)','(balanced)','(better visuals)']);
+  assert.deepEqual(options.map(o=>o.querySelector(':scope > small').textContent),['Relief ×2','Relief ×5','Relief ×10']);
 });
