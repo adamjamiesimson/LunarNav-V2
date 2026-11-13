@@ -52,3 +52,13 @@ test('polar stereographic latitude is bounded and finite',()=>{
  assert.ok(Number.isFinite(polarXY(-70,0).x),'mid-latitude waypoints project inside the 60°S domain');
  assert.throws(()=>polarXY(-50,0),/covers/);
 });
+
+test('an aborted terrain request cannot continue into GeoTIFF loading',async()=>{
+  const controller=new AbortController();controller.abort();
+  let opened=false;
+  globalThis.GeoTIFF={fromUrl:async()=>{opened=true;throw Error('must not open');}};
+  try{
+    await assert.rejects(loadLolaTerrain(site,{signal:controller.signal}),/abort/i);
+    assert.equal(opened,false);
+  }finally{globalThis.GeoTIFF=saved;}
+});

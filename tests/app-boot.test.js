@@ -2,17 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
-// App boot + navigation smoke in jsdom (skipped when jsdom is unavailable).
-// This verifies the module actually evaluates and the router responds — the
+// App boot + navigation smoke in the declared jsdom test dependency.
+// This verifies the module actually evaluates and the router responds: the
 // class of regression source-text assertions cannot catch.
-let JSDOM=null;
-try{({JSDOM}=await import('jsdom'));}catch{ /* dev-only dependency */ }
+import {JSDOM} from 'jsdom';
 
 test('app.js boots against the real index.html and navigation works',async t=>{
-  if(!JSDOM){t.skip('jsdom not installed');return;}
   const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
   const dom=new JSDOM(html,{url:'http://localhost/',pretendToBeVisual:true});
   const {window}=dom;
+  t.after(()=>window.close());
   const errors=[];
   window.addEventListener('error',e=>errors.push(e.message));
   for(const k of ['document','history','sessionStorage','localStorage','navigator','Node','Element','HTMLElement','SVGElement','Event','MouseEvent','KeyboardEvent','DOMParser','Option','getComputedStyle'])
@@ -56,7 +55,7 @@ test('app.js boots against the real index.html and navigation works',async t=>{
   assert.ok(errors.length===0,'no runtime errors during boot: '+errors.join(' | '));
 
   // Navigation: every nav link must reveal its own view.
-  for(const route of ['explore','windows','engineering','compare','science','home']){
+  for(const route of ['explore','planning','engineering','science']){
     window.document.querySelector(`a.nav-link[data-route="${route}"]`)
       .dispatchEvent(new window.MouseEvent('click',{bubbles:true,cancelable:true,button:0}));
     await new Promise(r=>setTimeout(r,20));
@@ -66,15 +65,15 @@ test('app.js boots against the real index.html and navigation works',async t=>{
 });
 
 test('navigation survives even when the globe fails to initialise',async t=>{
-  if(!JSDOM){t.skip('jsdom not installed');return;}
   const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
   const dom=new JSDOM(html,{url:'http://localhost/',pretendToBeVisual:true});
   const {window}=dom;
+  t.after(()=>window.close());
   for(const k of ['document','history','sessionStorage','localStorage','navigator','Node','Element','HTMLElement','SVGElement','Event','MouseEvent','KeyboardEvent','DOMParser','Option','getComputedStyle'])
     try{Object.defineProperty(globalThis,k,{value:window[k],configurable:true,writable:true});}catch{}
   Object.defineProperty(globalThis,'location',{value:window.location,configurable:true});
   globalThis.window=window;
-  // Globe init throws hard — the app must still boot and navigate.
+  // Globe init throws hard: the app must still boot and navigate.
   window.HTMLCanvasElement.prototype.getContext=function(){throw Error('WebGL unavailable');};
   globalThis.Image=window.Image=class{set src(v){setTimeout(()=>this.onload&&this.onload(),0);}};
   globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};

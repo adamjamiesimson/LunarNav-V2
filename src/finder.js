@@ -7,7 +7,7 @@
  * All percentages are sample-based exploratory estimates, NOT verified
  * JPL Horizons or flight-qualified operational probabilities.
  */
-import {ephemeris} from './astro.js';
+import {ephemeris,longestRunHours} from './astro.js';
 import {bodyVisible} from './mission.js';
 
 const HOUR=3600000,DAY=24*HOUR;
@@ -20,29 +20,21 @@ export const finderScore=(v,priority)=>{
     v.sunPct*FINDER_WEIGHTS.sun+v.earthPct*FINDER_WEIGHTS.earth;
 };
 
-function ensureDate(date){
+function ensureDate(date,time){
   if(typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date))throw Error('Invalid finder UTC date');
-  const n=Date.parse(date+'T12:00:00Z');
+  if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(time))throw Error('Invalid finder UTC time');
+  const n=Date.parse(date+'T'+time+':00Z');
   if(!Number.isFinite(n)||new Date(n).toISOString().slice(0,10)!==date)
     throw Error('Invalid finder UTC date');
   return n;
 }
 
-const longestRun=(values,start,length,predicate,stepHours)=>{
-  let best=0,current=0;
-  for(let i=start;i<start+length;i++){
-    if(predicate(values[i])){current+=stepHours;best=Math.max(best,current);}
-    else current=0;
-  }
-  return best;
-};
-
 /** Analyze each possible UTC start date, sharing one sampled ephemeris array per site. */
 export function findMissionWindows({
-  sites,startDate,searchDays=30,windowDays=7,stepHours=4,priority='balanced',
+  sites,startDate,startTime='12:00',searchDays=30,windowDays=7,stepHours=4,priority='balanced',
   terrainProfiles=null,terrainMode='flat'
 }={}){
-  const epoch=ensureDate(startDate);
+  const epoch=ensureDate(startDate,startTime);
   if(!['flat','terrain'].includes(terrainMode))throw Error('Unknown terrain mode');
   if(!Array.isArray(sites)||!sites.length||sites.length>20)throw Error('Select 1–20 valid sites');
   if(!Number.isInteger(searchDays)||searchDays<1||searchDays>90)throw Error('Search must be 1–90 days');
@@ -87,9 +79,9 @@ export function findMissionWindows({
       const sunPct=100*(sun[end]-sun[start])/steps;
       const earthPct=100*(earth[end]-earth[start])/steps;
       const dualPct=100*(dual[end]-dual[start])/steps;
-      const longestDualHours=longestRun(samples,start,steps,s=>s.dual,stepHours);
-      const longestEarthBlackoutHours=longestRun(samples,start,steps,s=>!s.earth,stepHours);
-      const longestDarknessHours=longestRun(samples,start,steps,s=>!s.sun,stepHours);
+      const longestDualHours=longestRunHours(samples,stepHours,s=>s.dual,start,steps);
+      const longestEarthBlackoutHours=longestRunHours(samples,stepHours,s=>!s.earth,start,steps);
+      const longestDarknessHours=longestRunHours(samples,stepHours,s=>!s.sun,start,steps);
       const date=new Date(epoch+day*DAY).toISOString().slice(0,10);
       const item={siteId:site.id,siteName:site.name,siteLat:site.lat,siteLon:site.lon,
         startDate:date,windowDays,sunPct,earthPct,dualPct,
@@ -106,7 +98,7 @@ export function findMissionWindows({
   return {matrix,ranked:all,top:all.slice(0,10),bestBySite:matrix.map(m=>({
     site:m.site,best:[...m.windows].sort((a,b)=>b.score-a.score || b.dualPct-a.dualPct)[0]
   })).sort((a,b)=>b.best.score-a.best.score),
-  startDate,searchDays,windowDays,stepHours,priority,terrainMode,
+  startDate,startTime,searchDays,windowDays,stepHours,priority,terrainMode,
   scoring:priority==='balanced'?'70% simultaneous + 15% Sun + 15% Earth':priority==='sun'?'Solar access':'Earth geometric visibility',
   model:terrainMode==='terrain'?'analytical-screening-v1 + loaded LOLA 20km local horizon, UTC, sampled intervals':'analytical-screening-v1, smooth horizon, UTC, sampled intervals'};
 }
@@ -117,6 +109,7 @@ export function findMissionWindows({
 export function compareFinderModels(geometric,terrain){
   if(!geometric||!terrain||geometric.terrainMode!=='flat'||terrain.terrainMode!=='terrain'||
       geometric.startDate!==terrain.startDate ||
+      (geometric.startTime||'12:00')!==(terrain.startTime||'12:00') ||
       geometric.windowDays!==terrain.windowDays||
       geometric.stepHours!==terrain.stepHours||
       geometric.priority!==terrain.priority)

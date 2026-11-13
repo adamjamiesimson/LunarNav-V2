@@ -29,13 +29,14 @@ function pngWindow(file,x0,y0,w,h){
     }
   }
   const data=new Float32Array(w*h).fill(NaN);
-  const range=meta.heightMaxM-meta.heightMinM;
+  const block=file==='moon-relief-global.png'?meta.global:meta;
+  const range=block.heightMaxM-block.heightMinM;
   for(let j=0;j<h;j++)for(let i=0;i<w;i++){
     const gx=x0+i,gy=y0+j;
-    if(gx<0||gy<0||gx>=W||gy>=W)continue;
+    if(gx<0||gy<0||gx>=W||gy>=png.readUInt32BE(20))continue;
     const p=(gy*W+gx)*3;
     const code=16*out[p]+out[p+1]/16;
-    if(code>0)data[j*w+i]=meta.heightMinM+code/4095*range;
+    if(code>0)data[j*w+i]=block.heightMinM+code/4095*range;
   }
   return data;
 }
@@ -87,7 +88,7 @@ test('mid-latitude waypoints derive a labelled coarse horizon from the global gr
   const g=meta.global;
   const win=globalRasterWindow({width:g.width,height:g.height},20,145,{radiusKm:20});
   // Site must land at the window's local origin (pixel halfX/halfY).
-  const px=((145%360+360)%360/360)*g.width,py=((90-20)/180)*g.height;
+  const px=(((145+180)%360+360)%360/360)*g.width,py=((90-20)/180)*g.height;
   assert.ok(Math.abs((px-win.x0)-(win.w-1)/2)<2,'site horizontally centred');
   assert.ok(Math.abs((py-win.y0)-(win.h-1)/2)<2,'site vertically centred');
   assert.ok(win.lonGsd>1000&&win.latGsd>1000,'global grid GSD is honest (~1.3 km)');

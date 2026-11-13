@@ -22,6 +22,11 @@ for(const file of files.filter(f=>f.endsWith('.js'))){
     if(!shipped.has(target))throw new Error(`Missing app file: ${target} (imported by ${file})`);
   }
 }
+// The welcome artwork must ship with every production build.
+const splash='assets/lunarnav-loading.webp';
+if(!existsSync(join(base,splash)))throw new Error('Missing LunarNav splash image: '+splash);
+mkdirSync(join(dist,'assets'),{recursive:true});
+cpSync(join(base,splash),join(dist,splash));
 mkdirSync(join(dist,'data'),{recursive:true});
 cpSync(join(base,'data/lola-horizons.json'),join(dist,'data/lola-horizons.json'));
 cpSync(join(base,'data/relief.json'),join(dist,'data/relief.json'));

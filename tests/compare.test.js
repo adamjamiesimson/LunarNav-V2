@@ -21,6 +21,7 @@ test('comparison metrics agree with the shared sampling and summary functions',(
   assert.ok(Math.abs(m.simultaneousPct-stats.dual)<1e-9);
   assert.equal(m.illuminationHours+m.darknessHours,total,'light and dark must partition the window');
   assert.equal(m.terrainApplied,false);
+  assert.equal(m.longestEarthBlackoutHours,stats.longestBlackoutHours);
 });
 
 test('metrics honour the terrain horizon exactly like the planner samples',()=>{
@@ -47,12 +48,13 @@ test('side-by-side rows carry units and the values they report',()=>{
     {name:'B',kind:'test',metrics:windowMetrics({start,days:3,lat:-85.99,lon:357.07})}
   ];
   const rows=comparisonRows(entries);
-  assert.equal(rows.length,8);
+  assert.equal(rows.length,6);
   for(const row of rows){
     assert.equal(row.values.length,2);
     for(const v of row.values){assert.ok(Number.isFinite(v.value));assert.ok(v.unit.length>0);}
   }
   assert.equal(rows[0].values[0].value,entries[0].metrics.illuminationHours);
+  assert.equal(rows.find(r=>r.label==='Longest Earth-view gap').values[0].value,entries[0].metrics.longestEarthBlackoutHours);
   // Same interval for every compared entry.
   assert.equal(entries[0].metrics.totalHours,entries[1].metrics.totalHours);
 });

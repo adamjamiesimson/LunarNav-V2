@@ -54,7 +54,7 @@ export const TOOL_DECLARATIONS=Object.freeze([
   name:'find_optimal_windows',
   description:'Search for the best mission start dates across selected lunar sites using the existing Window Finder (findMissionWindows). Accepts site ids or explicit coordinates, a UTC start date, search length, mission duration, ranking priority and horizon source.',
   parameters:{type:'object',properties:{
-    sites:{type:'array',items:{type:'string',description:'LunarNav site id such as mons-mouton, or an object {name, lat, lon} for custom coordinates'},description:'Sites to include in the search (1–20). Use site ids from the available locations, or custom coordinates as {lat, lon} objects.'},
+    sites:{type:'array',items:{type:'string',description:'LunarNav site id such as mons-mouton or an object {name, lat, lon} for custom coordinates'},description:'Sites to include in the search (1–20). Use site ids from the available locations or custom coordinates as {lat, lon} objects.'},
     startDate:{type:'string',description:'First candidate UTC date in YYYY-MM-DD'},
     searchDays:{type:'number',description:'Number of candidate start dates, 1–90'},
     windowDays:{type:'number',description:'Mission duration in days, 1–28'},
@@ -106,9 +106,9 @@ export const TOOL_DECLARATIONS=Object.freeze([
 },
 {
   name:'estimate_earth_moon_transit',
-  description:'Estimate the Earth-to-Moon spacecraft transit for the selected landing destination using reference transfer-profile durations (direct ~3–4 days, extended ~7.5 days low-energy, or operator-supplied custom). Computes departure/arrival UTC timestamps (forward from a departure time, or backward from a desired landing time) and a phase breakdown (Earth departure, lunar transfer, LOI, descent, surface touchdown). This is a scheduling estimate, NOT a trajectory or delta-v solver.',
+  description:'Estimate the Earth-to-Moon spacecraft transit for the selected landing destination using reference transfer-profile durations (direct ~3–4 days, extended ~7.5 days low-energy or operator-supplied custom). Computes departure/arrival UTC timestamps (forward from a departure time or backward from a desired landing time) and a phase breakdown (Earth departure, lunar transfer, LOI, descent, surface touchdown). This is a scheduling estimate, NOT a trajectory or delta-v solver.',
   parameters:{type:'object',properties:{
-    profile:{type:'string',enum:['direct','extended','custom'],description:'Transfer profile: direct (default), extended (fuel-efficient), or custom.'},
+    profile:{type:'string',enum:['direct','extended','custom'],description:'Transfer profile: direct (default), extended (fuel-efficient) or custom.'},
     referenceHours:{type:'number',description:'Total transit duration in hours; required for profile=custom.'},
     departUTC:{type:'string',description:'ISO 8601 UTC Earth departure timestamp (used when scheduleMode=depart).'},
     landingUTC:{type:'string',description:'ISO 8601 UTC desired landing timestamp (used when scheduleMode=land; departure is back-calculated).'},
@@ -142,15 +142,21 @@ function contextBaseUTC(context){
   }
   return new Date(Date.now());
 }
-function contextProfile(context){
-  return context?.terrainProfile&&Array.isArray(context.terrainProfile.azimuthDeg)?context.terrainProfile:null;
+function contextProfile(context,site=context?.site){
+  if(!site)return null;
+  const same=(a,b)=>a&&b&&Math.abs(Number(a.lat)-Number(b.lat))<1e-6&&
+    Math.abs(((Number(a.lon)-Number(b.lon)+540)%360)-180)<1e-6;
+  const match=SITES.find(s=>same(s,site));
+  const profile=match&&context?.terrainProfilesBySite?.[match.id];
+  if(profile)return profile;
+  return same(context?.site,site)&&Array.isArray(context?.terrainProfile?.azimuthDeg)?context.terrainProfile:null;
 }
 
 function runGetMissionContext(args, context){
   const site=contextSite(context);
   const base=contextBaseUTC(context);
   return {
-    app:'LunarNav V2 — lunar south-pole mission planning',
+    app:'LunarNav V2: lunar mission planning',
     selectedSite:site,
     mission:{startDate:context.date,startTimeUTC:context.time,startUTC:base.toISOString(),durationDays:context.days},
     inspectionOffsetHours:context.offsetHours,
@@ -169,7 +175,7 @@ function runCalculateCelestialConditions(args,context){
   const lat=num(args.lat,'lat'),lon=num(args.lon,'lon');
   if(Math.abs(lat)>90)throw new Error('Latitude must be between -90 and 90');
   const obs=ephemeris(utc,lat,lon);
-  const profile=contextProfile(context);
+  const profile=contextProfile(context,{lat,lon});
   const view=inspectSituation(obs,profile);
   return {
     utc:obs.time,site:{lat,lon},
@@ -185,7 +191,7 @@ function runAnalyzeMissionWindow(args,context){
   const start=new Date(str(args.startUTC));
   if(Number.isNaN(start.getTime())||days<1||days>31)throw new Error('Invalid mission window start/duration');
   const stepHours=args.stepHours?num(args.stepHours,'stepHours'):2;
-  const profile=contextProfile(context);
+  const profile=contextProfile(context,{lat:num(args.lat,'lat'),lon:num(args.lon,'lon')});
   const samples=sampleWindow({start,days,stepHours,lat:num(args.lat,'lat'),lon:num(args.lon,'lon'),profile});
   const stats=summarize(samples);
   const best=longestDualWindow(samples);
@@ -200,15 +206,16 @@ function runCompareLocations(args, context){
   const base=contextBaseUTC(context);
   const days=Number(context.days)||7;
   if(!(days>=1&&days<=31))throw new Error('Invalid mission duration in context');
-  const ranking=rankedSites(SITES,base,days);
+  const profiles=Object.fromEntries(SITES.map(site=>[site.id,contextProfile(context,site)]).filter(([,p])=>p));
+  const ranking=rankedSites(SITES,base,days,profiles);
   return {windowStartUTC:base.toISOString(),days,
     ranked:ranking.map((entry,index)=>({
-      rank:index+1,site:entry.site.id,name:entry.site.name,lat:entry.site.lat,lon:entry.site.lon,
+      rank:index+1,terrainApplied:Boolean(profiles[entry.site.id]),site:entry.site.id,name:entry.site.name,lat:entry.site.lat,lon:entry.site.lon,
       solarAvailabilityPct:entry.stats.sun,earthVisibilityPct:entry.stats.earth,simultaneousVisibilityPct:entry.stats.dual,
       longestEarthBlackoutHours:entry.stats.longestBlackoutHours
     })),
-    methodology:'rankedSites: same UTC window, four-hour samples, flat 0° geometric horizon; ranking by simultaneous access then solar.',
-    caveat:'Screening ranking only — not landing safety.'};
+    methodology:'rankedSites: same UTC window, four-hour samples, each site uses its loaded horizon or a labelled flat 0° fallback; ranking by simultaneous access then solar.',
+    caveat:'Screening ranking only. Not a landing safety assessment.'};
 }
 function runFindOptimalWindows(args,context){
   const siteRefs=Array.isArray(args.sites)?args.sites:[];
@@ -224,13 +231,13 @@ function runFindOptimalWindows(args,context){
       const id=site.id;
       const p=context?.terrainProfilesBySite?.[id];
       if(!p||!Array.isArray(p.azimuthDeg)){
-        throw new Error('No loaded NASA LOLA terrain profile for '+site.name+' in this browser session. Load terrain for the sites first, or use flat mode.');
+        throw new Error('No loaded NASA LOLA terrain profile for '+site.name+' in this browser session. Load terrain for the sites first or use flat mode.');
       }
       terrainProfiles[id]={...p, lat:site.lat, lon:site.lon};
     }
   }
   const result=findMissionWindows({
-    sites,startDate,
+    sites,startDate,startTime:context.time||'12:00',
     searchDays:Number(args.searchDays)||30,
     windowDays:Number(args.windowDays)||7,
     stepHours:4,
@@ -238,7 +245,7 @@ function runFindOptimalWindows(args,context){
     terrainMode,terrainProfiles
   });
   return {
-    startDate:result.startDate,searchDays:result.searchDays,windowDays:result.windowDays,
+    startDate:result.startDate,startTime:result.startTime,searchDays:result.searchDays,windowDays:result.windowDays,
     priority:result.priority,terrainMode:result.terrainMode,model:result.model,scoring:result.scoring,
     top:result.top.map(w=>({rank:null,siteId:w.siteId,siteName:w.siteName,startDate:w.startDate,
       solarAccessPct:w.sunPct,earthVisibilityPct:w.earthPct,sunEarthPct:w.dualPct,
@@ -288,14 +295,14 @@ function runInspectOperations(args,context){
     horizonSource:view.source,
     warning:'Angular margins, not link or safety margins.'};
 }
-function runFindNextHorizonEvent(args){
+function runFindNextHorizonEvent(args,context){
   const start=new Date(str(args.startUTC));
   const lat=num(args.lat,'lat'),lon=num(args.lon,'lon');
   const durationHours=num(args.durationHours,'durationHours');
   if(Number.isNaN(start.getTime())||!(durationHours>0&&durationHours<=24*60))throw new Error('Invalid horizon-search window');
   const event=findNextHorizonEvent({
     startUTC:start.toISOString(),site:{lat,lon},
-    durationHours,offsetHours:Number(args.offsetHours)||0,stepMinutes:30
+    durationHours,offsetHours:Number(args.offsetHours)||0,stepMinutes:30,profile:contextProfile(context,{lat,lon})
   });
   return event||{result:'No sampled Sun or Earth horizon transition within this window.',
     note:'Sample resolution 30 min; refined to ~1 min during bisection. Near-horizon decisions carry angular uncertainty.'};
@@ -305,7 +312,7 @@ function runEstimateSurfaceTraverse(args,context){
     originLat:num(args.originLat,'originLat'),originLon:num(args.originLon,'originLon'),
     destinationLat:num(args.destinationLat,'destinationLat'),destinationLon:num(args.destinationLon,'destinationLon'),
     departUTC:str(args.departUTC),speedKph:Number(args.speedKph)||10,
-    delayHours:Number(args.delayHours)||0,profile:contextProfile(context)
+    delayHours:Number(args.delayHours)||0,profile:contextProfile(context,{lat:Number(args.originLat),lon:Number(args.originLon)})
   });
   return {
     model:r.model,origin:r.origin,destination:r.destination,

@@ -84,8 +84,8 @@ export function horizonAtAzimuth(panorama,azimuthDeg){
 
 /** Body status relative to the ray-marched horizon: real terrain obstruction. */
 export function bodyStatus(panorama,body){
-  if(body.elevation<0)return 'BELOW HORIZON';
-  return body.elevation<horizonAtAzimuth(panorama,body.azimuth)?'BEHIND TERRAIN':'ABOVE HORIZON';
+  if(body.elevation<0)return 'Below horizon';
+  return body.elevation<horizonAtAzimuth(panorama,body.azimuth)?'Behind terrain':'Above horizon';
 }
 
 const SKY=[9,13,16],SKY_HORIZON=[19,26,31],SILHOUETTE=[201,155,82];
@@ -173,14 +173,14 @@ export function createPanoramaView(canvas,{site,panorama,obs}={}){
     ctx.fillStyle='rgba(230,234,236,0.9)';
     ctx.font='11px ui-monospace, SFMono-Regular, Menlo, monospace';
     ctx.textAlign='center';ctx.textBaseline='bottom';
-    const status=obstructed?(body.elevation<0?'BELOW HORIZON':'BEHIND TERRAIN'):body.elevation.toFixed(1)+'° EL';
-    ctx.fillText(label+' · '+body.azimuth.toFixed(0)+'° AZ · '+status,x,y-radius-5);
+    const status=obstructed?(body.elevation<0?'Below horizon':'Behind terrain'):body.elevation.toFixed(1)+'° EL';
+    ctx.fillText(label+': '+body.azimuth.toFixed(0)+'° AZ: '+status,x,y-radius-5);
     ctx.textAlign='left';ctx.textBaseline='middle';
   }
 
   function drawBodies(){
-    if(obs?.earth)drawBody(obs.earth,'#6FA6B5',7,'EARTH');
-    if(obs?.sun)drawBody(obs.sun,'#C99B52',10,'SUN');
+    if(obs?.earth)drawBody(obs.earth,'#6FA6B5',7,'Earth');
+    if(obs?.sun)drawBody(obs.sun,'#C99B52',10,'Sun');
   }
 
   function redraw(){

@@ -6,6 +6,7 @@ import {horizonAt,bodyVisible} from '../src/mission.js';
 import {inspectSituation} from '../src/situation.js';
 import {findMissionWindows} from '../src/finder.js';
 import {SITES} from '../src/sites.js';
+import {executeTool} from '../src/tools.js';
 
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const app=readFileSync(new URL('../src/app.js',import.meta.url),'utf8');
@@ -73,15 +74,16 @@ test('Earth visibility is never presented as confirmed communication',()=>{
 test('every results panel exposes its horizon model, including the flat fallback',()=>{
   for(const id of ['timeline-model','metrics-model','compare-model','date-compare-model'])
     assert.ok(html.includes('id="'+id+'"'),'missing model badge '+id);
-  assert.match(app,/NO TERRAIN PROFILE FOR THIS SITE/);
-  assert.match(app,/MIXED HORIZONS/);
+  assert.match(app,/Flat 0° horizon/);
+  assert.match(app,/Loaded terrain: /);
+  assert.match(app,/SITES.filter\(site=>!terrainMode\|\|getCachedTerrain\(site\)\)/);
 });
 
 test('comparison and date-comparison controls ship wired',()=>{
-  for(const id of ['compare-picks','compare-table','compare-timeline','compare-notes',
-    'date-compare-site','date-compare-a','date-compare-b','date-compare-run'])
+  for(const id of ['compare-table','compare-timeline','planning-time',
+    'date-compare-site','date-compare-a','date-compare-b','finder-duration'])
     assert.ok(html.includes('id="'+id+'"'),'missing comparison control '+id);
-  for(const id of ['compare-picks','compare-table','date-compare-site','date-compare-run'])
+  for(const id of ['compare-table','date-compare-site','planning-time','finder-duration'])
     assert.ok(app.includes("'#"+id+"'"),'missing comparison wiring for '+id);
 });
 
@@ -92,5 +94,26 @@ test('site classifications are preserved and surfaced to the user',()=>{
   assert.ok(kinds.has('Illustrative point'));
   assert.ok(SITES.every(s=>s.kind&&s.source),'every site keeps a classification and a source link');
   assert.match(app,/site\.kind/,'site classification reaches the interface');
-  assert.match(html,/not surveyed landing sites/);
+  assert.match(html,/Illustrative points lack site surveys/);
+});
+
+test('assistant site comparison applies the same loaded per-site horizon as the planner',()=>{
+  const site=SITES[0],p={...profile,lat:site.lat,lon:site.lon,source:'NASA fixture horizon'};
+  const ctx={site,date:'2026-11-14',time:'12:00',days:3,terrainProfilesBySite:{[site.id]:p}};
+  const actual=executeTool('compare_locations',{},ctx);
+  assert.equal(actual.ok,true);
+  const expected=rankedSites(SITES,start,3,{[site.id]:p});
+  for(const entry of actual.value.ranked){
+    const other=expected.find(e=>e.site.id===entry.site);
+    assert.equal(entry.solarAvailabilityPct,other.stats.sun);
+    assert.equal(entry.terrainApplied,entry.site===site.id);
+  }
+});
+test('assistant never applies the selected site horizon to another physical coordinate',()=>{
+  const ctx={site,terrainProfile:{...profile,elevationDeg:Array(72).fill(90)}};
+  const other={lat:0,lon:0};
+  const actual=executeTool('calculate_celestial_conditions',{utcTimestamp:start,...other},ctx);
+  assert.equal(actual.ok,true);
+  assert.equal(actual.value.sun.horizonDeg,0);
+  assert.equal(actual.value.earth.horizonDeg,0);
 });

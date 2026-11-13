@@ -8,9 +8,9 @@
 import {GoogleGenAI} from '@google/genai';
 import {TOOL_DECLARATIONS,executeTool} from '../src/tools.js';
 
-const ALLOWED_PAGES = new Set(['home','explore','windows','engineering','compare','science']);
+const ALLOWED_PAGES = new Set(['home','explore','planning','windows','engineering','compare','science']);
 const MAX_MESSAGES = 24;
-const MAX_CONTEXT_BYTES = 24 * 1024;
+const MAX_CONTEXT_BYTES = 128 * 1024;
 const MAX_TOOL_ROUNDS = 8;
 const MODEL_TIMEOUT_MS = 25000;
 const CIRCUIT_BREAKER_MS = 90 * 1000;
@@ -52,6 +52,15 @@ function pickNumbers(object, keys){
 function pickNumber(object, key){
   return Number.isFinite(Number(object?.[key])) ? Number(object[key]) : null;
 }
+function sanitizeProfile(p){
+  const n=p?.azimuthDeg?.length;
+  if(!Array.isArray(p?.azimuthDeg)||!Array.isArray(p?.elevationDeg)||n<8||n>720||n!==p.elevationDeg.length||
+    !p.elevationDeg.every(v=>Number.isFinite(v)&&v>=0&&v<=90)||
+    !p.azimuthDeg.every((v,i)=>Number.isFinite(v)&&Math.abs(v-i*360/n)<0.001))return null;
+  return {azimuthDeg:[...p.azimuthDeg],elevationDeg:[...p.elevationDeg],
+    ...pickNumbers(p,['lat','lon','coveragePct','radiusKm','resolutionM']),
+    source:typeof p.source==='string'?p.source.slice(0,120):'User-supplied horizon',verifiedSource:Boolean(p.verifiedSource)};
+}
 function sanitizeContext(raw){
   const context = raw && typeof raw === 'object' ? raw : {};
   const out = {};
@@ -82,11 +91,8 @@ function sanitizeContext(raw){
       resolutionM: pickNumber(terrain, 'resolutionM')
     };
   }
-  const profile = terrain && Array.isArray(terrain.azimuthDeg) && Array.isArray(terrain.elevationDeg) &&
-    terrain.azimuthDeg.length >= 8 && terrain.azimuthDeg.length === terrain.elevationDeg.length &&
-    terrain.elevationDeg.every(v => Number.isFinite(v) && v >= 0 && v <= 90)
-    ? terrain : null;
-  if (profile) out.terrainProfile = {azimuthDeg: profile.azimuthDeg.slice(0, 144), elevationDeg: profile.elevationDeg.slice(0, 144)};
+  const profile=sanitizeProfile(terrain);
+  if(profile)out.terrainProfile=profile;
 
   if (context.simulation && typeof context.simulation === 'object'){
     out.simulation = pickNumbers(context.simulation, ['minimumSocPct','endingSocPct','generatedWh','consumedWh','unmetWh','unmetHours','solarAccessPct','earthAccessPct','dualAccessPct','longestAccessGapHours']);
@@ -110,6 +116,7 @@ function sanitizeContext(raw){
     const finder = context.finder;
     out.finder = {
       startDate: String(finder.startDate ?? '').slice(0, 10),
+      startTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(finder.startTime||'') ? finder.startTime : '12:00',
       searchDays: Number(finder.searchDays) || 0,
       windowDays: Number(finder.windowDays) || 0,
       priority: String(finder.priority ?? 'balanced'),
@@ -125,17 +132,13 @@ function sanitizeContext(raw){
   if (context.terrainProfilesBySite && typeof context.terrainProfilesBySite === 'object'){
     out.terrainProfilesBySite = {};
     for (const [id, p] of Object.entries(context.terrainProfilesBySite)){
-      if (p && Array.isArray(p.azimuthDeg) && Array.isArray(p.elevationDeg) &&
-          p.azimuthDeg.length >= 8 && p.azimuthDeg.length === p.elevationDeg.length &&
-          p.elevationDeg.every(v => Number.isFinite(v) && v >= 0 && v <= 90) &&
-          Object.keys(out.terrainProfilesBySite).length < 5){
-        out.terrainProfilesBySite[id] = {azimuthDeg: p.azimuthDeg.slice(0, 144), elevationDeg: p.elevationDeg.slice(0, 144)};
-      }
+      const profile=sanitizeProfile(p);
+      if(profile&&Object.keys(out.terrainProfilesBySite).length<5)out.terrainProfilesBySite[id]=profile;
     }
     if (!Object.keys(out.terrainProfilesBySite).length) delete out.terrainProfilesBySite;
   }
   // Guard against an oversized payload.
-  if (JSON.stringify(out).length > MAX_CONTEXT_BYTES) out.contextTooLarge = true;
+  if (JSON.stringify(out).length > MAX_CONTEXT_BYTES) return {contextTooLarge:true};
   return out;
 }
 function sanitizeMessages(messages){
@@ -157,19 +160,19 @@ Your job is to answer planning questions about the user's current mission config
 Rules you must follow:
 - Answer questions specifically about LunarNav and its methodologies. Do not drift into unrelated topics.
 - Whenever a question needs any numerical value (ephemeris, percentages, windows, energy, traverse times), call the appropriate tool and use its ACTUAL result. NEVER invent ephemeris values, mission statistics or simulation results.
-- Distinguish calculated results from assumptions and estimates. State which model and horizon assumption applied (analytical-screening-v1, 0° geometric horizon, or loaded NASA LOLA 20 km local horizon).
-- For Earth-to-Moon spacecraft transit questions use estimate_earth_moon_transit, which returns reference-duration planning estimates (direct ~3–4 days, extended low-energy ~7.5 days, or a custom duration). Never present it as a trajectory or delta-v solution, and clearly separate lunar arrival / LOI / descent / surface touchdown. This is the spacecraft transfer from Earth to the Moon — do NOT confuse it with estimate_surface_traverse, which is a rover driving on the lunar surface between two landing sites.
-- Explain the analytical ephemeris limitations: ±~0.5° azimuth/elevation samples, angular uncertainty near the horizon, and that geometric Earth visibility is NOT an RF link budget; solar visibility is NOT achievable electrical power.
+- Distinguish calculated results from assumptions and estimates. State which model and horizon assumption applied (analytical-screening-v1, 0° geometric horizon or loaded NASA LOLA 20 km local horizon).
+- For Earth-to-Moon spacecraft transit questions use estimate_earth_moon_transit, which returns reference-duration planning estimates (direct ~3–4 days, extended low-energy ~7.5 days or a custom duration). Never present it as a trajectory or delta-v solution, and clearly separate lunar arrival / LOI / descent / surface touchdown. This is the spacecraft transfer from Earth to the Moon  -  do NOT confuse it with estimate_surface_traverse, which is a rover driving on the lunar surface between two landing sites.
+- Explain the analytical ephemeris limitations: ±~0.5° azimuth/elevation samples, angular uncertainty near the horizon and that geometric Earth visibility is NOT an RF link budget; solar visibility is NOT achievable electrical power.
 - Never describe experimental screening as flight-qualified. Never claim a study coordinate is a certified landing site.
 - If information is genuinely unavailable (for example a requested site has no terrain loaded), say so clearly.
 - Retain conversational context so follow-up questions work.
-- Keep answers concise and scientific. Use Markdown where it helps readability: small ### headers for detailed answers, **bold** for key numbers, and bullet lists. Avoid over-long essays.
+- Keep answers concise and scientific. Avoid em dashes and Oxford commas. Use Markdown where it helps readability: small ### headers for detailed answers, **bold** for key numbers and bullet lists. Avoid over-long essays.
 
 Available tools: ${TOOL_DECLARATIONS.map(t => t.name).join(', ')}.
-When you call a tool, wait for its result, then summarize it in plain scientific language: state what was calculated, what is estimated, and the relevant limitations.`;
+When you call a tool, wait for its result, then summarize it in plain scientific language: state what was calculated, what is estimated and the relevant limitations.`;
 const buildContextBlock = context => ({
   role: 'user',
-  parts: [{text: '[LunarNav live application state — authoritative current data, act on it as-is; do not re-derive unless you call a tool]:\n' + JSON.stringify(context)}]
+  parts: [{text: '[LunarNav live application state: authoritative current data, act on it as-is; do not re-derive unless you call a tool]:\n' + JSON.stringify(context)}]
 });
 
 /** Test seam: tests may swap the SDK constructor via a global (never used in prod). */

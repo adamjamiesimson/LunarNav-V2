@@ -1,5 +1,5 @@
 /**
- * Operational Visibility timeline — pure geometry and coordinate mapping.
+ * Operational Visibility timeline : pure geometry and coordinate mapping.
  *
  * Kept framework-free so the drag math can be unit-tested in Node while the
  * DOM pointer-event wiring stays in app.js. Screen coordinates are converted

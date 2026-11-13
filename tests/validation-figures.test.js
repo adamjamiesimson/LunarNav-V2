@@ -5,7 +5,7 @@ import {ephemeris} from '../src/astro.js';
 
 /**
  * The validation figures displayed on the Science page must be reproducible
- * from the archived JPL Horizons fixtures — not transcribed by hand.
+ * from the archived JPL Horizons fixtures: not transcribed by hand.
  */
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const fixture=readFileSync(new URL('./fixtures/jpl-horizons-three-seasons.csv',import.meta.url),'utf8').trim().split(/\r?\n/);

@@ -11,21 +11,13 @@
  * as the server-side GEMINI_API_KEY env var.
  */
 
-const WELCOME = `### Mission analyst online
-I'm working from your **live LunarNav configuration** and the same calculation engine as the planner. Ask me about:
-- **Sun/Earth visibility** for the selected site and date
-- **mission windows**, site comparisons and the Window Finder
-- **engineering** (power, battery, Earth access)
-- **surface traverses** between study locations
-- **Earth-to-Moon transit** for the selected landing site (reference-duration estimates, not a trajectory solver)
-
-Every number I give you is either present in the current application state or produced by a real LunarNav calculation tool.`;
+const WELCOME = 'Ask about the selected mission, visibility, power, windows or travel. Calculations use the planner’s models; an API key must be configured on the server.';
 const STORAGE_KEY = 'lunarnav:assistant:history:v1';
 
 function assistantErrorHint(message){
   const text=String(message||'');
   if(/deadline|timed out|timeout/i.test(text))
-    return 'The AI provider timed out — press **Send** to ask again. History and context are kept for the retry.';
+    return 'The AI provider timed out. Press **Send** to ask again. History and context are kept for the retry.';
   if(/api key|API_KEY|401|403|rejected/i.test(text))
     return 'Verify that **GEMINI_API_KEY** is configured on the Vercel deployment, then try again.';
   return 'Check that you are online and that the server is configured, then retry. History and context remain available.';
@@ -37,6 +29,9 @@ function escapeHTML(str){
 /** Minimal Markdown rendering tuned for scientific answers (no raw HTML). */
 function renderMarkdown(text){
   return String(text)
+    .replace(/^[ \t]*\u2022[ \t]*/gm, '- ')
+    .replace(/[\u2014\u00B7\u2022]/g, ':')
+    .replace(/&(?:mdash|bull|middot);|&#(?:8212|8226|183);|&#x(?:2014|2022|b7);/gi, ':')
     .replace(/\r\n/g, '\n')
     .replace(/^### (.+)$/gm, '<h4>$1</h4>')
     .replace(/^## (.+)$/gm, '<h4>$1</h4>')
@@ -99,7 +94,7 @@ function toggle(open){
   const show = open ?? ui.root.hidden;
   ui.root.hidden = !show;
   ui.fab.setAttribute('aria-expanded', String(show));
-  ui.fab.setAttribute('aria-label', show ? 'Close the LunarNav mission assistant' : 'Open the LunarNav mission assistant');
+  ui.fab.setAttribute('aria-label', show ? 'Close Ask Spacey AI' : 'Open Ask Spacey AI');
   document.body.classList.toggle('assistant-open', show);
   if (show){
     updateContextBanner();
@@ -116,10 +111,11 @@ function focusInput(){
 }
 function updateContextBanner(){
   if (!ui.contextText) return;
-  const c = collectContext();
-  ui.contextText.textContent = c.label
-    ? `${c.label}` + (c.terrainApplied ? ' · DEM APPLIED' : ' · FLAT HORIZON')
-    : 'Configure a mission to begin analysis.';
+  const {site,date,time,days,terrain} = collectContext();
+  const horizon = terrain?.applied ? (terrain.verifiedSource ? 'Terrain horizon' : 'Unverified terrain') : 'Flat 0° horizon';
+  ui.contextText.textContent = site && date && time
+    ? `${site.name}: ${date} ${time} UTC: ${days} days: ${horizon}`
+    : 'Choose a site in Explore.';
 }
 
 function collectContext(){
@@ -152,10 +148,13 @@ function collectContext(){
       terrainApplied: state.simulation.terrainApplied
     } : null,
     missionSummary: state.missionSummary || null,
-    finder: state.finder ? {startDate: state.finder.startDate, searchDays: state.finder.searchDays,
+    finder: state.finder ? {startDate: state.finder.startDate, startTime: state.finder.startTime, searchDays: state.finder.searchDays,
       windowDays: state.finder.windowDays, priority: state.finder.priority, terrainMode: state.finder.terrainMode,
       top: state.finder.top} : null,
-    terrainProfilesBySite: state.terrainProfiles || {},
+    terrainProfilesBySite: Object.fromEntries(Object.entries(state.terrainProfiles||{}).map(([id,p])=>[id,{
+      azimuthDeg:p.azimuthDeg,elevationDeg:p.elevationDeg,lat:p.lat,lon:p.lon,
+      source:p.source,verifiedSource:p.verifiedSource,coveragePct:p.coveragePct,radiusKm:p.radiusKm,resolutionM:p.resolutionM
+    }])),
     transit: state.transit ? {
       model: state.transit.model,
       profile: state.transit.profile,
@@ -193,16 +192,19 @@ function buildMessageNode(role, text, tools = []){
   }
   const toolsHtml = tools.length
     ? `<div class="assistant-tool-log">${tools.map(t =>
-        `<span class="assistant-tool-chip ${t.ok ? 'ok' : 'fail'}" title="${escapeHTML(t.args ? JSON.stringify(t.args).slice(0,200) : '')}">${escapeHTML(t.name)} · ${escapeHTML(t.summary)}</span>`).join('')}</div>`
+        `<span class="assistant-tool-chip ${t.ok ? 'ok' : 'fail'}" title="${escapeHTML(t.args ? JSON.stringify(t.args).slice(0,200) : '')}">${escapeHTML(t.name)}: ${escapeHTML(t.summary)}</span>`).join('')}</div>`
     : '';
-  node.innerHTML = `<div class="assistant-message-bubble assistant-answer">${renderMarkdown(text)}${toolsHtml}</div>`;
+  const welcome = text === WELCOME && tools.length === 0;
+  if (welcome) node.classList.add('assistant-welcome');
+  const displayedText = welcome ? 'Ask about the current site, visibility, mission windows, power or travel.' : text;
+  node.innerHTML = `<div class="assistant-message-bubble assistant-answer">${renderMarkdown(displayedText)}${toolsHtml}</div>`;
   return node;
 }
 function showTyping(){
   const node = document.createElement('div');
   node.className = 'assistant-message assistant typing';
   node.id = 'assistant-typing';
-  node.innerHTML = '<div class="assistant-message-bubble"><span class="assistant-typing-dots"><i></i><i></i><i></i></span><span class="assistant-typing-label">Consulting Gemini…</span></div>';
+  node.innerHTML = '<div class="assistant-message-bubble"><span class="assistant-typing-dots"><i></i><i></i><i></i></span><span class="assistant-typing-label">Waiting for Gemini…</span></div>';
   ui.messages.appendChild(node);
   ui.messages.scrollTop = ui.messages.scrollHeight;
   return node;

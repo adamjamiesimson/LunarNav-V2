@@ -52,10 +52,10 @@ test('a directional hill raises only its own azimuth',()=>{
 test('body status reflects ray-marched terrain obstruction honestly',()=>{
   const columns=Array.from({length:360},(_,i)=>({azimuthDeg:i,horizonDeg:i<180?5:0.5,samples:[]}));
   const pano={columns,observerHeightM:2};
-  assert.equal(bodyStatus(pano,{azimuth:90,elevation:-2}),'BELOW HORIZON');
-  assert.equal(bodyStatus(pano,{azimuth:90,elevation:2}),'BEHIND TERRAIN');
-  assert.equal(bodyStatus(pano,{azimuth:90,elevation:12}),'ABOVE HORIZON');
-  assert.equal(bodyStatus(pano,{azimuth:270,elevation:1}),'ABOVE HORIZON');
+  assert.equal(bodyStatus(pano,{azimuth:90,elevation:-2}),'Below horizon');
+  assert.equal(bodyStatus(pano,{azimuth:90,elevation:2}),'Behind terrain');
+  assert.equal(bodyStatus(pano,{azimuth:90,elevation:12}),'Above horizon');
+  assert.equal(bodyStatus(pano,{azimuth:270,elevation:1}),'Above horizon');
 });
 
 test('panorama distances sample densely near the observer',()=>{
