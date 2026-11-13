@@ -170,4 +170,9 @@ test('graphics selection and scientific controls retain accessible labels and vi
   assert.equal(doc.querySelector('.graphics-note'),null);
   assert.match(doc.querySelector('#relief-exaggeration').getAttribute('aria-label'),/visual relief exaggeration only/);
   assert.deepEqual([...doc.querySelector('#relief-exaggeration').options].map(o=>o.value),['2','5','10']);
+  const options=[...doc.querySelectorAll('.graphics-options label')];
+  assert.deepEqual(options.map(o=>o.querySelector('span').firstChild.textContent.trim()),['Low graphics','Medium graphics','High graphics']);
+  assert.deepEqual(options.map(o=>o.querySelector('.graphics-profile-hint').textContent),
+    ['(better performance)','(balanced)','(better visuals)']);
+  assert.deepEqual(options.map(o=>o.querySelector(':scope > small').textContent),['Relief ×2','Relief ×5','Relief ×10']);
 });

@@ -118,6 +118,8 @@ main{padding:0 var(--gutter);min-height:calc(100vh - 120px)}
 .graphics-options input{accent-color:var(--accent)}
 .graphics-options span{flex:1;font-size:15px}
 .graphics-options small{font-size:14px;color:var(--muted)}
+.graphics-options .graphics-profile-hint{font-size:13px;color:var(--muted);font-weight:400;white-space:nowrap}
+@media(max-width:540px){.graphics-options .graphics-profile-hint{display:block;margin-top:3px}}
 .tour-spotlight{display:none;position:fixed;inset:0;pointer-events:none}
 .onboarding-dialog[open][data-stage="tour"]{display:block;padding:0;background:transparent;overflow:hidden}
 .onboarding-dialog[data-stage="tour"]::backdrop{background:transparent}
