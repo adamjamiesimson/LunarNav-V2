@@ -82,4 +82,4 @@ async function run(){
     console.error('WARNING: independent error exceeds '+tol+' degrees');process.exitCode=1;
   }
 }
-run().catch(error=>{console.error('NOT SCIENTIFICALLY VALIDATED — live JPL request failed:',error.message);process.exitCode=2;});
+run().catch(error=>{console.error('NOT SCIENTIFICALLY VALIDATED: live JPL request failed:',error.message);process.exitCode=2;});

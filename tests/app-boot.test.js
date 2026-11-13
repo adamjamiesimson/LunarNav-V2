@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 // App boot + navigation smoke in the declared jsdom test dependency.
-// This verifies the module actually evaluates and the router responds — the
+// This verifies the module actually evaluates and the router responds: the
 // class of regression source-text assertions cannot catch.
 import {JSDOM} from 'jsdom';
 
@@ -73,7 +73,7 @@ test('navigation survives even when the globe fails to initialise',async t=>{
     try{Object.defineProperty(globalThis,k,{value:window[k],configurable:true,writable:true});}catch{}
   Object.defineProperty(globalThis,'location',{value:window.location,configurable:true});
   globalThis.window=window;
-  // Globe init throws hard — the app must still boot and navigate.
+  // Globe init throws hard: the app must still boot and navigate.
   window.HTMLCanvasElement.prototype.getContext=function(){throw Error('WebGL unavailable');};
   globalThis.Image=window.Image=class{set src(v){setTimeout(()=>this.onload&&this.onload(),0);}};
   globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};

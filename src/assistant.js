@@ -29,6 +29,9 @@ function escapeHTML(str){
 /** Minimal Markdown rendering tuned for scientific answers (no raw HTML). */
 function renderMarkdown(text){
   return String(text)
+    .replace(/^[ \t]*\u2022[ \t]*/gm, '- ')
+    .replace(/[\u2014\u00B7\u2022]/g, ':')
+    .replace(/&(?:mdash|bull|middot);|&#(?:8212|8226|183);|&#x(?:2014|2022|b7);/gi, ':')
     .replace(/\r\n/g, '\n')
     .replace(/^### (.+)$/gm, '<h4>$1</h4>')
     .replace(/^## (.+)$/gm, '<h4>$1</h4>')
@@ -111,7 +114,7 @@ function updateContextBanner(){
   const {site,date,time,days,terrain} = collectContext();
   const horizon = terrain?.applied ? (terrain.verifiedSource ? 'Terrain horizon' : 'Unverified terrain') : 'Flat 0° horizon';
   ui.contextText.textContent = site && date && time
-    ? `${site.name} · ${date} ${time} UTC · ${days} days · ${horizon}`
+    ? `${site.name}: ${date} ${time} UTC: ${days} days: ${horizon}`
     : 'Choose a site in Explore.';
 }
 
@@ -189,7 +192,7 @@ function buildMessageNode(role, text, tools = []){
   }
   const toolsHtml = tools.length
     ? `<div class="assistant-tool-log">${tools.map(t =>
-        `<span class="assistant-tool-chip ${t.ok ? 'ok' : 'fail'}" title="${escapeHTML(t.args ? JSON.stringify(t.args).slice(0,200) : '')}">${escapeHTML(t.name)} · ${escapeHTML(t.summary)}</span>`).join('')}</div>`
+        `<span class="assistant-tool-chip ${t.ok ? 'ok' : 'fail'}" title="${escapeHTML(t.args ? JSON.stringify(t.args).slice(0,200) : '')}">${escapeHTML(t.name)}: ${escapeHTML(t.summary)}</span>`).join('')}</div>`
     : '';
   const welcome = text === WELCOME && tools.length === 0;
   if (welcome) node.classList.add('assistant-welcome');
