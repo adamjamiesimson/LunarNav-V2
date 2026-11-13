@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {existsSync,readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
-import {initOnboarding,LOADING_DURATION_MS,TOUR_STEPS} from '../src/onboarding.js';
+import {initOnboarding,LOADING_DURATION_MS,NOTICE_DURATION_MS,TOUR_STEPS} from '../src/onboarding.js';
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 function setup(page='science'){
   const dom=new JSDOM(html),doc=dom.window.document;
@@ -17,14 +17,21 @@ function setup(page='science'){
   initOnboarding({doc,clock,getPage:()=>current,navigateView:p=>{
     current=p;for(const view of doc.querySelectorAll('[data-view]'))view.hidden=view.dataset.view!==p;
   },onGraphicsChange:p=>{preset=p;}});
-  return {doc,advance:()=>{elapsed=delay;timer();},tick:ms=>{elapsed=ms;interval?.();},
+  function advance(){elapsed+=delay;timer();}
+  return {doc,advance,advanceToGraphics:()=>{advance();advance();},tick:ms=>{elapsed=ms;interval?.();},
     get delay(){return delay;},get page(){return current;},get preset(){return preset;}};
 }
-test('every visit starts with a ten-second loading screen before graphics',()=>{
+test('every visit shows ten seconds of loading then five seconds of notice before graphics',()=>{
   for(let i=0;i<2;i++){
     const ui=setup();
     assert.equal(LOADING_DURATION_MS,10000);assert.equal(ui.delay,10000);
     assert.equal(ui.doc.querySelector('#onboarding-dialog').dataset.stage,'loading');
+    assert.equal(ui.doc.querySelector('[data-onboarding-panel="graphics"]').hidden,true);
+    ui.advance();assert.equal(ui.doc.querySelector('#onboarding-dialog').dataset.stage,'notice');
+    assert.equal(ui.delay,NOTICE_DURATION_MS);
+    assert.equal(ui.delay,5000);
+    assert.equal(ui.doc.querySelector('#onboarding-title').textContent,'Before you explore');
+    assert.match(ui.doc.querySelector('#onboarding-description').textContent,/incognito tab/);
     assert.equal(ui.doc.querySelector('[data-onboarding-panel="graphics"]').hidden,true);
     ui.advance();assert.equal(ui.doc.querySelector('#onboarding-dialog').dataset.stage,'graphics');
   }
@@ -48,11 +55,25 @@ test('loading screen displays LunarNav artwork and updates its percent beneath t
   ui.advance();
   assert.equal(ui.doc.querySelector('#loading-percent').textContent,'100%');
   assert.equal(ui.doc.querySelector('[data-onboarding-panel="loading"]').hidden,true);
+  assert.equal(ui.doc.querySelector('#onboarding-dialog').dataset.stage,'notice');
+  assert.equal(ui.doc.querySelector('[data-onboarding-panel="graphics"]').hidden,true);
+  ui.advance();
   assert.equal(ui.doc.querySelector('[data-onboarding-panel="graphics"]').hidden,false);
+});
+test('notice is not dismissible via Escape before graphics selection',()=>{
+  const ui=setup();
+  ui.advance();
+  const event=new ui.doc.defaultView.Event('cancel',{cancelable:true});
+  ui.doc.getElementById('onboarding-dialog').dispatchEvent(event);
+  assert.equal(event.defaultPrevented,true);
+  assert.equal(ui.doc.querySelector('#onboarding-dialog').dataset.stage,'notice');
+  assert.equal(ui.doc.querySelector('#app').inert,true);
+  ui.advance();
+  assert.equal(ui.doc.querySelector('#onboarding-dialog').dataset.stage,'graphics');
 });
 test('all requested graphics presets apply the exact relief multiplier before the tutorial',()=>{
   for(const value of [2,5,10]){
-    const ui=setup();ui.advance();
+    const ui=setup();ui.advanceToGraphics();
     ui.doc.querySelector(`input[name="startup-graphics"][value="${value}"]`).checked=true;
     ui.doc.querySelector('#graphics-continue').click();
     assert.equal(ui.preset,value);assert.equal(ui.page,'explore');
@@ -60,7 +81,7 @@ test('all requested graphics presets apply the exact relief multiplier before th
   }
 });
 test('tutorial supports Back, completion, cleanup and returning to the original route',()=>{
-  const ui=setup();ui.advance();ui.doc.querySelector('#graphics-continue').click();
+  const ui=setup();ui.advanceToGraphics();ui.doc.querySelector('#graphics-continue').click();
   assert.equal(ui.doc.querySelector('#tour-back').disabled,true);
   ui.doc.querySelector('#tour-next').click();assert.equal(ui.doc.querySelector('#tour-counter').textContent,'02 / 12');
   ui.doc.querySelector('#tour-back').click();assert.equal(ui.doc.querySelector('#tour-counter').textContent,'01 / 12');
@@ -83,7 +104,7 @@ test('tutorial supports Back, completion, cleanup and returning to the original 
   assert.equal(ui.doc.querySelectorAll('.tour-target').length,0);assert.equal(ui.doc.querySelector('#app').inert,false);
 });
 test('tutorial can be skipped or replayed without changing site and time inputs',()=>{
-  const ui=setup();ui.advance();
+  const ui=setup();ui.advanceToGraphics();
   const date=ui.doc.querySelector('#mission-date').value;
   ui.doc.querySelector('#graphics-continue').click();ui.doc.querySelector('#tour-skip').click();
   ui.doc.querySelector('#restart-tour').click();assert.equal(ui.doc.querySelector('#tour-counter').textContent,'01 / 12');
@@ -92,7 +113,7 @@ test('tutorial can be skipped or replayed without changing site and time inputs'
 });
 
 test('cross-page Back, skip and Escape restore the entry page and mission inputs',()=>{
-  const ui=setup('planning');ui.advance();
+  const ui=setup('planning');ui.advanceToGraphics();
   const values=[...ui.doc.querySelectorAll('#app input,#app select')].map(el=>el.value);
   ui.doc.querySelector('#graphics-continue').click();
   for(let i=0;i<8;i++)ui.doc.querySelector('#tour-next').click();
@@ -107,7 +128,7 @@ test('cross-page Back, skip and Escape restore the entry page and mission inputs
 });
 
 test('spotlight mask and navigation provide an accessible twelve-feature tour',()=>{
-  const ui=setup();ui.advance();ui.doc.querySelector('#graphics-continue').click();
+  const ui=setup();ui.advanceToGraphics();ui.doc.querySelector('#graphics-continue').click();
   assert.ok(ui.doc.querySelector('#tour-mask #tour-cutout'));
   assert.equal(ui.doc.querySelector('.tour-spotlight').getAttribute('aria-hidden'),'true');
   assert.equal(ui.doc.querySelector('#tour-progress').getAttribute('aria-valuemax'),'12');
