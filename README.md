@@ -1,6 +1,6 @@
 # LunarNav: Lunar Mission Planning
 
-A NASA Space Apps Challenge 2026 prototype by **Team 1st LunarNav**. Screen lunar sites and UTC periods for Sun/Earth visibility, local horizons, and first-order engineering constraints. Outputs are exploratory estimates—not landing certification, guaranteed power, or RF link budgets. Not affiliated with or endorsed by NASA.
+A NASA Space Apps Challenge 2026 prototype by **Team 1st LunarNav**. Screen lunar sites and UTC periods for Sun/Earth visibility, local horizons, and first-order engineering constraints. Outputs are exploratory estimates, not landing certification, guaranteed power, or RF link budgets. Not affiliated with or endorsed by NASA.
 
 ## Run locally
 
@@ -19,7 +19,7 @@ node scripts/browser-smoke.mjs # Run after build; tests desktop and mobile Chrom
 ## Workspace
 
 * **Explore (default):** Rotatable displaced globe, 5 study sites or custom globe point, UTC inspection, visibility timeline, sky diagram, and mission results.
-* **Plan Mission (`/planning`, legacy `/windows` & `/compare` redirect/work):** Unified date/time/duration/horizon controls driving a 6-metric site table, Sun/Earth timelines, and 3 recommended windows (clickable to open in Explore). Tracks illumination, longest darkness, Earth visibility/gaps, simultaneous access, and reference solar energy. Expandable date calendar, two-date comparison, and reference Earth-to-Moon timing.
+* **Plan Mission (`/planning`, legacy `/windows` & `/compare` work):** Unified date/time/duration/horizon controls driving a 6-metric site table, Sun/Earth timelines, and 3 recommended windows (clickable to open in Explore). Tracks illumination, longest darkness, Earth visibility/gaps, simultaneous access, and reference solar energy, with expandable date calendar, two-date comparison, and reference Earth-to-Moon timing.
 * *Sampling & Terrain:* Search uses 4-hr samples; comparison uses 2-hr samples. Loaded-terrain comparisons include covered sites only; flat mode is explicit. Exports retain all search windows, terrain provenance, and matched baseline deltas.
 
 
@@ -30,7 +30,7 @@ node scripts/browser-smoke.mjs # Run after build; tests desktop and mobile Chrom
 ## Data and models
 
 * **Globe & Surface Panorama:** Uses NASA SVS LROC color mosaic (`lroc_color_2k.jpg`) and NASA Blue Marble (`bluemarble-1024.png`) via same-origin Vercel rewrites/local proxies. Height grids are baked by `scripts/build-relief.mjs` from NASA elevation data (never color maps). *View panorama of location* flies to any selected waypoint and renders a drag-to-look 360° horizon panorama ray-marched from DEM heights (native waypoint patch near-field, baked grid far-field) with real Sun/Earth positions and silhouette obstruction.
-* **Sites:** Mons Mouton (NASA PDS IM-2 coordinate), Malapert (NASA reference), Shackleton Rim (approximate historical candidate), and Faustini/Nobile (illustrative study points). Classifications/links remain in the UI.
+* **Sites:** Mons Mouton (NASA PDS IM-2 coordinate), Malapert (NASA reference), Shackleton Rim (approximate historical candidate), and Faustini/Nobile (illustrative study points); classifications/links remain in the UI.
 * **Geometry (`src/astro.js`):** Truncated lunar/solar series and IAU 2015 lunar rotation compute Moon-fixed azimuth/elevation. Visibility requires a body's center to exceed the local terrain horizon (or 0° fallback), shared across timeline, comparison, Finder, engineering, and AI tools. Planner/comparison samples at 2 hrs; rankings/Finder at 4 hrs; engineering adds an antenna elevation mask. Excludes eclipses, disc/limb corrections, light-time, spacecraft shadows, and hazard models.
 * **Relief & Rendering:** Committed **8192 × 4096** global grid (~1.33 km/px at equator, combining SLDEM2015 mid-latitudes and polar DEMs) plus ~480 m/px north/south polar grids (datum/12-bit vertical quantization in `data/relief.json`). Custom points derive coarse horizons from bundled grids.
 * *Graphics:* Uses elevation-dependent ray intersection and surface normals. Presets (**Low ×2**, **Medium ×5** [default], **High realistic ×10**) apply visual relief exaggeration only; scientific calculations use true elevations. GPU uploads cap at 4096 px (desktop) / 2048 px (mobile/small screens) with nearest sampling; canvas readbacks cover requested windows only, retaining one decoded grid, bounded custom storage, and cached patch uploads (bounds resources, does not guarantee device performance).
@@ -49,7 +49,6 @@ node scripts/browser-smoke.mjs # Run after build; tests desktop and mobile Chrom
 ## Optional Gemini assistant
 
 Set `GEMINI_API_KEY` on the server (never exposed to client); optional `GEMINI_MODEL` (default `gemini-3.8-flash`) and `GEMINI_FALLBACK_MODELS` configure models (see `.env.example`). `api/chat.js` runs bounded function calls via `src/tools.js` using planner math, matching terrain profiles, and full-resolution azimuth arrays. Conversation history stays in browser memory/sessionStorage, and missing config is flagged in the UI. SDK import/API shape and handler behavior are tested (live keyed Gemini responses not verified in this cleanup).
-
 ## References
 
 - [NASA Space Apps : Team 1st LunarNav](https://www.spaceappschallenge.org/2026/find-a-team/1st-lunarnav/)
