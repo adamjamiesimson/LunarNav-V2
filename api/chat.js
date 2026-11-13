@@ -14,12 +14,7 @@ const MAX_CONTEXT_BYTES = 128 * 1024;
 const MAX_TOOL_ROUNDS = 8;
 const MODEL_TIMEOUT_MS = 25000;
 const CIRCUIT_BREAKER_MS = 90 * 1000;
-// Preferred model (GEMINI_MODEL) with automatic fallbacks for transient
-// unavailability (404/429/503 or a hang). The default order is based on a
-// live reliability probe of the free tier: gemini-3.5-flash-lite answered
-// 9/9 requests and gemini-3.1-flash-lite 7/8, while gemini-3.5-flash was
-// mostly quota-limited (429) and gemini-3.8/3.7-flash were load-shed with
-// 503 "high demand". GEMINI_MODEL / GEMINI_FALLBACK_MODELS override the order.
+
 const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 const DEFAULT_FALLBACK_MODELS = ['gemini-3.1-flash-lite', 'gemini-3.5-flash'];
 function modelChain(){
