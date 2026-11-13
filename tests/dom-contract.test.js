@@ -22,7 +22,7 @@ test('planning keeps screening limitations and resolution visible',()=>{
  assert.match(methods.textContent,/comparisons sample every 2 hours\. The mission-window search samples every 4 hours/i);
  assert.ok(plan.querySelector('a[data-route="science"]'));
  assert.match(methods.textContent,/measured errors are specific to the sample/i);
- assert.match(methods.textContent,/illustrative points lack site surveys/i);
+ assert.match(methods.textContent,/The model does not solve trajectories/i);
  assert.match(methods.textContent,/Earth visibility uses line-of-sight geometry/i);
 });
 test('terrain coverage is explicit and refinement remains in Engineering',()=>{
@@ -77,4 +77,13 @@ test('Earth and Sun remain in the Moon globe with UTC simulation controls',()=>{
  assert.match(build,/src\/celestial\.js/);const methods=doc.querySelector('[data-view="science"]');
  assert.match(methods.textContent,/compressed sizes and distances/);
  assert.ok(methods.querySelector('a[href="https://svs.gsfc.nasa.gov/4720/"]'));
+});
+
+test('Methods omits the standalone Scope of use section while retaining other scientific context',()=>{
+ const methods=doc.querySelector('[data-view="science"]');
+ assert.ok(methods);
+ assert.equal(methods.querySelector('.science-disclaimer'),null);
+ assert.doesNotMatch(methods.textContent,/Scope of use|Illustrative points lack site surveys/);
+ assert.match(methods.textContent,/Traverse and transit estimates/);
+ assert.match(methods.textContent,/terrain horizon at the origin/);
 });

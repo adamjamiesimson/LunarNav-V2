@@ -94,7 +94,7 @@ test('site classifications are preserved and surfaced to the user',()=>{
   assert.ok(kinds.has('Illustrative point'));
   assert.ok(SITES.every(s=>s.kind&&s.source),'every site keeps a classification and a source link');
   assert.match(app,/site\.kind/,'site classification reaches the interface');
-  assert.match(html,/Illustrative points lack site surveys/);
+  assert.match(html,/id="selected-tag"/,'selected site classification remains visible');
 });
 
 test('assistant site comparison applies the same loaded per-site horizon as the planner',()=>{
