@@ -125,6 +125,14 @@ export function initOnboarding({navigateView,getPage,onGraphicsChange,doc=docume
     fill.style.width=amount+'%';
     percent.textContent=amount+'%';
   }
+  let noticeTimer=null;
+  function showGraphics(){
+    if(stage!=='notice')return;
+    if(noticeTimer!==null){clock.clearTimeout?.(noticeTimer);noticeTimer=null;}
+    show('graphics');title.textContent='Choose terrain relief';
+    description.textContent='Set how much the globe exaggerates elevation.';
+    dialog.querySelector('input[name="startup-graphics"]:checked').focus();
+  }
   const progressTimer=clock.setInterval?.(()=>{
     updateLoading(Math.min(99,Math.floor((now()-startedAt)/LOADING_DURATION_MS*100)));
   },100);
@@ -134,12 +142,10 @@ export function initOnboarding({navigateView,getPage,onGraphicsChange,doc=docume
     show('notice');
     title.textContent='Before you explore';
     description.textContent="LunarNav's features have been tested. The 3D tools can use substantial browser memory. If something doesn't work, try opening LunarNav in an incognito tab.";
-    clock.setTimeout(()=>{
-      show('graphics');title.textContent='Choose terrain relief';
-      description.textContent='Set how much the globe exaggerates elevation.';
-      dialog.querySelector('input[name="startup-graphics"]:checked').focus();
-    },NOTICE_DURATION_MS);
+    doc.getElementById('notice-okay').focus();
+    noticeTimer=clock.setTimeout(showGraphics,NOTICE_DURATION_MS);
   },LOADING_DURATION_MS);
+  listen('notice-okay',showGraphics);
   listen('graphics-continue',()=>{
     onGraphicsChange(Number(dialog.querySelector('input[name="startup-graphics"]:checked').value));startTour();
   });
