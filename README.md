@@ -1,58 +1,54 @@
-# LunarNav : lunar mission planning
+# LunarNav: Lunar Mission Planning
 
-A NASA Space Apps Challenge 2026 prototype by **Team 1st LunarNav**. Select a lunar site and UTC period to screen Sun/Earth visibility, local horizons and first-order engineering constraints. These are exploratory estimates, not landing certification, guaranteed power or an RF link budget. Not affiliated with or endorsed by NASA.
+A NASA Space Apps Challenge 2026 prototype by **Team 1st LunarNav**. Screen lunar sites and UTC periods for Sun/Earth visibility, local horizons, and first-order engineering constraints. Outputs are exploratory estimates—not landing certification, guaranteed power, or RF link budgets. Not affiliated with or endorsed by NASA.
 
 ## Run locally
 
-Use **Node 22.13+** (Node 24 also tested). Client code is native browser ES modules; the optional server-side assistant uses `@google/genai`.
+Requires **Node 22.13+** (Node 24 tested). Client uses native browser ES modules; optional server-side AI assistant uses `@google/genai`.
 
 ```sh
-npm ci
+npm ci                         # Lockfile committed; CI installs Chromium system deps
 npm test
-npm run build
-npm run dev                 # http://localhost:4173
+npm run build                  # Outputs to dist/ (vercel.json preserves routes/proxies)
+npm run dev                    # http://localhost:4173 (serves files/proxies; no Gemini function)
 npx playwright install chromium
-node scripts/browser-smoke.mjs # build first; desktop and mobile Chromium
-```
+node scripts/browser-smoke.mjs # Run after build; tests desktop and mobile Chromium
 
-The lockfile is committed. Both CI workflows install with `npm ci`; browser CI additionally installs Chromium's system dependencies. Production output is `dist/`; `vercel.json` preserves direct routes and data proxies. The preview server serves files and proxies assets; it does not run the Gemini function.
+```
 
 ## Workspace
 
-- **Explore** is the default workspace: rotatable displaced globe, five study sites or a custom point selected on the globe, UTC inspection, visibility timeline, sky diagram and mission results.
-- **Plan Mission** combines Windows and Compare at `/planning`. One date/time/duration/horizon selection drives a six-metric site table, Sun/Earth timelines and three recommended windows. Keep illumination, longest darkness, Earth visibility/gaps, simultaneous access and reference solar energy in view. The date calendar, two-date comparison and reference-duration Earth-to-Moon timing expand on demand. Loaded-terrain comparisons include covered sites only; flat mode is explicit. Search uses four-hour samples; comparison uses two-hour samples. Exports retain all search windows, terrain provenance and matched baseline deltas. A recommendation opens Explore with its site, date, UTC time and duration. Old `/windows` and `/compare` links remain usable.
-- **Engineering** simulates a horizontal solar array, constant load and ideal battery; includes terrain refinement/import and a spherical surface-traverse estimate.
-- **Methods** holds short help, data provenance, resolution and limitations. Every visit starts with a ten-second logo loading screen, a ten-second browser memory notice, graphics choice and a twelve-step spotlight tutorial; replay it from Methods. The tour highlights site selection, mission period, the globe, time inspection, site outlook, the visibility timeline, site comparison, recommended dates, terrain refinement, power/battery assumptions, the surface panorama and the AI assistant. It moves between pages, keeps the active feature bright under a green outline, adapts the card to the viewport and restores the entry page and mission inputs on completion or skip.
+* **Explore (default):** Rotatable displaced globe, 5 study sites or custom globe point, UTC inspection, visibility timeline, sky diagram, and mission results.
+* **Plan Mission (`/planning`, legacy `/windows` & `/compare` redirect/work):** Unified date/time/duration/horizon controls driving a 6-metric site table, Sun/Earth timelines, and 3 recommended windows (clickable to open in Explore). Tracks illumination, longest darkness, Earth visibility/gaps, simultaneous access, and reference solar energy. Expandable date calendar, two-date comparison, and reference Earth-to-Moon timing.
+* *Sampling & Terrain:* Search uses 4-hr samples; comparison uses 2-hr samples. Loaded-terrain comparisons include covered sites only; flat mode is explicit. Exports retain all search windows, terrain provenance, and matched baseline deltas.
 
-Mission-timeline, Finder and engineering CSVs export distinct datasets. The mission briefing supports copying and print/save-PDF. Share URLs retain preset site, date and duration; custom coordinates are not encoded in share URLs.
+
+* **Engineering:** Simulates horizontal solar array, constant load, and ideal battery; includes terrain refinement/import and spherical surface-traverse estimates.
+* **Methods:** Help, data provenance, resolution, and limitations.
+* **Onboarding & Exports:** Visits open with a 10s logo screen, 10s browser memory notice, graphics preset choice, and a replayable 12-step spotlight tutorial (covers site, period, globe, time, outlook, timeline, comparison, recommended dates, terrain refinement, power/battery, surface panorama, and AI assistant; highlights active UI in green, adapts to viewport, and restores initial state on exit). Exports distinct CSVs (timeline, Finder, engineering), copyable/printable PDF mission briefings, and share URLs (retains preset site, date, duration; excludes custom coordinates).
 
 ## Data and models
 
-**Globe surface.** The Moon's texture is the NASA SVS LROC color global mosaic (`lroc_color_2k.jpg`) and Earth uses the NASA Blue Marble (`bluemarble-1024.png`), both served same-origin through Vercel rewrites and local proxies. Height grids are baked by `scripts/build-relief.mjs` from NASA elevation data (never from rendered colour maps); see *3D surface and relief* above. **Surface panorama:** *View panorama of location* flies the globe down to the selected waypoint (any site, including custom ones) and renders a drag-to-look 360° horizon panorama ray-marched from the same DEM heights (native waypoint patch in the near field, baked grid beyond), with the Sun and Earth marked at their real azimuth/elevation and terrain obstruction taken from the ray-marched silhouette.
-**Sites.** Mons Mouton is the NASA PDS IM-2 landing coordinate; Malapert is a NASA reference coordinate; Shackleton Rim is an approximate historical candidate. Faustini and Nobile are illustrative study points, not surveyed landing sites. Source links and classifications remain in the interface.
+* **Globe & Surface Panorama:** Uses NASA SVS LROC color mosaic (`lroc_color_2k.jpg`) and NASA Blue Marble (`bluemarble-1024.png`) via same-origin Vercel rewrites/local proxies. Height grids are baked by `scripts/build-relief.mjs` from NASA elevation data (never color maps). *View panorama of location* flies to any selected waypoint and renders a drag-to-look 360° horizon panorama ray-marched from DEM heights (native waypoint patch near-field, baked grid far-field) with real Sun/Earth positions and silhouette obstruction.
+* **Sites:** Mons Mouton (NASA PDS IM-2 coordinate), Malapert (NASA reference), Shackleton Rim (approximate historical candidate), and Faustini/Nobile (illustrative study points). Classifications/links remain in the UI.
+* **Geometry (`src/astro.js`):** Truncated lunar/solar series and IAU 2015 lunar rotation compute Moon-fixed azimuth/elevation. Visibility requires a body's center to exceed the local terrain horizon (or 0° fallback), shared across timeline, comparison, Finder, engineering, and AI tools. Planner/comparison samples at 2 hrs; rankings/Finder at 4 hrs; engineering adds an antenna elevation mask. Excludes eclipses, disc/limb corrections, light-time, spacecraft shadows, and hazard models.
+* **Relief & Rendering:** Committed **8192 × 4096** global grid (~1.33 km/px at equator, combining SLDEM2015 mid-latitudes and polar DEMs) plus ~480 m/px north/south polar grids (datum/12-bit vertical quantization in `data/relief.json`). Custom points derive coarse horizons from bundled grids.
+* *Graphics:* Uses elevation-dependent ray intersection and surface normals. Presets (**Low ×2**, **Medium ×5** [default], **High realistic ×10**) apply visual relief exaggeration only; scientific calculations use true elevations. GPU uploads cap at 4096 px (desktop) / 2048 px (mobile/small screens) with nearest sampling; canvas readbacks cover requested windows only, retaining one decoded grid, bounded custom storage, and cached patch uploads (bounds resources, does not guarantee device performance).
 
-**Geometry.** `src/astro.js` uses truncated lunar/solar series and IAU 2015 lunar rotation to compute Moon-fixed local azimuth/elevation. A body's centre must exceed the azimuth-dependent terrain horizon or 0° when no terrain is available. Timeline, comparison, Finder, engineering and assistant tools share the visibility rule. The planner/comparison uses two-hour samples; rankings/Finder use four-hour samples; engineering adds a separate antenna elevation mask. Those sampling and model differences remain explicit. No eclipses, disc/limb corrections, light-time, spacecraft shadows or hazard model.
 
-**Relief and custom horizons.** The committed **8192 × 4096** global grid is approximately **1.33 km/pixel at the equator**, combining SLDEM2015 mid-latitudes with numerical polar DEMs. North and south polar grids are approximately **480 m/pixel**. These are real elevation grids, not heights inferred from imagery; sources, datum and 12-bit vertical quantisation are in `data/relief.json`. Custom points derive a coarse horizon from the appropriate bundled grid. That is different from a native-resolution patch.
+* **Native Terrain & Horizons:** Archived `data/lola-horizons.json` covers the 5 study sites (20 km radius, 72 bins at 5°). Optional runtime refinement derives 360 bins at 1° via bounded, exact HTTP 206 uncompressed range requests (splitting longitude seams, rejecting invalid/oversized payloads, enforcing timeouts, canceling stale site requests, and falling back cleanly on error):
+* **80°S–90°S:** NASA LOLA `LDEM_80S_80MPP_ADJ.TIF` (80 m/px).
+* **60°S–80°S:** NASA LOLA `LDEM_60S_60MPP_ADJ.TIF` (60 m/px).
+* **60°S–60°N:** SLDEM2015 (128 px/deg, ~237 m/px at equator, little-endian float32 km above R = 1737.4 km).
+* **North Pole:** Retains bundled 480 m grid (no native runtime loader).
+* Runtime patches preserve Float32 meters, NoData masks, and georeferencing, refreshing all mission samples on update. Local 60–100 m `MOON_ME` south-polar GeoTIFF imports are supported (unverified provenance). Horizons model spherical curvature over 20 km with source-matched radial steps (far-field terrain, unresolved hazards, and narrow occlusions remain limitations). `src/surface.js` provides local frames/cameras/visibility foundations (**no surface-view renderer implemented**). Color-map ingestion requires documented legends/georeferencing; USGS SIM 3316 shaded topography is cartographic reference only.
 
-The globe uses elevation-dependent ray intersection and surface normals. Graphics presets are **Low ×2**, **Medium ×5** (default) and **High realistic ×10**. These names select visual relief exaggeration only; ×10 is exaggerated rather than physical-scale geometry and scientific calculations retain actual elevations. GPU uploads are capped at 4096 pixels on desktop and 2048 on small screens, subject to the device limit; nearest sampling preserves packed height codes. Scientific window sampling uses the original assets. Canvas readback covers only the requested window, one decoded grid is retained, custom profile storage is bounded and unchanged patches are not reuploaded. This bounds resources but does not establish performance on every laptop or phone.
 
-**Native terrain.** Archived `data/lola-horizons.json` profiles cover the five study sites (20 km, 72 bins at 5°). Optional runtime refinement derives 360 bins at 1°:
-
-- 80°S–90°S: NASA LOLA `LDEM_80S_80MPP_ADJ.TIF`, 80 m/pixel.
-- 60°S–80°S: NASA LOLA `LDEM_60S_60MPP_ADJ.TIF`, 60 m/pixel.
-- Between 60°S and 60°N: SLDEM2015, 128 pixels/degree (~237 m at the equator), pixel-registered little-endian float32 kilometres above R = 1737.4 km. Reads require exact, bounded, uncompressed HTTP 206 ranges; longitude seam spans are split. Invalid or oversized data is rejected before decoding.
-- Northern polar sites retain the bundled 480 m grid; a native north-polar runtime loader is not implemented.
-
-Runtime patches preserve Float32 metres, NoData masks and georeferencing for horizons and the globe. Site changes cancel/invalidate old requests and all derived mission samples refresh when terrain changes. Failed refinements explicitly retain an existing grid/profile or the labelled geometric fallback. External requests have timeouts. Local 60–100 m compatible MOON_ME south-polar GeoTIFF imports remain available, with unverified provenance.
-
-Horizons include spherical curvature over a 20 km radius with radial steps matched to source resolution. Far-field terrain, unresolved hazards and narrow occlusions remain limitations. `src/surface.js` implements local frames, terrain-height cameras and visibility foundations; **a surface-view renderer is not implemented**. Colour-map ingestion remains available only with a documented legend/georeference; USGS SIM 3316 shaded topography was rejected as a numerical DEM and is a cartographic reference only.
-
-**Engineering and travel.** Power assumes a fixed horizontal array, 1361 W/m², constant load, battery initially full and ideal storage; no thermal or chemistry model. Earth access is geometric with an antenna mask. Traverse uses great-circle distance on a 1737.4 km spherical Moon and samples visibility at the origin, not along a slope/obstacle-aware route. Transit uses reference durations (~3.5 days direct, ~7.5 days extended or custom); coordinates identify the target without changing duration. It is not trajectory propagation or a delta-v solution.
+* **Engineering & Travel:** Power assumes a fixed horizontal array (1361 W/m²), constant load, and an initially full ideal battery (no thermal/chemistry models). Earth access is geometric plus antenna mask. Traverse computes great-circle distance on a 1737.4 km spherical Moon using origin visibility only (no slope/obstacle routing). Transit uses reference durations (~3.5 days direct, ~7.5 days extended, or custom; coordinates identify target without trajectory propagation or delta-v calculation).
 
 ## Optional Gemini assistant
 
-Configure `GEMINI_API_KEY` on the server. Optional `GEMINI_MODEL` (default `gemini-3.8-flash`) and `GEMINI_FALLBACK_MODELS` select models. See `.env.example`. The key is never shipped to the client. `api/chat.js` imports the real SDK and runs bounded function calls through `src/tools.js`; tools use the planner's calculations and matching terrain profiles. Full azimuth arrays retain their angular sampling through sanitisation. Conversation history remains in browser memory/sessionStorage. Missing configuration is shown explicitly. SDK import/API shape and handler behaviour were tested; no live keyed Gemini response was verified in this cleanup.
+Set `GEMINI_API_KEY` on the server (never exposed to client); optional `GEMINI_MODEL` (default `gemini-3.8-flash`) and `GEMINI_FALLBACK_MODELS` configure models (see `.env.example`). `api/chat.js` runs bounded function calls via `src/tools.js` using planner math, matching terrain profiles, and full-resolution azimuth arrays. Conversation history stays in browser memory/sessionStorage, and missing config is flagged in the UI. SDK import/API shape and handler behavior are tested (live keyed Gemini responses not verified in this cleanup).
 
 ## References
 
@@ -65,6 +61,3 @@ Configure `GEMINI_API_KEY` on the server. Optional `GEMINI_MODEL` (default `gemi
 - [NAIF SPICE](https://naif.jpl.nasa.gov/naif/)
 - [IAU WGCCRE 2015 report](https://doi.org/10.1007/s10569-017-9805-5)
 
-## Contribution policy
-
-Only this repository is modified; Ankush's LunaSight repository remains untouched. Integration should go through small, reviewable PRs.
