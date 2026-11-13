@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#15181c" />
   <meta name="description" content="LunarNav V2: lunar south-pole mission planning and Sun/Earth visibility screening." />
   <title>LunarNav — lunar south-pole mission planning</title>
+  <link rel="preload" href="/assets/lunarnav-loading.webp" as="image" type="image/webp" />
   <link rel="stylesheet" href="/src/styles.css" />
   <script type="module" src="/src/app.js"></script>
 </head>
@@ -19,8 +20,16 @@
     <div class="onboarding-card">
       <h1 id="onboarding-title" aria-live="polite" aria-atomic="true">LunarNav</h1>
       <p id="onboarding-description">Loading LunarNav…</p>
-      <div data-onboarding-panel="loading" role="status" aria-label="Loading LunarNav for five seconds">
-        <div class="loading-track" aria-hidden="true"><span></span></div>
+      <div data-onboarding-panel="loading" role="status" aria-label="Opening LunarNav">
+        <div class="loading-visual">
+          <img class="loading-artwork" src="/assets/lunarnav-loading.webp" alt="1st LunarNav moonlit logo" width="650" height="650" fetchpriority="high" decoding="async" />
+          <div class="loading-status">
+            <div class="loading-progress" id="loading-progress" role="progressbar" aria-label="Loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <span class="loading-progress-fill" id="loading-fill"></span>
+            </div>
+            <output class="loading-percent" id="loading-percent" aria-hidden="true">0%</output>
+          </div>
+        </div>
       </div>
       <div data-onboarding-panel="graphics" hidden>
         <fieldset class="graphics-options"><legend class="sr-only">Graphics preset</legend>

@@ -1,27 +1,54 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {existsSync,readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 import {initOnboarding,LOADING_DURATION_MS,TOUR_STEPS} from '../src/onboarding.js';
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 function setup(page='science'){
   const dom=new JSDOM(html),doc=dom.window.document;
-  let timer,delay,current=page,preset=null;
-  const clock={setTimeout(fn,ms){timer=fn;delay=ms;return 1;},scrollTo(){},clearTimeout(){}};
+  let timer,delay,current=page,preset=null,elapsed=0,interval=null;
+  const clock={
+    performance:{now:()=>elapsed},
+    setTimeout(fn,ms){timer=fn;delay=ms;return 1;},
+    setInterval(fn,ms){interval=fn;return 2;},
+    clearInterval(){interval=null;},
+    scrollTo(){},clearTimeout(){}
+  };
   initOnboarding({doc,clock,getPage:()=>current,navigateView:p=>{
     current=p;for(const view of doc.querySelectorAll('[data-view]'))view.hidden=view.dataset.view!==p;
   },onGraphicsChange:p=>{preset=p;}});
-  return {doc,advance:()=>timer(),get delay(){return delay;},get page(){return current;},get preset(){return preset;}};
+  return {doc,advance:()=>{elapsed=delay;timer();},tick:ms=>{elapsed=ms;interval?.();},
+    get delay(){return delay;},get page(){return current;},get preset(){return preset;}};
 }
-test('every visit starts with a five-second loading screen before graphics',()=>{
+test('every visit starts with a ten-second loading screen before graphics',()=>{
   for(let i=0;i<2;i++){
     const ui=setup();
-    assert.equal(LOADING_DURATION_MS,5000);assert.equal(ui.delay,5000);
+    assert.equal(LOADING_DURATION_MS,10000);assert.equal(ui.delay,10000);
     assert.equal(ui.doc.querySelector('#onboarding-dialog').dataset.stage,'loading');
     assert.equal(ui.doc.querySelector('[data-onboarding-panel="graphics"]').hidden,true);
     ui.advance();assert.equal(ui.doc.querySelector('#onboarding-dialog').dataset.stage,'graphics');
   }
   assert.doesNotMatch(readFileSync(new URL('../src/onboarding.js',import.meta.url),'utf8'),/localStorage|sessionStorage/);
+});
+test('loading screen displays LunarNav artwork and updates its percent beneath the logo',()=>{
+  const ui=setup(),image=ui.doc.querySelector('[data-onboarding-panel="loading"] img.loading-artwork');
+  assert.ok(image,'loading artwork is missing');
+  assert.equal(image.getAttribute('src'),'/assets/lunarnav-loading.webp');
+  assert.equal(image.getAttribute('alt'),'1st LunarNav moonlit logo');
+  assert.equal(ui.doc.querySelector('.loading-track'),null);
+  assert.ok(existsSync(new URL('../assets/lunarnav-loading.webp',import.meta.url)));
+  assert.ok(ui.doc.querySelector('.loading-status').parentElement.classList.contains('loading-visual'));
+  assert.equal(ui.doc.querySelector('#loading-percent').textContent,'0%');
+  ui.tick(5000);
+  assert.equal(ui.doc.querySelector('#loading-percent').textContent,'50%');
+  assert.equal(ui.doc.querySelector('#loading-progress').getAttribute('aria-valuenow'),'50');
+  assert.equal(ui.doc.querySelector('#loading-fill').style.width,'50%');
+  ui.tick(9900);
+  assert.equal(ui.doc.querySelector('#loading-percent').textContent,'99%');
+  ui.advance();
+  assert.equal(ui.doc.querySelector('#loading-percent').textContent,'100%');
+  assert.equal(ui.doc.querySelector('[data-onboarding-panel="loading"]').hidden,true);
+  assert.equal(ui.doc.querySelector('[data-onboarding-panel="graphics"]').hidden,false);
 });
 test('all requested graphics presets apply the exact relief multiplier before the tutorial',()=>{
   for(const value of [2,5,10]){

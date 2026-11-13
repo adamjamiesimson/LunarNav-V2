@@ -1,4 +1,4 @@
-export const LOADING_DURATION_MS=5000;
+export const LOADING_DURATION_MS=10000;
 export const TOUR_STEPS=[
   {page:'explore',target:'#tour-site',title:'Choose a landing site',text:'Choose a site to see its coordinates and source.'},
   {page:'explore',target:'#tour-window',title:'Set the mission window',text:'Choose the UTC start date, time and duration. Explore, Plan Mission and Engineering share this mission period.'},
@@ -114,7 +114,22 @@ export function initOnboarding({navigateView,getPage,onGraphicsChange,doc=docume
     open();show('tour');step=0;renderStep();
   }
   open();
+  const loadingProgress=doc.getElementById('loading-progress'),fill=doc.getElementById('loading-fill');
+  const percent=doc.getElementById('loading-percent');
+  const now=()=>clock.performance?.now?.()??Date.now();
+  const startedAt=now();
+  function updateLoading(value){
+    const amount=Math.max(0,Math.min(100,value));
+    loadingProgress.setAttribute('aria-valuenow',String(amount));
+    fill.style.width=amount+'%';
+    percent.textContent=amount+'%';
+  }
+  const progressTimer=clock.setInterval?.(()=>{
+    updateLoading(Math.min(99,Math.floor((now()-startedAt)/LOADING_DURATION_MS*100)));
+  },100);
   clock.setTimeout(()=>{
+    if(progressTimer!=null)clock.clearInterval?.(progressTimer);
+    updateLoading(100);
     show('graphics');title.textContent='Choose terrain relief';
     description.textContent='Set how much the globe exaggerates elevation.';
     dialog.querySelector('input[name="startup-graphics"]:checked').focus();
