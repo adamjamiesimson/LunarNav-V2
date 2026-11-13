@@ -1,5 +1,5 @@
 export const LOADING_DURATION_MS=10000;
-export const NOTICE_DURATION_MS=5000;
+export const NOTICE_DURATION_MS=10000;
 export const TOUR_STEPS=[
   {page:'explore',target:'#tour-site',title:'Choose a landing site',text:'Choose a site to see its coordinates and source.'},
   {page:'explore',target:'#tour-window',title:'Set the mission window',text:'Choose the UTC start date, time and duration. Explore, Plan Mission and Engineering share this mission period.'},

@@ -22,7 +22,7 @@ function setup(page='science'){
     get pendingTimer(){return timer;},
     get delay(){return delay;},get page(){return current;},get preset(){return preset;}};
 }
-test('every visit shows ten seconds of loading then five seconds of notice before graphics',()=>{
+test('every visit shows ten seconds of loading then ten seconds of notice before graphics',()=>{
   for(let i=0;i<2;i++){
     const ui=setup();
     assert.equal(LOADING_DURATION_MS,10000);assert.equal(ui.delay,10000);
@@ -30,7 +30,7 @@ test('every visit shows ten seconds of loading then five seconds of notice befor
     assert.equal(ui.doc.querySelector('[data-onboarding-panel="graphics"]').hidden,true);
     ui.advance();assert.equal(ui.doc.querySelector('#onboarding-dialog').dataset.stage,'notice');
     assert.equal(ui.delay,NOTICE_DURATION_MS);
-    assert.equal(ui.delay,5000);
+    assert.equal(ui.delay,10000);
     assert.equal(ui.doc.querySelector('#onboarding-title').textContent,'Before you explore');
     assert.match(ui.doc.querySelector('#onboarding-description').textContent,/incognito tab/);
     assert.equal(ui.doc.querySelector('[data-onboarding-panel="graphics"]').hidden,true);
@@ -72,7 +72,7 @@ test('notice is not dismissible via Escape before graphics selection',()=>{
   ui.advance();
   assert.equal(ui.doc.querySelector('#onboarding-dialog').dataset.stage,'graphics');
 });
-test('Okay skips the five-second notice and its timer cannot advance the flow again',()=>{
+test('Okay skips the ten-second notice and its timer cannot advance the flow again',()=>{
   const ui=setup();
   ui.advance();
   assert.equal(ui.doc.querySelector('#onboarding-dialog').dataset.stage,'notice');

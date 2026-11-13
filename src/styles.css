@@ -65,7 +65,7 @@ main{padding:0 var(--gutter);min-height:calc(100vh - 120px)}
 #brief-btn{background:var(--panel-alt);border-color:var(--control-line);color:var(--text)}
 #brief-btn:hover{background:var(--control-line)}
 
-/* Every-visit welcome: ten-second splash, five-second notice, graphics, then tutorial. */
+/* Every-visit welcome: ten-second splash, ten-second notice, graphics, then tutorial. */
 .onboarding-dialog{position:fixed;inset:0;z-index:150;margin:0;width:100%;max-width:none;
   height:100dvh;max-height:none;border:0;padding:20px;background:var(--bg);color:var(--text);overflow:auto}
 .onboarding-dialog[open]{display:grid;place-items:center}

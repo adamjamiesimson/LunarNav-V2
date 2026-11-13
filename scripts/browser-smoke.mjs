@@ -495,8 +495,8 @@ try{
     'notice should be centered text on pure black with a focused Okay button: '+JSON.stringify(appearance));
   await visitor.screenshot({path:'smoke-artifacts/memory-notice.png'});
   await visitor.locator('#onboarding-dialog[data-stage="graphics"]').waitFor();
-  assert(Date.now()-noticeAt>=4900,'memory notice ended before five seconds');
-  assert(Date.now()-arrival>=14900,'graphics selector appeared too early');
+  assert(Date.now()-noticeAt>=9900,'memory notice ended before ten seconds');
+  assert(Date.now()-arrival>=19900,'graphics selector appeared too early');
   await visitor.screenshot({path:'smoke-artifacts/graphics.png'});
   await visitor.locator('input[name="startup-graphics"][value="10"]').check();
   await visitor.locator('#graphics-continue').click();
