@@ -54,7 +54,7 @@ export const TOOL_DECLARATIONS=Object.freeze([
   name:'find_optimal_windows',
   description:'Search for the best mission start dates across selected lunar sites using the existing Window Finder (findMissionWindows). Accepts site ids or explicit coordinates, a UTC start date, search length, mission duration, ranking priority and horizon source.',
   parameters:{type:'object',properties:{
-    sites:{type:'array',items:{type:'string',description:'LunarNav site id such as mons-mouton, or an object {name, lat, lon} for custom coordinates'},description:'Sites to include in the search (1–20). Use site ids from the available locations, or custom coordinates as {lat, lon} objects.'},
+    sites:{type:'array',items:{type:'string',description:'LunarNav site id such as mons-mouton or an object {name, lat, lon} for custom coordinates'},description:'Sites to include in the search (1–20). Use site ids from the available locations or custom coordinates as {lat, lon} objects.'},
     startDate:{type:'string',description:'First candidate UTC date in YYYY-MM-DD'},
     searchDays:{type:'number',description:'Number of candidate start dates, 1–90'},
     windowDays:{type:'number',description:'Mission duration in days, 1–28'},
@@ -106,9 +106,9 @@ export const TOOL_DECLARATIONS=Object.freeze([
 },
 {
   name:'estimate_earth_moon_transit',
-  description:'Estimate the Earth-to-Moon spacecraft transit for the selected landing destination using reference transfer-profile durations (direct ~3–4 days, extended ~7.5 days low-energy, or operator-supplied custom). Computes departure/arrival UTC timestamps (forward from a departure time, or backward from a desired landing time) and a phase breakdown (Earth departure, lunar transfer, LOI, descent, surface touchdown). This is a scheduling estimate, NOT a trajectory or delta-v solver.',
+  description:'Estimate the Earth-to-Moon spacecraft transit for the selected landing destination using reference transfer-profile durations (direct ~3–4 days, extended ~7.5 days low-energy or operator-supplied custom). Computes departure/arrival UTC timestamps (forward from a departure time or backward from a desired landing time) and a phase breakdown (Earth departure, lunar transfer, LOI, descent, surface touchdown). This is a scheduling estimate, NOT a trajectory or delta-v solver.',
   parameters:{type:'object',properties:{
-    profile:{type:'string',enum:['direct','extended','custom'],description:'Transfer profile: direct (default), extended (fuel-efficient), or custom.'},
+    profile:{type:'string',enum:['direct','extended','custom'],description:'Transfer profile: direct (default), extended (fuel-efficient) or custom.'},
     referenceHours:{type:'number',description:'Total transit duration in hours; required for profile=custom.'},
     departUTC:{type:'string',description:'ISO 8601 UTC Earth departure timestamp (used when scheduleMode=depart).'},
     landingUTC:{type:'string',description:'ISO 8601 UTC desired landing timestamp (used when scheduleMode=land; departure is back-calculated).'},
@@ -156,7 +156,7 @@ function runGetMissionContext(args, context){
   const site=contextSite(context);
   const base=contextBaseUTC(context);
   return {
-    app:'LunarNav V2 — lunar south-pole mission planning',
+    app:'LunarNav V2: lunar mission planning',
     selectedSite:site,
     mission:{startDate:context.date,startTimeUTC:context.time,startUTC:base.toISOString(),durationDays:context.days},
     inspectionOffsetHours:context.offsetHours,
@@ -215,7 +215,7 @@ function runCompareLocations(args, context){
       longestEarthBlackoutHours:entry.stats.longestBlackoutHours
     })),
     methodology:'rankedSites: same UTC window, four-hour samples, each site uses its loaded horizon or a labelled flat 0° fallback; ranking by simultaneous access then solar.',
-    caveat:'Screening ranking only — not landing safety.'};
+    caveat:'Screening ranking only. Not a landing safety assessment.'};
 }
 function runFindOptimalWindows(args,context){
   const siteRefs=Array.isArray(args.sites)?args.sites:[];
@@ -231,7 +231,7 @@ function runFindOptimalWindows(args,context){
       const id=site.id;
       const p=context?.terrainProfilesBySite?.[id];
       if(!p||!Array.isArray(p.azimuthDeg)){
-        throw new Error('No loaded NASA LOLA terrain profile for '+site.name+' in this browser session. Load terrain for the sites first, or use flat mode.');
+        throw new Error('No loaded NASA LOLA terrain profile for '+site.name+' in this browser session. Load terrain for the sites first or use flat mode.');
       }
       terrainProfiles[id]={...p, lat:site.lat, lon:site.lon};
     }

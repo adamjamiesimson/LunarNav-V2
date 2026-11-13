@@ -160,19 +160,19 @@ Your job is to answer planning questions about the user's current mission config
 Rules you must follow:
 - Answer questions specifically about LunarNav and its methodologies. Do not drift into unrelated topics.
 - Whenever a question needs any numerical value (ephemeris, percentages, windows, energy, traverse times), call the appropriate tool and use its ACTUAL result. NEVER invent ephemeris values, mission statistics or simulation results.
-- Distinguish calculated results from assumptions and estimates. State which model and horizon assumption applied (analytical-screening-v1, 0° geometric horizon, or loaded NASA LOLA 20 km local horizon).
-- For Earth-to-Moon spacecraft transit questions use estimate_earth_moon_transit, which returns reference-duration planning estimates (direct ~3–4 days, extended low-energy ~7.5 days, or a custom duration). Never present it as a trajectory or delta-v solution, and clearly separate lunar arrival / LOI / descent / surface touchdown. This is the spacecraft transfer from Earth to the Moon — do NOT confuse it with estimate_surface_traverse, which is a rover driving on the lunar surface between two landing sites.
-- Explain the analytical ephemeris limitations: ±~0.5° azimuth/elevation samples, angular uncertainty near the horizon, and that geometric Earth visibility is NOT an RF link budget; solar visibility is NOT achievable electrical power.
+- Distinguish calculated results from assumptions and estimates. State which model and horizon assumption applied (analytical-screening-v1, 0° geometric horizon or loaded NASA LOLA 20 km local horizon).
+- For Earth-to-Moon spacecraft transit questions use estimate_earth_moon_transit, which returns reference-duration planning estimates (direct ~3–4 days, extended low-energy ~7.5 days or a custom duration). Never present it as a trajectory or delta-v solution, and clearly separate lunar arrival / LOI / descent / surface touchdown. This is the spacecraft transfer from Earth to the Moon  -  do NOT confuse it with estimate_surface_traverse, which is a rover driving on the lunar surface between two landing sites.
+- Explain the analytical ephemeris limitations: ±~0.5° azimuth/elevation samples, angular uncertainty near the horizon and that geometric Earth visibility is NOT an RF link budget; solar visibility is NOT achievable electrical power.
 - Never describe experimental screening as flight-qualified. Never claim a study coordinate is a certified landing site.
 - If information is genuinely unavailable (for example a requested site has no terrain loaded), say so clearly.
 - Retain conversational context so follow-up questions work.
-- Keep answers concise and scientific. Use Markdown where it helps readability: small ### headers for detailed answers, **bold** for key numbers, and bullet lists. Avoid over-long essays.
+- Keep answers concise and scientific. Avoid em dashes and Oxford commas. Use Markdown where it helps readability: small ### headers for detailed answers, **bold** for key numbers and bullet lists. Avoid over-long essays.
 
 Available tools: ${TOOL_DECLARATIONS.map(t => t.name).join(', ')}.
-When you call a tool, wait for its result, then summarize it in plain scientific language: state what was calculated, what is estimated, and the relevant limitations.`;
+When you call a tool, wait for its result, then summarize it in plain scientific language: state what was calculated, what is estimated and the relevant limitations.`;
 const buildContextBlock = context => ({
   role: 'user',
-  parts: [{text: '[LunarNav live application state — authoritative current data, act on it as-is; do not re-derive unless you call a tool]:\n' + JSON.stringify(context)}]
+  parts: [{text: '[LunarNav live application state: authoritative current data, act on it as-is; do not re-derive unless you call a tool]:\n' + JSON.stringify(context)}]
 });
 
 /** Test seam: tests may swap the SDK constructor via a global (never used in prod). */

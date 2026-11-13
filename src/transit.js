@@ -1,5 +1,5 @@
 /**
- * Earth-to-Moon transit estimator — a scheduling estimate, not a trajectory
+ * Earth-to-Moon transit estimator  -  a scheduling estimate, not a trajectory
  * solver. Transfers are characterised by transparent reference durations that
  * bracket real transfer families (direct ~3–4 days, low-energy ~7.5 days);
  * dividing an average distance by an assumed speed would fabricate precision.
@@ -10,7 +10,7 @@ export const TRANSIT_PROFILES = Object.freeze({
   direct: {
     id: 'direct',
     label: 'Direct transfer',
-    referenceHours: 84,          // 3.5 days — nominal direct-transfer family.
+    referenceHours: 84,          // 3.5 days  -  nominal direct-transfer family.
     rangeHours: [72, 96],        // ~3–4 days, per the feature brief.
     description: 'Short, higher-energy direct Earth–Moon transfer. Nominal planning estimate ~3–4 days.',
     assumptions: 'Reference duration only. A real direct transfer trajectory requires a patched-conic or full ephemeris propagator with launch windows, dV budget and insertion geometry.'
@@ -18,7 +18,7 @@ export const TRANSIT_PROFILES = Object.freeze({
   extended: {
     id: 'extended',
     label: 'Extended / fuel-efficient transfer',
-    referenceHours: 180,         // 7.5 days — low-energy / fuel-frugal family.
+    referenceHours: 180,         // 7.5 days  -  low-energy / fuel-frugal family.
     rangeHours: [96, 240],
     description: 'Longer, lower-energy transfer (for example lunar transfer via weak stability boundaries or a higher phasing orbit). Fuel-efficient but slower.',
     assumptions: 'Longer reference duration deliberately chosen to represent fuel-optimal families. No trajectory solver is run; treat as a scheduling band.'
@@ -34,7 +34,7 @@ export const TRANSIT_PROFILES = Object.freeze({
 
 /** Human-readable hours → "3 d 12 h" (or "12 h", or "0 h"). */
 export function formatHours(hours){
-  if (!Number.isFinite(hours) || hours < 0) return '—';
+  if (!Number.isFinite(hours) || hours < 0) return 'N/A';
   const h = Math.round(hours);
   const d = Math.floor(h / 24);
   const rem = h % 24;

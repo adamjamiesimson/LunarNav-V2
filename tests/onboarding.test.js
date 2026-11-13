@@ -119,6 +119,7 @@ test('graphics selection and scientific controls retain accessible labels and vi
   const doc=setup().doc;
   for(const id of ['mission-date','mission-time','time-scrubber','relief-exaggeration'])assert.ok(doc.querySelector('label[for="'+id+'"]'),id);
   assert.equal(doc.querySelector('input[name="startup-graphics"]:checked').value,'5');
-  assert.match(doc.querySelector('.graphics-note').textContent,/Relief exaggeration affects the view only/);
+  assert.equal(doc.querySelector('.graphics-note'),null);
+  assert.match(doc.querySelector('#relief-exaggeration').getAttribute('aria-label'),/visual relief exaggeration only/);
   assert.deepEqual([...doc.querySelector('#relief-exaggeration').options].map(o=>o.value),['2','5','10']);
 });
