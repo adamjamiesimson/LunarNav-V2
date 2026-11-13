@@ -3,7 +3,7 @@ export const TOUR_STEPS=[
   {page:'explore',target:'#tour-site',title:'Choose a landing site',text:'Choose a site to see its coordinates and source.'},
   {page:'explore',target:'#tour-window',title:'Set the mission window',text:'Choose the UTC start date, time and duration. Explore, Plan Mission and Engineering share this mission period.'},
   {page:'explore',target:'#map-stage',title:'Explore the lunar globe',text:'Drag to rotate the Moon. Select a point to create a waypoint.'},
-  {page:'explore',target:'#tour-inspection',title:'Inspect a moment in time',text:'Use the slider, step six hours, or jump to the next visibility change.'},
+  {page:'explore',target:'#tour-inspection',title:'Inspect a moment in time',text:'Use the slider, step six hours or jump to the next visibility change.'},
   {page:'explore',target:'#mission-situation',title:'Read the site outlook',text:'Clearance is the angle above or below the horizon used for this site.'},
   {page:'explore',target:'.timeline-panel',title:'Read the visibility timeline',text:'See when sunlight and Earth visibility overlap. Select a point on the timeline to inspect that time.'},
   {page:'planning',target:'#compare-table',title:'Compare landing sites',text:'Compare the same dates across sites. The horizon setting applies to the whole table.'},

@@ -1,5 +1,5 @@
 /**
- * Decode a colour-coded elevation map into numerical heights — ONLY when a
+ * Decode a colour-coded elevation map into numerical heights : ONLY when a
  * documented elevation legend (colour ramp + elevation range) and a geographic
  * reference are supplied. Whenever the original numerical DEM is available it
  * takes precedence: this is an additional ingestion method for maps whose only

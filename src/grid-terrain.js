@@ -1,6 +1,6 @@
 /**
  * Instant terrain horizons from the baked NASA relief grids
- * (assets/moon-relief*.png — the same LOLA-derived surfaces used to displace
+ * (assets/moon-relief*.png  -  the same LOLA-derived surfaces used to displace
  * the 3D globe; provenance in data/relief.json).
  *
  * Deriving the horizon here gives every custom waypoint a real local sky view
@@ -136,7 +136,7 @@ async function deriveFromGlobal(site,meta,{azimuthBins,radiusKm}){
     originX:win.originX,originY:win.originY,resolutionX:win.resolutionX,resolutionY:win.resolutionY,noData:null},
     site,{radiusKm,azimuthBins,centerXY:{x:0,y:0},frameLon:0});
   return finishProfile(profile,site,
-    `NASA LOLA/Kaguya DEM baked global grid (~${(resolutionM/1000).toFixed(1)} km) — coarse regional horizon`,
+    `NASA LOLA/Kaguya DEM baked global grid (~${(resolutionM/1000).toFixed(1)} km) (coarse regional horizon)`,
     resolutionM);
 }
 

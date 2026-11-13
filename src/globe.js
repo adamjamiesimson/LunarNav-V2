@@ -1,5 +1,5 @@
 /**
- * Immersive lunar globe — a dependency-free WebGL visualization backed by the
+ * Immersive lunar globe : a dependency-free WebGL visualization backed by the
  * NASA SVS 2025 LROC color map. Surface appearance is visual context only;
  * it is NOT a terrain horizon model, elevation dataset or landing-risk map.
  * https://svs.gsfc.nasa.gov/4720/
@@ -416,7 +416,7 @@ export function createMap(canvas,{onPick,onHover}){
      ctx.restore();
    }
    // Terrain rose at the selected waypoint: line colour = terrain horizon height,
-  // line weight = local rate of change (slope) — high weight means strong blocking.
+  // line weight = local rate of change (slope) : high weight means strong blocking.
   if(terrainRose&&Array.isArray(terrainRose.elevationDeg)){
     const origin=project({lat:terrainRose.lat,lon:terrainRose.lon});
     if(origin.visible){

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#15181c" />
   <meta name="description" content="LunarNav V2: lunar south-pole mission planning and Sun/Earth visibility screening." />
-  <title>LunarNav — lunar south-pole mission planning</title>
+  <title>LunarNav | Lunar mission planning</title>
   <link rel="preload" href="/assets/lunarnav-loading.webp" as="image" type="image/webp" />
   <link rel="stylesheet" href="/src/styles.css" />
   <script type="module" src="/src/app.js"></script>
@@ -37,7 +37,6 @@
           <label><input type="radio" name="startup-graphics" value="5" checked /><span>Medium</span><small>Relief ×5</small></label>
           <label><input type="radio" name="startup-graphics" value="10" /><span>High</span><small>Relief ×10</small></label>
         </fieldset>
-        <p class="graphics-note">Relief exaggeration affects the view only.</p>
         <button id="graphics-continue" type="button" class="top-primary">Continue to tutorial</button>
       </div>
       <div data-onboarding-panel="tour" hidden>
@@ -108,8 +107,8 @@
               <div class="mission-situation-verdict" id="mission-verdict">Calculating…</div>
               <p class="mission-situation-context" id="mission-source">Horizon analysis at selected location</p>
               <div class="mission-margin">
-                <div><span>Sun clearance</span><strong id="mission-sun-margin">—</strong></div>
-                <div><span>Earth clearance</span><strong id="mission-earth-margin">—</strong></div>
+                <div><span>Sun clearance</span><strong id="mission-sun-margin">…</strong></div>
+                <div><span>Earth clearance</span><strong id="mission-earth-margin">…</strong></div>
               </div>
               <p class="mission-caution" id="mission-caution"></p>
             </div>
@@ -189,7 +188,7 @@
                 <h2>Visibility timeline</h2>
                 <div class="time-legend"><span><i class="sun-color"></i> Sun above horizon</span><span><i class="earth-color"></i> Geometric Earth view</span><span><i class="dual-color"></i> Both</span></div>
               </div>
-              <div class="timeline-hint"><span class="model-badge" id="timeline-model">—</span></div>
+              <div class="timeline-hint"><span class="model-badge" id="timeline-model">…</span></div>
               <div class="timeline-graph" id="timeline-graph" role="group" aria-label="Sunlight, Earth and simultaneous operational visibility over time"></div>
               <div class="timeline-bottom"><span id="timeline-start">14 NOV 2026</span><span>UTC</span><span id="timeline-end">21 NOV 2026</span></div>
             </div>
@@ -213,12 +212,12 @@
               <button class="outline-button" id="download-csv" type="button">Mission CSV</button>
               <p id="metrics-model" class="model-badge">Flat 0° horizon</p>
               <div class="primary-metric">
-                <div><span>Sun and Earth together</span><div class="hero-value"><strong id="dual-value">—</strong><span>%</span></div></div>
+                <div><span>Sun and Earth together</span><div class="hero-value"><strong id="dual-value">…</strong><span>%</span></div></div>
               </div>
-              <div class="metric-line"><div><span>Sunlight</span><strong id="sun-value">—</strong></div><div class="progress"><span id="sun-bar"></span></div></div>
-              <div class="metric-line"><div><span>Geometric Earth visibility</span><strong id="earth-value">—</strong></div><div class="progress earth-progress"><span id="earth-bar"></span></div></div>
-              <div class="metric-foot"><span>Longest Earth blackout</span><strong id="blackout-value">—</strong></div>
-              <div class="best-window"><span>Longest continuous overlap</span><strong id="best-window-length">—</strong><small id="best-window-dates">Within selected mission window</small></div>
+              <div class="metric-line"><div><span>Sunlight</span><strong id="sun-value">…</strong></div><div class="progress"><span id="sun-bar"></span></div></div>
+              <div class="metric-line"><div><span>Geometric Earth visibility</span><strong id="earth-value">…</strong></div><div class="progress earth-progress"><span id="earth-bar"></span></div></div>
+              <div class="metric-foot"><span>Longest Earth blackout</span><strong id="blackout-value">…</strong></div>
+              <div class="best-window"><span>Longest continuous overlap</span><strong id="best-window-length">…</strong><small id="best-window-dates"></small></div>
             </div>
           </aside>
         </section>
@@ -226,7 +225,7 @@
 
       <section class="engineering-section app-view" data-view="engineering" id="engineering" hidden aria-label="Lunar mission feasibility">
         <div class="section-title-row"><h1>Engineering</h1></div>
-        <div class="context-bar"><span>Active mission</span><strong id="engineering-context">Selected lunar study site</strong><a data-route="explore" href="/explore">Change site or date</a></div>
+        <div class="context-bar"><strong id="engineering-context">Selected lunar study site</strong><a data-route="explore" href="/explore">Change site or date</a></div>
         <div class="engineering-grid">
           <div class="panel engineering-controls">
             <div class="panel-head"><h2>Surface system inputs</h2></div>
@@ -245,12 +244,12 @@
           <div class="panel engineering-results">
             <div class="panel-head"><h2>Power and Earth visibility</h2><span class="sim-tag" id="model-horizon-tag">Flat 0° horizon</span></div>
             <div class="engineering-kpis">
-              <div><small>Minimum battery charge</small><strong id="eng-min-soc">—</strong></div>
-              <div><small>Time without enough power</small><strong id="eng-unmet">—</strong></div>
-              <div><small>Geometric Earth visibility</small><strong id="eng-earth">—</strong><span>With antenna elevation mask</span></div>
-              <div><small>Solar energy generated</small><strong id="eng-energy">—</strong></div>
+              <div><small>Minimum battery charge</small><strong id="eng-min-soc">…</strong></div>
+              <div><small>Time without enough power</small><strong id="eng-unmet">…</strong></div>
+              <div><small>Geometric Earth visibility</small><strong id="eng-earth">…</strong><span>With antenna elevation mask</span></div>
+              <div><small>Solar energy generated</small><strong id="eng-energy">…</strong></div>
             </div>
-            <div class="charge-chart-head"><span>Battery charge</span><span id="eng-ending">—</span></div>
+            <div class="charge-chart-head"><span>Battery charge</span><span id="eng-ending">…</span></div>
             <div id="eng-charge-chart" class="charge-chart" role="img" aria-label="Battery state of charge over mission duration"></div>
             <p id="eng-summary" class="engineering-verdict" role="status">Calculating power…</p>
           </div>
@@ -300,7 +299,7 @@
         </div>
 
         <section class="panel compare-detail" aria-labelledby="site-comparison-title">
-          <div class="panel-head"><h2 id="site-comparison-title">Compare landing sites</h2><span class="model-badge" id="compare-model">—</span></div>
+          <div class="panel-head"><h2 id="site-comparison-title">Compare landing sites</h2><span class="model-badge" id="compare-model">…</span></div>
           <div id="compare-table" class="compare-table" tabindex="0" aria-label="Landing site metrics; scroll horizontally on small screens" aria-live="polite"></div>
           <div id="compare-timeline" class="compare-timeline" tabindex="0" role="img" aria-label="Sun and Earth visibility timelines for the compared sites; scroll horizontally on small screens"></div>
           <p class="planning-note">Solar energy uses a 12 m² reference array. <a href="/engineering" data-route="engineering">Power settings</a>.</p>
@@ -311,7 +310,7 @@
           <div class="search-toolbar">
             <label>Search ahead<select id="finder-range"><option value="30" selected>30 start dates</option><option value="60">60 start dates</option></select></label>
             <label>Prioritize<select id="finder-priority"><option value="balanced" selected>Sun + Earth access</option><option value="sun">Sunlight</option><option value="earth">Earth visibility</option></select></label>
-            <span class="model-badge" id="finder-model-badge">—</span>
+            <span class="model-badge" id="finder-model-badge">…</span>
           </div>
           <p id="finder-caption" class="planning-note" role="status">Scanning mission windows…</p>
           <div id="finder-top" class="compare-table" tabindex="0" aria-label="Recommended windows; scroll horizontally on small screens" aria-live="polite"></div>
@@ -323,7 +322,7 @@
         </section>
 
         <details class="planning-option" id="date-comparison"><summary>Compare two dates</summary>
-          <div class="panel-head"><span class="model-badge" id="date-compare-model">—</span></div>
+          <div class="panel-head"><span class="model-badge" id="date-compare-model">…</span></div>
           <div class="date-compare-fields">
             <label>Site<select id="date-compare-site"></select></label>
             <label>Date A<input type="date" id="date-compare-a" min="2025-01-01" max="2036-12-31" /></label>

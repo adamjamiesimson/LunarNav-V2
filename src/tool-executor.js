@@ -1,6 +1,6 @@
 /**
  * Browser-side entry point for the shared Gemini tool layer (src/tools.js).
- * All tool calculations live in tools.js — the server API and any in-browser
+ * All tool calculations live in tools.js : the server API and any in-browser
  * caller run the exact same implementation and cannot drift.
  */
 import {executeTool, TOOL_DECLARATIONS} from './tools.js';
