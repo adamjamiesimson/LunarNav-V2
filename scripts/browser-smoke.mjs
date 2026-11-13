@@ -206,6 +206,7 @@ async function checkTourStep(page,step,expectedPage){
   assert(check.ringOnScreen&&check.marksTarget&&check.cardOnScreen&&check.separate,'tour step '+step+' spotlight/card geometry: '+JSON.stringify(check));
   assert(check.progress===step,'tour progress does not match step '+step);
 }
+let smokePhase='startup';
 const errors=[];
 try{
   await ready();
@@ -217,9 +218,11 @@ try{
   await offNetwork(page);
   await page.goto(host+'/',{waitUntil:'domcontentloaded'});
   await completeWelcome(page,'2');
+  smokePhase='explore initial data';
   await page.waitForFunction(()=>document.body.dataset.page==='explore');
   mkdirSync('smoke-artifacts',{recursive:true});
   await page.waitForFunction(()=>document.querySelector('#mission-verdict')?.textContent!=='Calculating…');
+  smokePhase='terrain profile readiness';
   await page.waitForFunction(()=>document.querySelector('#finder-terrain-count')?.textContent?.startsWith('5 of 5'),{timeout:20000});
   const initial=await page.locator('#mission-verdict').textContent();
   assert(/visibility|only|obstructed/i.test(initial),'no live mission verdict');
@@ -227,6 +230,7 @@ try{
   assert(await page.locator('#map-image-status').isHidden(),'successful Moon imagery showed a redundant status');
   assert(await page.evaluate(()=>gpuUploads.some(upload=>upload.width===2048&&upload.height===1024&&upload.error===0)),
     'the LROC texture did not reach WebGL');
+  smokePhase='graphics and globe checks';
   for(const value of ['2','5','10']){
     await page.locator('#relief-exaggeration').selectOption(value);
     await page.waitForFunction(n=>window.reliefValues.at(-1)===Number(n),value);
@@ -263,6 +267,7 @@ try{
   await page.locator('#celestial-play').click();
   assert((await page.locator('#celestial-clock').textContent())!==beforePlay,'timeline playback did not progress');
   await page.locator('#celestial-reset').click();
+  smokePhase='celestial simulation';
   await page.screenshot({path:'smoke-artifacts/celestial.png',fullPage:false});
   await page.locator('#celestial-scrubber').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});
   await page.locator('#time-next').click();
@@ -403,6 +408,7 @@ try{
   await page.screenshot({path:'smoke-artifacts/desktop.png',fullPage:false});
   await checkPanorama(page);
 
+  smokePhase='mobile browser';
   const mobile=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'});
   await trackGPU(mobile);
   await trackPanorama(mobile);
@@ -436,6 +442,7 @@ try{
     const overflow=await mobile.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
     assert(overflow<=8,route+' mobile overflow: '+overflow);
   }
+  smokePhase='onboarding walkthrough';
   const visitor=await browser.newPage({viewport:{width:1280,height:800}});
   visitor.on('pageerror',error=>errors.push(error.message));
   await offNetwork(visitor);
@@ -521,6 +528,7 @@ try{
 
   // Fixture-backed integration: exercise the real browser decoder and WebGL patch upload.
   // These synthetic rows test wiring only; live NASA verification is a separate command.
+  smokePhase='native terrain fixtures';
   const terrainPage=await browser.newPage({viewport:{width:1440,height:900}});
   terrainPage.on('pageerror',error=>errors.push('terrain '+error.message));
   await trackGPU(terrainPage);await offNetwork(terrainPage);
@@ -562,6 +570,7 @@ try{
 
   // Leave the production loader and renderer modules intact. Block only the
   // surface canvas WebGL context so the real DEM samples drive the 2D skyline.
+  smokePhase='2D panorama fallback';
   const fallback=await browser.newPage({viewport:{width:1024,height:768},reducedMotion:'reduce'});
   fallback.on('pageerror',error=>errors.push('panorama fallback '+error.message));
   await trackPanorama(fallback,{fallback:true});
@@ -590,7 +599,7 @@ try{
   assert(errors.length===0,'uncaught JavaScript errors: '+errors.join(' | '));
   console.log('Browser smoke PASS: four pages, shared planning inputs, recommendations, date comparison, transit, direct URLs, back/forward, desktop/mobile, science refresh, globe, real terrain panoramas, terrain Finder and exports.');
 }catch(error){
-  console.error('Browser smoke FAIL:',error.message);
+  console.error('Browser smoke FAIL:',error.message,'during',smokePhase);
   if(errors.length)console.error('JavaScript errors:',errors.join(' | '));
   process.exitCode=1;
 }finally{
