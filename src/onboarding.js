@@ -114,13 +114,13 @@ export function initOnboarding({navigateView,getPage,onGraphicsChange,doc=docume
     open();show('tour');step=0;renderStep();
   }
   open();
-  const progress=doc.getElementById('loading-progress'),fill=doc.getElementById('loading-fill');
+  const loadingProgress=doc.getElementById('loading-progress'),fill=doc.getElementById('loading-fill');
   const percent=doc.getElementById('loading-percent');
   const now=()=>clock.performance?.now?.()??Date.now();
   const startedAt=now();
   function updateLoading(value){
     const amount=Math.max(0,Math.min(100,value));
-    progress.setAttribute('aria-valuenow',String(amount));
+    loadingProgress.setAttribute('aria-valuenow',String(amount));
     fill.style.width=amount+'%';
     percent.textContent=amount+'%';
   }
