@@ -54,31 +54,6 @@ Horizons include spherical curvature over a 20 km radius with radial steps match
 
 Configure `GEMINI_API_KEY` on the server. Optional `GEMINI_MODEL` (default `gemini-3.8-flash`) and `GEMINI_FALLBACK_MODELS` select models. See `.env.example`. The key is never shipped to the client. `api/chat.js` imports the real SDK and runs bounded function calls through `src/tools.js`; tools use the planner's calculations and matching terrain profiles. Full azimuth arrays retain their angular sampling through sanitisation. Conversation history remains in browser memory/sessionStorage. Missing configuration is shown explicitly. SDK import/API shape and handler behaviour were tested; no live keyed Gemini response was verified in this cleanup.
 
-## Verification
-
-`npm test`: **190 passing, zero skipped**. Coverage includes archived JPL fixtures, terrain projections/units, safe range handling, stale-request protection, DOM boot, mission calculations, assistant consistency and handler contracts. Onboarding tests cover the ten-second delay, all three graphics mappings, all twelve targets and page transitions, progress, Back/completion/skip/Escape/replay and preservation of mission inputs. Browser checks verify every spotlight and card on desktop and mobile, including a smaller viewport and live resize. Planning regressions verify non-noon UTC scans against the shared sampler, including date rollover and reject mismatched baseline sampling times; existing scientific tests remain.
-
-Chromium smoke checks desktop (1440 × 900), mobile (390 × 844), navigation/deep links, camera/time controls, custom waypoint terrain, comparisons/Finder, engineering, traverse/transit, CSV downloads, briefing generation, assistant-unavailable feedback, texture upload errors/limits and horizontal overflow. Native browser patch and stale-response tests use **explicit synthetic range fixtures**. Screenshots and upload records go to `smoke-artifacts/`. Headless SwiftShader results are not physical-device frame-rate or total-memory benchmarks.
-
-On **7 November 2026**, a live independent JPL Horizons audit returned 90 Sun/Earth observations (three sites × three seasons), reproducing the archived benchmark:
-
-| Angular comparison | Max error | Mean error | RMSE |
-| --- | ---: | ---: | ---: |
-| Azimuth, circular | 0.47998° | 0.42715° | 0.42867° |
-| Elevation | 0.28492° | 0.14149° | 0.18812° |
-
-These samples do not give universal accuracy bounds or validate terrain, power or mission safety. Regression fixtures remain in `tests/fixtures/`.
-
-Live access checks returned 206 for the polar COG and exact 32-byte SLDEM responses; the SLDEM PDS label confirmed dimensions, registration and units. A real Mons Mouton 80 m LOLA patch loaded with 100% coverage to 20 km. A full 20 km SLDEM refinement **timed out**, despite successful small probes; native mid-latitude loading therefore remains network-dependent. Its decoder/projection and browser integration passed fixture tests. Neither a deployed Vercel proxy nor a physical mobile device was verified.
-
-```sh
-npm run validate:horizons -- references.csv 1 # compare externally supplied CSV
-npm run validate:jpl                        # independent live Horizons audit
-npm run check:lola                          # NASA range/CDN availability
-```
-
-Remote resources include NASA/MIT terrain endpoints and the pinned GeoTIFF.js CDN reader for runtime COGs; optional imagery proxies provide NASA LROC and Blue Marble. Bundled relief, imagery and archived horizons remain usable offline. NASA data/API access can fail independently of the static application.
-
 ## References
 
 - [NASA Space Apps : Team 1st LunarNav](https://www.spaceappschallenge.org/2026/find-a-team/1st-lunarnav/)
