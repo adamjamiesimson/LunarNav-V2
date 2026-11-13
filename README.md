@@ -1,4 +1,4 @@
-# LunarNav V2 : lunar mission planning
+# LunarNav : lunar mission planning
 
 A NASA Space Apps Challenge 2026 prototype by **Team 1st LunarNav**. Select a lunar site and UTC period to screen Sun/Earth visibility, local horizons and first-order engineering constraints. These are exploratory estimates, not landing certification, guaranteed power or an RF link budget. Not affiliated with or endorsed by NASA.
 

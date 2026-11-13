@@ -156,7 +156,7 @@ function runGetMissionContext(args, context){
   const site=contextSite(context);
   const base=contextBaseUTC(context);
   return {
-    app:'LunarNav V2: lunar mission planning',
+    app:'LunarNav: lunar mission planning',
     selectedSite:site,
     mission:{startDate:context.date,startTimeUTC:context.time,startUTC:base.toISOString(),durationDays:context.days},
     inspectionOffsetHours:context.offsetHours,
