@@ -117,6 +117,15 @@ test('504 DEADLINE_EXCEEDED from Gemini is transient and gets retry guidance', (
   assert.ok(!/GEMINI_API_KEY/.test(message), 'timeout errors must not blame the API key');
 });
 
+test('busy and quota errors get retry guidance, not key blame', () => {
+  const busy = new Error('{"error":{"code":503,"message":"This model is currently experiencing high demand.","status":"UNAVAILABLE"}}');
+  const message = friendlyModelError(busy);
+  assert.match(message, /busy|high demand/i);
+  assert.ok(!/GEMINI_API_KEY/.test(message), 'busy errors must not blame the API key');
+  const quota = new Error('{"error":{"code":429,"message":"You exceeded your current quota","status":"RESOURCE_EXHAUSTED"}}');
+  assert.match(friendlyModelError(quota), /usage limit|busy/i);
+});
+
 test('auth failures are not retried and point at GEMINI_API_KEY', () => {
   const error = new Error('{"error":{"code":403,"message":"API key not valid.","status":"PERMISSION_DENIED"}}');
   assert.equal(geminiErrorStatus(error), 403);

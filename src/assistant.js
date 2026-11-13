@@ -16,6 +16,8 @@ const STORAGE_KEY = 'lunarnav:assistant:history:v1';
 
 function assistantErrorHint(message){
   const text=String(message||'');
+  if(/busy|high demand|quota|usage limit|unavailable|503|429/i.test(text))
+    return 'The AI provider is busy or at its usage limit. Wait a moment, then press retry.';
   if(/deadline|timed out|timeout/i.test(text))
     return 'The AI provider timed out. Press **Send** to ask again. History and context are kept for the retry.';
   if(/api key|API_KEY|401|403|rejected/i.test(text))

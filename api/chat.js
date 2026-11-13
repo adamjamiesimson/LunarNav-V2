@@ -14,10 +14,14 @@ const MAX_CONTEXT_BYTES = 128 * 1024;
 const MAX_TOOL_ROUNDS = 8;
 const MODEL_TIMEOUT_MS = 25000;
 const CIRCUIT_BREAKER_MS = 90 * 1000;
-// Preferred model (GEMINI_MODEL, default gemini-3.8-flash) with automatic
-// fallbacks for transient unavailability (404/429/503 or a hang).
-const DEFAULT_MODEL = 'gemini-3.8-flash';
-const DEFAULT_FALLBACK_MODELS = ['gemini-3.5-flash', 'gemini-3.1-flash-lite'];
+// Preferred model (GEMINI_MODEL) with automatic fallbacks for transient
+// unavailability (404/429/503 or a hang). The default order is based on a
+// live reliability probe of the free tier: gemini-3.5-flash-lite answered
+// 9/9 requests and gemini-3.1-flash-lite 7/8, while gemini-3.5-flash was
+// mostly quota-limited (429) and gemini-3.8/3.7-flash were load-shed with
+// 503 "high demand". GEMINI_MODEL / GEMINI_FALLBACK_MODELS override the order.
+const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
+const DEFAULT_FALLBACK_MODELS = ['gemini-3.1-flash-lite', 'gemini-3.5-flash'];
 function modelChain(){
   const preferred = (process.env.GEMINI_MODEL || '').trim() || DEFAULT_MODEL;
   const fallbacks = (process.env.GEMINI_FALLBACK_MODELS || '')
@@ -254,7 +258,11 @@ async function generateContentWithFallback(genAI, contents){
         lastError = error;
         if (!isTransientGeminiError(error)) throw error;
         openCircuit(model);
-        if (Date.now() - started >= 8000 || attempt === 1) break;
+        // 429 is per-minute quota: retrying the same model within the same
+        // second cannot succeed, so move on to the next model at once. Other
+        // transient failures get one quick retry when they fail fast.
+        const quota = geminiErrorStatus(error) === 429 || /resource_exhausted|quota/i.test(String(error?.message || ''));
+        if (quota || Date.now() - started >= 8000 || attempt === 1) break;
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }
@@ -265,6 +273,9 @@ function friendlyModelError(error){
   const detail = String(error?.message || 'unknown error');
   if (/deadline|deadline_exceeded|timed out|timeout|504/i.test(detail)){
     return 'The AI provider timed out before answering. Asking again usually succeeds; history and context are kept for the retry. Provider detail: ' + detail;
+  }
+  if (/high demand|\bunavailable\b|503|resource_exhausted|\bquota\b|usage limit|\bbusy\b/i.test(detail)){
+    return 'The AI service is busy or at its free-tier usage limit right now. Press retry in a few seconds; the app already tries several Gemini models automatically. Provider detail: ' + detail;
   }
   if (/api key|API_KEY|401|403|PERMISSION_DENIED|UNAUTHENTICATED/i.test(detail)){
     return 'Gemini rejected the configured API key or its access. Verify GEMINI_API_KEY on the Vercel deployment. Provider detail: ' + detail;

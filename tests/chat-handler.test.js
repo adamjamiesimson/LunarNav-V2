@@ -157,7 +157,8 @@ test('Gemini failure surfaces as a structured API error, not a crash', async () 
     history: []
   }), res);
   assert.ok([500, 429].includes(res.getStatus()));
-  assert.match(res.getBody().error, /Gemini request failed/);
+  assert.match(res.getBody().error, /busy|usage limit|Gemini request failed/,
+    'failures surface as a structured, human-readable error');
 });
 
 test('transient preferred-model failure falls back to the next model', async () => {
@@ -283,4 +284,44 @@ test('full 360-bin horizons and Finder metadata survive context sanitisation',as
   assert.equal(context.terrainProfile.elevationDeg[359],12);
   assert.equal(context.terrainProfilesBySite['mons-mouton'].coveragePct,99);
   assert.equal(context.terrainProfilesBySite['mons-mouton'].source,profile.source);
+});
+
+test('a busy 503 across the chain surfaces a friendly busy error, not key blame', async () => {
+  process.env.GEMINI_API_KEY = 'test-key';
+  process.env.GEMINI_MODEL = 'gemini-3.5-flash-lite';
+  process.env.GEMINI_FALLBACK_MODELS = 'gemini-3.1-flash-lite';
+  const busy = Object.assign(new Error('{"error":{"code":503,"message":"This model is currently experiencing high demand. Spikes in demand are usually temporary.","status":"UNAVAILABLE"}}'), {status: 503});
+  GeminiFake.configure([], {'*': true}, busy);
+  const {default: handler} = await loadHandler();
+  const res = makeRes();
+  await handler(makeReq('POST', {
+    message: {role: 'user', text: 'hi'},
+    context: {site: {id: 'mons-mouton', name: 'Mons Mouton', lat: -84.79, lon: 29.2}, date: '2026-11-14', time: '12:00', days: 7},
+    history: []
+  }), res);
+  assert.ok(res.getStatus() >= 500);
+  assert.match(res.getBody().error, /busy|high demand/i);
+  assert.doesNotMatch(res.getBody().error, /GEMINI_API_KEY/, 'busy errors must not blame the API key');
+  const modelsTried = [...new Set(GeminiFake.getFakeCalls().map(c => c.model))];
+  assert.deepEqual(modelsTried, ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'], 'the whole chain is tried');
+});
+
+test('quota 429 skips in-place retries and moves straight to the next model', async () => {
+  process.env.GEMINI_API_KEY = 'test-key';
+  process.env.GEMINI_MODEL = 'gemini-3.5-flash';
+  process.env.GEMINI_FALLBACK_MODELS = 'gemini-3.5-flash-lite';
+  const quota = Object.assign(new Error('{"error":{"code":429,"message":"You exceeded your current quota","status":"RESOURCE_EXHAUSTED"}}'), {status: 429});
+  GeminiFake.configure([{parts: [{text: 'Recovered on the lite model.'}]}], {'gemini-3.5-flash': true}, quota);
+  const {default: handler} = await loadHandler();
+  const res = makeRes();
+  await handler(makeReq('POST', {
+    message: {role: 'user', text: 'hi'},
+    context: {site: {id: 'mons-mouton', name: 'Mons Mouton', lat: -84.79, lon: 29.2}, date: '2026-11-14', time: '12:00', days: 7},
+    history: []
+  }), res);
+  assert.equal(res.getStatus(), 200);
+  assert.match(res.getBody().reply, /Recovered on the lite model/);
+  const tried = GeminiFake.getFakeCalls().map(c => c.model);
+  assert.equal(tried.filter(m => m === 'gemini-3.5-flash').length, 1, 'quota errors are not retried in place');
+  assert.equal(tried.filter(m => m === 'gemini-3.5-flash-lite').length, 1);
 });

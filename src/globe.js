@@ -500,7 +500,7 @@ export function createMap(canvas,{onPick,onHover}){
    if(dragging&&origin){
      const dx=e.clientX-origin.x,dy=e.clientY-origin.y;
      if(Math.hypot(dx,dy)>4)moved=true;
-     if(moved){viewMode='manual';lon=wrap(origin.lon-dx*0.3/zoom);lat=clamp(origin.lat+dy*0.24/zoom,-89,89);request();}
+     if(moved){cancelFly();viewMode='manual';lon=wrap(origin.lon-dx*0.3/zoom);lat=clamp(origin.lat+dy*0.24/zoom,-89,89);request();}
      onHover(null,e);
    }else{
      const celestial=showSkyBodies&&layout?hitCelestialBody(layout,point.x,point.y,w,h):null;
@@ -665,6 +665,24 @@ export function createMap(canvas,{onPick,onHover}){
  if(typeof ResizeObserver!=='undefined')new ResizeObserver(size).observe(stage);
  else window.addEventListener('resize',size);
  size();
+ let flyRAF=0,flySiteKey=null;
+ function cancelFly(){if(flyRAF){cancelAnimationFrame(flyRAF);flyRAF=0;}}
+ // Smooth camera re-orientation: eased interpolation of latitude, longitude
+ // (shortest way around) and zoom. Cancelled the moment the user takes over.
+ function flyCamera(targetLat,targetLon,targetZoom,{durationMs=1500}={}){
+   cancelFly();
+   const startLat=lat,startLon=lon,startZoom=zoom,t0=performance.now();
+   const ease=t=>t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+   const step=()=>{
+     const t=Math.min(1,(performance.now()-t0)/durationMs),k=ease(t);
+     lat=startLat+(targetLat-startLat)*k;
+     lon=wrap(startLon+(((targetLon-startLon+540)%360)-180)*k);
+     zoom=startZoom+(targetZoom-startZoom)*k;
+     request();
+     if(t<1)flyRAF=requestAnimationFrame(step);else flyRAF=0;
+   };
+   flyRAF=requestAnimationFrame(step);
+ }
  return {
    setCelestialVisible(enabled){
      showSkyBodies=Boolean(enabled);
@@ -674,27 +692,31 @@ export function createMap(canvas,{onPick,onHover}){
    },
    rotateBody(name,yaw,pitch=0){
      if(!Object.hasOwn(manualSpin,name))return;
-     if(name==='moon'){lon=wrap(lon-yaw/D);lat=clamp(lat+pitch/D,-89,89);viewMode='manual';}
+     if(name==='moon'){cancelFly();lon=wrap(lon-yaw/D);lat=clamp(lat+pitch/D,-89,89);viewMode='manual';}
      else{manualSpin[name].yaw+=yaw;manualSpin[name].pitch=clamp(manualSpin[name].pitch+pitch,-1.35,1.35);}
      request();
    },
    resetBodies(){for(const name of ['sun','earth'])manualSpin[name]={yaw:0,pitch:0};request();},
    render(newSite=site){
+     const key=newSite.custom?`c:${newSite.lat},${newSite.lon}`:`p:${newSite.id}`;
+     const targetLon=wrap(newSite.lon);
+     const targetLat=newSite.custom?clamp(newSite.lat,-85,45)
+       :(viewMode==='focus'?clamp(newSite.lat,-89,50):-73);
+     const siteChanged=key!==flySiteKey;
+     flySiteKey=key;
      site=newSite;
-     if(!newSite.custom){
-       lon=wrap(newSite.lon);
-       lat=viewMode==='focus'?clamp(newSite.lat,-89,50):-73;
-     }else{
-       // Custom waypoints face their own coordinate, tilted so the south
-       // polar region stays in frame at the default zoom.
-       lon=wrap(newSite.lon);
-       lat=clamp(newSite.lat,-85,45);
+     if(siteChanged){
+       // Smoothly re-orient when the site changes. Re-renders of the same
+       // site keep the user's camera, so manual orbit survives date and
+       // scenario updates without a snap-back.
+       flyCamera(targetLat,targetLon,zoom);
      }
      request();
    },
-   focusSite(){viewMode='focus';lat=clamp(site.lat,-89,50);lon=wrap(site.lon);zoom=1.35;request();return Math.round(zoom*100);},
+   focusSite(){viewMode='focus';flyCamera(clamp(site.lat,-89,50),wrap(site.lon),1.35,{durationMs:1100});request();return 135;},
   panoramaZoom(target,onArrive,{durationMs=1200}={}){
     // Fly from orbit toward the waypoint before the panorama takes over.
+    cancelFly();
     viewMode='focus';
     const startLat=lat,startLon=lon,startZoom=zoom,targetLat=clamp(target.lat,-89,50),targetLon=wrap(target.lon);
     const t0=performance.now();
@@ -709,8 +731,8 @@ export function createMap(canvas,{onPick,onHover}){
     };
     requestAnimationFrame(step);
   },
-   zoomBy(delta){zoom=zoomLevel(zoom+delta);request();return Math.round(zoom*100);},
-   resetView(){viewMode='overview';lat=site.custom?clamp(site.lat,-85,45):-73;lon=wrap(site.lon);zoom=DEFAULT_ZOOM;request();return Math.round(DEFAULT_ZOOM*100);},
+   zoomBy(delta){cancelFly();zoom=zoomLevel(zoom+delta);request();return Math.round(zoom*100);},
+   resetView(){viewMode='overview';flyCamera(site.custom?clamp(site.lat,-85,45):-73,wrap(site.lon),DEFAULT_ZOOM,{durationMs:1100});request();return Math.round(DEFAULT_ZOOM*100);},
    setSun(obs,focus=site){
      sunlight=horizontalToLunarVector(obs.sun,focus.lat,focus.lon);
      earthlight=horizontalToLunarVector(obs.earth,focus.lat,focus.lon);
