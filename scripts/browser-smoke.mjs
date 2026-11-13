@@ -180,9 +180,13 @@ async function checkCSV(page,selector){
   assert(download.suggestedFilename().endsWith('.csv')&&text.split('\n').length>2,'CSV has no data: '+selector);
 }
 async function completeWelcome(page,preset='5'){
-  await page.locator('#onboarding-dialog[data-stage="notice"]').waitFor();
-  await page.locator('#notice-okay').click();
-  assert(await page.locator('#onboarding-dialog[data-stage="graphics"]').isVisible(),'Okay did not immediately skip the notice');
+  const graphics=page.locator('#onboarding-dialog[data-stage="graphics"]');
+  if(!await graphics.isVisible()){
+    await page.locator('#onboarding-dialog[data-stage="notice"]').waitFor();
+    await page.locator('#notice-okay').click();
+    assert(await graphics.isVisible(),'Okay did not immediately skip the notice');
+  }
+  await graphics.waitFor();
   await page.locator(`input[name="startup-graphics"][value="${preset}"]`).check();
   await page.locator('#graphics-continue').click();
   assert((await page.locator('#relief-exaggeration').inputValue())===preset,'startup preset was not applied');
@@ -422,6 +426,8 @@ try{
   mobile.on('pageerror',err=>errors.push('mobile '+err.message));
   await offNetwork(mobile);
   await mobile.goto(host+'/explore?site=nobile&date=2026-11-14&days=7',{waitUntil:'domcontentloaded'});
+  await mobile.locator('#onboarding-dialog[data-stage="notice"]').waitFor();
+  await mobile.locator('#notice-okay').click();
   await mobile.locator('#onboarding-dialog[data-stage="graphics"]').waitFor();
   await mobile.screenshot({path:'smoke-artifacts/mobile-graphics.png'});
   await completeWelcome(mobile);
