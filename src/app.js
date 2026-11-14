@@ -31,7 +31,7 @@ const params=new URLSearchParams(location.search);
 const startSite=SITES.find(x=>x.id===params.get('site'))||SITES[0];
 const startDays=[3,7,14,28].includes(Number(params.get('days')))?Number(params.get('days')):7;
 const startDate=/^\d{4}-\d{2}-\d{2}$/.test(params.get('date')||'')?params.get('date'):'2026-11-14';
-const state={site:startSite,date:startDate,time:'12:00',days:startDays,offset:0,base:null,samples:[],playing:false,terrain:null,engineering:{...DEFAULT_ENGINEERING},simulation:null};
+const state={site:startSite,date:startDate,time:'12:00',days:startDays,offset:0,base:null,samples:[],playing:false,terrain:null,engineering:{...DEFAULT_ENGINEERING},simulation:null,customSite:null};
 let currentPage=routeFromURL(location.pathname,location.hash);
 const terrainProfiles=new Map();
 const terrainAttempted=new Set();
@@ -134,7 +134,7 @@ map=createMap($('#moon-map'),{onPick:selectSite,onHover:(site,e)=>{const tip=$('
   console.warn('Globe unavailable:',error);
   map={render(){},zoomBy:()=>100,resetView:()=>100,focusSite:()=>135};
 }
-function selectSite(site){cancelTerrainRequest();stopPlay();state.site=site;if(site.custom&&!siteSelect.querySelector('[value="custom"]'))siteSelect.add(new Option('Custom waypoint: Map-selected','custom'));siteSelect.value=site.id;updateAnalysis();toast(`${site.name} selected`);maybeAutoTerrain();}
+function selectSite(site){cancelTerrainRequest();stopPlay();state.site=site;if(site.custom){state.customSite=site;if(!siteSelect.querySelector('[value="custom"]'))siteSelect.add(new Option('Custom waypoint: Map-selected','custom'));}siteSelect.value=site.id;updateAnalysis();toast(`${site.name} selected`);maybeAutoTerrain();}
 /** Custom waypoints get real NASA terrain automatically: picking a point on the
  * globe is an explicit request for its local horizon, so one DEM patch read is
  * proportionate. Failures are remembered so the session never retries in vain. */
@@ -378,15 +378,27 @@ function updateModelNotes(){
 // ---- Side-by-side comparison of sites and mission dates ----
 function compareEntries(){
   const terrainMode=$('#finder-mode').value==='terrain';
-  return SITES.filter(site=>!terrainMode||getCachedTerrain(site)).map(site=>{
+  const entries=SITES.filter(site=>!terrainMode||getCachedTerrain(site)).map(site=>{
     const profile=terrainMode?getCachedTerrain(site):null;
     return {site,name:site.name,kind:site.kind,profile,
       metrics:windowMetrics({start:state.base,days:state.days,lat:site.lat,lon:site.lon,profile})};
   });
+  // The custom waypoint picked on the 3D globe joins the comparison as an
+  // extra column, labelled as the user's own selection. Its metrics use the
+  // same window and horizon rules as every preset site.
+  const custom=state.customSite;
+  if(custom&&(!terrainMode||getCachedTerrain(custom))){
+    const profile=terrainMode?getCachedTerrain(custom):null;
+    entries.push({site:custom,custom:true,name:'Custom waypoint',kind:'Selected by you on the 3D globe',profile,
+      metrics:windowMetrics({start:state.base,days:state.days,lat:custom.lat,lon:custom.lon,profile})});
+  }
+  return entries;
 }
 function compareTableHTML(entries,rows){
   return '<table class="metric-table"><thead><tr><th scope="col">Metric</th>'+entries.map(e=>{
-    const name=e.site?'<button type="button" class="planning-site" data-site="'+e.site.id+'" aria-label="Inspect '+escapeHTML(e.name)+'">'+escapeHTML(e.name)+' ↗</button>':escapeHTML(e.name);
+    const name=e.custom
+      ?'<button type="button" class="planning-site" data-custom="1" aria-label="Inspect '+escapeHTML(e.name)+'">'+escapeHTML(e.name)+' ↗</button>'
+      :e.site?'<button type="button" class="planning-site" data-site="'+e.site.id+'" aria-label="Inspect '+escapeHTML(e.name)+'">'+escapeHTML(e.name)+' ↗</button>':escapeHTML(e.name);
     const model=e.profile?'Terrain: '+(e.profile.resolutionM>=1000?(e.profile.resolutionM/1000).toFixed(1)+' km':Math.round(e.profile.resolutionM)+' m'):'Flat 0°';
     return '<th scope="col">'+name+'<small>'+escapeHTML(e.kind)+'<br>'+model+'</small></th>';
   }).join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr><th scope="row">'+r.label+'</th>'+r.values.map(v=>'<td>'+v.value.toFixed(v.digits)+' '+v.unit+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
@@ -419,7 +431,9 @@ function renderComparePanel(){
   $('#compare-table').innerHTML=compareTableHTML(entries,comparisonRows(entries));
   $('#compare-timeline').innerHTML=compareTimelineSVG(entries);
   for(const button of $$('#compare-table .planning-site'))button.addEventListener('click',()=>{
-    selectSite(SITES.find(site=>site.id===button.dataset.site));navigatePage('explore');
+    const site=button.dataset.custom?state.customSite:SITES.find(site=>site.id===button.dataset.site);
+    if(!site)return;
+    selectSite(site);navigatePage('explore');
   });
 }
 function renderDateComparison(){
