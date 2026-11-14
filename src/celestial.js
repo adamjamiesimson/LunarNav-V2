@@ -1,14 +1,11 @@
-/**
- * Celestial reference bodies rendered behind the interactive Moon.
- * Directions are lunar-body-fixed, aligned with the analytical ephemeris.
- * Marker sizes are deliberately enlarged and sky projection is illustrative:
- * this is a directional visual reference, NOT a to-scale distance model.
- */
+// Reference bodies drawn behind the interactive Moon. Directions are
+// lunar-body-fixed off the analytical ephemeris. Sizes are enlarged and the
+// sky projection is illustrative: a directional aid, not to scale.
 const TAU=Math.PI*2;
 const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
 const wrapRadians=n=>((n%TAU)+TAU)%TAU;
 
-/** Azimuth clockwise from north, elevation relative to selected lunar site. */
+// Azimuth clockwise from north, elevation relative to the lunar site.
 export function horizontalToLunarVector(observation,lat,lon){
   const R=Math.PI/180;
   const phi=lat*R,theta=lon*R,az=observation.azimuth*R,el=observation.elevation*R;
@@ -20,19 +17,16 @@ export function horizontalToLunarVector(observation,lat,lon){
   return n.map(v=>v/length);
 }
 
-/**
- * Shared Moon-fixed 3D scene used by the GPU renderer and pointer picking.
- * True Sun/Earth *directions* come from the lunar ephemeris; displayed radii
- * and distances are compressed to make all three spheres inspectable together.
- * The Sun sits slightly further out and renders larger than Earth.
- * This scene must never be interpreted as a distance/size/orbit-scale model.
- */
+// The Moon-fixed 3D scene shared by the GPU renderer and pointer picking.
+// Sun/Earth directions come from the ephemeris; the radii and distances are
+// squashed so all three spheres fit on screen. The Sun sits a bit further out
+// and draws bigger than Earth. Not a distance/size/orbit model.
 export const SCENE_BODIES = Object.freeze({
   sun: Object.freeze({distance:2.6,radius:0.25}),
   earth: Object.freeze({distance:2.1,radius:0.19})
 });
 
-/** Project the same 3D spheres that the WebGL ray tracer intersects. */
+// Projects the same spheres the WebGL ray tracer intersects.
 export function skyBodies(camera,sunDirection,earthDirection,width,height,moonRadius=0.87){
   const project=(direction,{distance,radius})=>{
     const unit=direction.map(v=>v/(Math.hypot(...direction)||1));
@@ -55,7 +49,7 @@ export function skyBodies(camera,sunDirection,earthDirection,width,height,moonRa
   };
 }
 
-/** Find the frontmost *ray-sphere* intersection rather than a flat 2D target. */
+// Frontmost ray-sphere intersection (not a flat 2D hit test).
 export function hitCelestialBody(layout,x,y,width,height){
   const scale=height*0.5;
   const px=(x-width*0.5)/scale,py=(height*0.5-y)/scale;
@@ -76,7 +70,7 @@ export function hitCelestialBody(layout,x,y,width,height){
   return nearest;
 }
 
-/** Approximate visual surface spin by UTC time, independent of lunar horizon calculations. */
+// Rough visual surface spin by UTC, independent of the horizon maths.
 export function celestialSpin(timeUTC){
   const ms=typeof timeUTC==='number'?timeUTC:Date.parse(timeUTC);
   if(!Number.isFinite(ms))return {sun:0,earth:0,moon:0};

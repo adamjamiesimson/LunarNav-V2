@@ -1,25 +1,18 @@
-/**
- * Experimental NASA LOLA terrain support.
- *
- * Source: Barker et al. 2023 NASA GSFC PGDA, south-polar COG mosaics
- * https://pgda.gsfc.nasa.gov/products/90
- * https://doi.org/10.3847/PSJ/acf3e1
- *
- * Read only a local window through HTTP byte ranges; never download or unpack
- * the entire GeoTIFF into browser memory. Profiles are limited to 20 km and
- * assume the file's south-polar MOON_ME stereographic projection, centered on
- * east longitude 0°. Not a landing safety map.
- *
- * Two products cover the mission region: LDEM_80S (80°S–90°S, 80 m/px) and
- * the wider LDEM_60S (60°S–90°S, 60 m/px) which also serves custom waypoints.
- */
+// NASA LOLA terrain support. Source: Barker et al. 2023, NASA GSFC PGDA
+// south-polar COG mosaics (pgda.gsfc.nasa.gov/products/90,
+// doi.org/10.3847/PSJ/acf3e1). Only a local window is read, via HTTP byte
+// ranges; the full GeoTIFF never lands in browser memory. Profiles are capped
+// at 20 km and assume the file's south-polar MOON_ME stereo projection centred
+// on east longitude 0. Products: LDEM_80S (80S-90S, 80 m/px) and LDEM_60S
+// (60S-90S, 60 m/px), the latter also serving custom waypoints. Not a
+// landing safety map.
 export const LOLA_COG='https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_80MPP_ADJ.TIF';
 export const LOLA_COG_60S='https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_60S_60MPP_ADJ.TIF';
 export const LOLA_PRODUCTS=Object.freeze({
   '80s':{cog:LOLA_COG,proxy:'/assets/lola-80m.tif',label:'NASA GSFC PGDA LOLA 80m south-polar DEM',minLat:-90,maxLat:-80},
   '60s':{cog:LOLA_COG_60S,proxy:'/assets/lola-60s-60m.tif',label:'NASA GSFC PGDA LOLA 60m south-polar DEM (60°S–90°S)',minLat:-90,maxLat:-60}
 });
-/** Smallest product that covers a latitude (lighter COG wins where possible). */
+// Smallest product covering a latitude (lighter COG where possible).
 export function productFor(latitude){
   if(!Number.isFinite(latitude)||latitude> -60||latitude< -90)throw Error('NASA LOLA south-polar DEMs only cover 60°S to 90°S');
   return latitude> -80?'60s':'80s';
@@ -36,12 +29,11 @@ export function polarXY(lat,lon){
     throw Error('LOLA terrain covers only 60°S to 90°S and 60°N to 90°N');
   return polarFrameXY(lat,lon);
 }
-/** Compute horizon profile against real elevation pixels supplied in metres.
- * Grid starts at originX/originY; pixel size resolutionX/resolutionY in metres.
- * Radial sampling adapts to the DEM pixel size unless overridden. Values
- * outside the source window are deliberately NOT extrapolated; radial coverage
- * is reported per profile and insufficient coverage rejects the profile.
- */
+// Horizon profile from real elevation pixels (metres). The grid starts at
+// originX/originY with pixel size resolutionX/resolutionY. Radial sampling
+// adapts to the DEM pixel size unless overridden. Outside the source window
+// nothing is extrapolated; radial coverage is reported per profile and too
+// little coverage rejects it.
 export function deriveHorizonFromRaster({data,width,height,originX,originY,resolutionX,resolutionY,noData},site,{
   azimuthBins=72,radiusKm=20,stepMeters=null,centerXY=null,frameLon=null,stereoDistortion=true
 }={}){
@@ -50,8 +42,8 @@ export function deriveHorizonFromRaster({data,width,height,originX,originY,resol
   const pixelM=Math.max(Math.abs(resolutionX),Math.abs(resolutionY));
   const step=(stepMeters===null?Math.max(20,pixelM):stepMeters);
   if(!(step>=10))throw Error('Invalid horizon sampling');
-  // centerXY supplies the observer position in the raster's frame (local
-  // east/north windows set frameLon=0; polar-stereo rasters use the site's
+  // centerXY supplies the observer position in the raster frame (local
+  // east/north windows set frameLon=0; polar-stereo rasters use the site
   // longitude so the azimuth basis matches the grid axes).
   const center=centerXY||polarFrameXY(site.lat,site.lon);
   const read=(x,y)=>{
@@ -64,7 +56,7 @@ export function deriveHorizonFromRaster({data,width,height,originX,originY,resol
   const observer=read(center.x,center.y);
   if(observer===null)throw Error('No valid LOLA elevation at selected coordinates');
   // Local east/north rasters use a neutral azimuth basis; polar-stereo
-  // rasters use the basis rotated by the site's longitude.
+  // rasters rotate it by the site longitude.
   const longitude=(frameLon!==null?frameLon:site.lon)*DEG;
   const northSign=frameLon===null&&site.lat>0?-1:1;
   const north=[northSign*Math.sin(longitude),northSign*Math.cos(longitude)];
@@ -105,7 +97,7 @@ export function deriveHorizonFromRaster({data,width,height,originX,originY,resol
   };
 }
 
-/** Bounded LRU cache for loaded DEM patches (Float32 samples are heavy). */
+// Bounded LRU cache for loaded DEM patches (Float32 samples are heavy).
 export function createPatchCache(limit=6){
   const store=new Map();
   return {
@@ -151,7 +143,7 @@ function subsetWindow(image,site,radiusKm){
     resolutionX,resolutionY};
 }
 
-/** COGs require true 206 byte responses; reject proxies returning the entire image. */
+// COGs need true 206 byte responses; reject proxies that send the whole image.
 export async function selectSafeLolaSource(productKey='80s',{signal}={}){
   const product=LOLA_PRODUCTS[productKey]||LOLA_PRODUCTS['80s'];
   const candidates=[product.proxy,product.cog];
@@ -171,26 +163,25 @@ export async function selectSafeLolaSource(productKey='80s',{signal}={}){
   throw Error('NASA terrain byte-range access is unavailable. '+errors.join(' | ')+'. Use a local compatible 60–100 m GeoTIFF.');
 }
 
-/** Load a terrain patch and derive its horizon profile. The full Float32
- * elevation samples are retained on the result (profile.patch) so the same
- * source data can feed geometry, visualisation and future surface views. */
+// Load a terrain patch and derive its horizon profile. The full Float32
+// elevation samples ride along on the result (profile.patch) so the same data
+// can feed geometry and the surface views.
 export async function loadLolaTerrain(site,{file=null,onProgress=()=>{},signal}={}){
   const requestSignal=signal?AbortSignal.any([signal,AbortSignal.timeout(30000)]):AbortSignal.timeout(30000);
   const g=await ensureGeoTIFF();
   requestSignal.throwIfAborted();
   onProgress('Opening NASA LOLA elevation metadata…');
-  // fromUrl uses HTTP ranges for the cloud-optimized remote GeoTIFF.
-  // Local .tif files remain an escape hatch when CORS or upstream access fails.
+  // fromUrl reads the cloud-optimized GeoTIFF over HTTP ranges. Local .tif
+  // files remain the escape hatch when CORS or upstream access fails.
   const productKey=productFor(site.lat);
   const product=LOLA_PRODUCTS[productKey];
   const remoteUrl=file?null:await selectSafeLolaSource(productKey,{signal:requestSignal});
   if(remoteUrl)onProgress('Loading safe 206-byte-range NASA terrain source…');
   const tiff=file?await g.fromBlob(file):await g.fromUrl(remoteUrl,{allowFullFile:false},requestSignal);
   const image=await tiff.getImage(0,requestSignal);
-  // Coordinate conventions are explicit: MOON_ME south-polar stereographic,
-  // metres. GeoTIFF projection metadata is often custom for planetary CRS, so
-  // we validate measurable bounds/resolution instead of
-  // quietly assuming an Earth EPSG identifier.
+  // Conventions are explicit: MOON_ME south-polar stereo, metres. GeoTIFF
+  // projection metadata for planetary CRS is often custom, so measurable
+  // bounds/resolution get validated instead of trusting an Earth EPSG id.
   const box=image.getBoundingBox();
   const center=polarXY(site.lat,site.lon);
   if(box.length!==4 || !box.every(Number.isFinite) || center.x<box[0]||
@@ -205,7 +196,7 @@ export async function loadLolaTerrain(site,{file=null,onProgress=()=>{},signal}=
   const noData=typeof image.getGDALNoData==='function'?image.getGDALNoData():null;
   onProgress('Computing the terrain horizon at 1° azimuth intervals…');
   const result=deriveHorizonFromRaster({data,width:r.width,height:r.height,...geo,noData},site,{radiusKm,azimuthBins:360});
-  // Retain the original numerical raster (never an 8-bit reduction).
+  // Keep the original numerical raster (never an 8-bit reduction).
   let min=Infinity,max=-Infinity;
   for(const v of data){const n=Number(v);if(Number.isFinite(n)&&!(noData!==null&&n===Number(noData))){if(n<min)min=n;if(n>max)max=n;}}
   result.patch={data,width:r.width,height:r.height,...geo,noData,

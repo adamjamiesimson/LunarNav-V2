@@ -1,11 +1,10 @@
-/**
- * Earth-to-Moon transit estimator  -  a scheduling estimate, not a trajectory
- * solver. Transfers are characterised by transparent reference durations that
- * bracket real transfer families (direct ~3–4 days, low-energy ~7.5 days);
- * dividing an average distance by an assumed speed would fabricate precision.
- * Arrival, LOI, descent and touchdown are separate events. The destination
- * site identifies the landing target but does not change the transit duration.
- */
+// Earth-to-Moon transit estimator: a scheduling estimate, not a trajectory
+// solver. Transfers use published reference durations that bracket real
+// families (direct ~3-4 days, low-energy ~7.5 days); dividing an average
+// distance by an assumed speed would invent precision. Arrival, LOI, descent
+// and touchdown are separate events. The destination site is the landing
+// target but doesn't change the transit duration.
+
 export const TRANSIT_PROFILES = Object.freeze({
   direct: {
     id: 'direct',
@@ -32,7 +31,7 @@ export const TRANSIT_PROFILES = Object.freeze({
   }
 });
 
-/** Human-readable hours → "3 d 12 h" (or "12 h", or "0 h"). */
+// Hours as "3 d 12 h" (or "12 h", or "0 h").
 export function formatHours(hours){
   if (!Number.isFinite(hours) || hours < 0) return 'N/A';
   const h = Math.round(hours);
@@ -43,7 +42,7 @@ export function formatHours(hours){
   return `${rem} h`;
 }
 
-/** Phase timeline (hours from departure) summing to the total transit duration. */
+// Phase timeline (hours from departure) summing to the total transit duration.
 export function transitPhases(totalHours){
   const total = Number(totalHours);
   if (!Number.isFinite(total) || total <= 0) throw new Error('Invalid transit duration');
@@ -62,10 +61,8 @@ export function transitPhases(totalHours){
   ];
 }
 
-/** Estimate an Earth–Moon transit for a landing destination.
- * Anchors on either a departure time (forward) or a desired landing time
- * (backward). Returns timestamps, the phase timeline and clear limitations.
- */
+// Estimate an Earth-Moon transit for a landing destination. Anchors on either
+// a departure time (forward) or a desired landing time (backward).
 export function estimateEarthMoonTransit({
   destination = null,
   profile = 'direct',
@@ -82,7 +79,7 @@ export function estimateEarthMoonTransit({
     throw new Error('Invalid lunar destination coordinates for transit estimate');
   }
   const spec = TRANSIT_PROFILES[profile] || TRANSIT_PROFILES.direct;
-  // Unknown profiles fall back to the direct reference rather than throwing.
+  // Unknown profiles fall back to the direct reference instead of throwing.
   const totalHours = profile === 'custom'
     ? (Number.isFinite(Number(referenceHours)) ? Number(referenceHours) : 84)
     : spec.referenceHours;

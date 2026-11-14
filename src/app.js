@@ -85,7 +85,7 @@ window.addEventListener('popstate',()=>{
 });
 
 
-/** Keep current-site settings shareable across distinct page URLs. */
+// Keep current-site settings shareable across distinct page URLs.
 function selectionQuery(){
   const p=new URLSearchParams();
   if(!state.site.custom)p.set('site',state.site.id);
@@ -123,7 +123,7 @@ function navigatePage(page,{replace=false}={}){
 }
 
 function toast(message){const el=$('#toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2800);}
-/** Write a CSV from row arrays (every cell quoted). */
+// Write a CSV from row arrays (every cell quoted).
 function downloadCSV(filename,rows){const cell=v=>'"'+String(v).replaceAll('"','""')+'"';const text=rows.map(r=>r.map(cell).join(',')).join('\n');const url=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
 function updateURL(){if(state.site.custom)return;history.replaceState({page:currentPage},'',buildPageURL(currentPage,selectionQuery()));}
 let map;
@@ -135,9 +135,9 @@ map=createMap($('#moon-map'),{onPick:selectSite,onHover:(site,e)=>{const tip=$('
   map={render(){},zoomBy:()=>100,resetView:()=>100,focusSite:()=>135};
 }
 function selectSite(site){cancelTerrainRequest();stopPlay();state.site=site;if(site.custom){state.customSite=site;if(!siteSelect.querySelector('[value="custom"]'))siteSelect.add(new Option('Custom waypoint: Map-selected','custom'));}siteSelect.value=site.id;updateAnalysis();toast(`${site.name} selected`);maybeAutoTerrain();}
-/** Custom waypoints get real NASA terrain automatically: picking a point on the
- * globe is an explicit request for its local horizon, so one DEM patch read is
- * proportionate. Failures are remembered so the session never retries in vain. */
+// Custom waypoints get real NASA terrain automatically: picking a point on the
+// globe is an explicit request for its local horizon, so one DEM patch read is
+// proportionate. Failures are remembered so the session doesn't retry in vain.
 function maybeAutoTerrain(){
   const site=state.site;
   if(getCachedTerrain(site))return;
@@ -255,7 +255,7 @@ function onIndicatorKeyDown(e){
   setOffset(state.offset+step);
 }
 function updateIndicator(){const x=indicatorX(state.offset,state.days*24);const l=$('#time-indicator');const tri=$('#indicator-triangle');const handle=$('#indicator-handle');if(l){l.setAttribute('x1',x);l.setAttribute('x2',x);}if(tri)tri.setAttribute('d',`M${x-4} 4 L${x+4} 4 L${x} 11 Z`);if(handle)handle.setAttribute('d',`M${x-11} 11 a11 11 0 0 0 22 0 Z`);if(document.querySelector('#timeline-graph [role="slider"]'))document.querySelector('#timeline-graph [role="slider"]').setAttribute('aria-valuenow',String(Math.round(state.offset)));}
-/* ---- panoramic surface view ---- */
+// Panoramic surface view
 let panoramaView=null,panoramaColumns=null;
 function panoramaBodyLine(obs,pano){
   const part=(label,body)=>label+' '+Math.round(body.azimuth)+'° azimuth, '+body.elevation.toFixed(1)+'° elevation: '+bodyStatus(pano,body);
@@ -364,7 +364,7 @@ function updateInspection(){
   updateIndicator();
 }
 function setOffset(v){state.offset=Math.max(0,Math.min(SUN_CIRCUIT_HOURS,Number(v)||0));updateInspection();}
-/** Every results panel states which horizon model produced its numbers. */
+// Every results panel states which horizon model produced its numbers.
 function horizonBadgeText(profile){
   if(!profile)return 'Flat 0° horizon';
   const res=profile.resolutionM>=1000?(profile.resolutionM/1000).toFixed(1)+' km':Math.round(profile.resolutionM)+' m';

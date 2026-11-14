@@ -1,12 +1,9 @@
-/**
- * True first-person surface panorama: a Google-Street-View-style look-around
- * at any waypoint, generated from the same NASA DEM heights the 3D globe
- * displaces (native waypoint patch near field, baked grid beyond). Each pixel
- * is a ray marched against the displaced terrain; the terrain is lit by the
- * real Sun direction from the shared ephemeris (Earth adds a faint fill), and
- * the Sun (0.53°) and Earth (1.98°) discs sit at their real azimuth/elevation,
- * occluded by terrain. The star field is decorative and labelled as such.
- */
+// First-person surface panorama: a Street-View-style look around any
+// waypoint, rendered from the same DEM heights the globe displaces (native
+// patch near, grid beyond). Every pixel is a ray marched against the terrain,
+// lit by the real Sun direction (Earth adds a faint fill). Sun (0.53 deg) and
+// Earth (1.98 deg) discs sit at their real az/el and hide behind terrain.
+// Star field is decorative, and the panel says so.
 import {directionFromAzEl,projectDirection,horizonAtAzimuth} from './panorama.js';
 
 const RAD=Math.PI/180;
@@ -65,9 +62,9 @@ float starField(vec3 d){
   vec3 off=vec3(fract(h*57.31),fract(h*127.7),fract(h*311.7))-0.5;
   return smoothstep(0.10,0.0,length(f-off*0.7))*(0.25+0.75*fract(h*811.7));
 }
-/* Procedural micro-relief (ARTISTIC): regolith rolls, mounds, pebbles and
- * shallow dips in metres. Applied only near the camera so it never invents
- * distant landforms: the real DEM owns the silhouette. */
+/* Procedural micro-relief (artistic): regolith rolls, mounds, pebbles and
+ * shallow dips in metres. Only near the camera so it never invents distant
+ * landforms; the real DEM owns the silhouette. */
 float hash21(vec2 p){
   p=fract(p*vec2(123.34,456.21));
   p+=dot(p,p+45.32);
@@ -118,17 +115,15 @@ void main(){
       hitT=b;break;
     }
     last=t;lastDz=dz;
-    // Step sizing prevents the vertical-stripe ("cliff") artifact at grazing
-    // angles: shrink when the ray hugs the terrain so ridges are never
-    // tunneled through; grow when it flies high above (with distance the
-    // curvature term makes the ray gain height quickly).
+    // Step sizing avoids the vertical-stripe ("cliff") artifact at grazing
+    // angles: shrink when the ray hugs the terrain so ridges never get
+    // tunneled through, grow when it flies high above.
     t+=clamp(dz*1.15,max(2.5,t*0.0035),t*0.12);
     if(t>140000.0)break;
   }
-  // A ray that exhausted its budget while still grazing the surface is
-  // looking along distant terrain (the silhouette band): render terrain at
-  // the last sample instead of punching a see-through sky gap. Rays with
-  // real clearance (open sky) keep their large dz and stay sky.
+  // A ray that ran out of budget while still grazing the surface is looking
+  // along distant terrain: fill terrain at the last sample instead of
+  // punching a see-through sky gap. Rays with real clearance stay sky.
   if(hitT<0.0&&lastDz<max(45.0,t*0.02))hitT=t;
   vec3 col;
   if(hitT<0.0){
@@ -150,7 +145,7 @@ void main(){
     float hx=groundZ(p.x+e,p.y)-groundZ(p.x-e,p.y);
     float hy=groundZ(p.x,p.y+e)-groundZ(p.x,p.y-e);
     vec3 n=normalize(vec3(-hx/(2.0*e),-hy/(2.0*e),1.0));
-    // Micro-relief shading (ARTISTIC): pebble-to-mound normal perturbation,
+    // Micro-relief shading (artistic): pebble-to-mound normal perturbation,
     // faded with distance so the far field keeps the real DEM shape.
     float dw=exp(-hitT/140.0);
     if(dw>0.01){
@@ -161,7 +156,7 @@ void main(){
     }
     float lam=max(0.0,dot(n,uSunDir));
     float earthL=max(0.0,dot(n,uEarthDir));
-    // Regolith albedo (ARTISTIC): macro mottling that persists to distance,
+    // Regolith albedo (artistic): macro mottling that persists to distance,
     // local mottle and rare bright ejecta specks near the camera.
     float macro=(fbm(p.xy*0.006)-0.5)*0.22;
     float mottle=(fbm(p.xy*0.08)-0.5)*0.18*dw;
@@ -217,10 +212,8 @@ const GRID_FILES={
   global:'/assets/moon-relief-global.png'
 };
 
-/**
- * Build the interactive surface view. Throws when WebGL is unavailable so the
- * caller can fall back to the cylindrical panorama.
- */
+// Build the interactive surface view. Throws when WebGL is missing so the
+// caller can fall back to the cylindrical panorama.
 export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
   onHeading=null,bodyLabel=null,observerHeightM=5,maxDevicePixelRatio=1.25}={}){
   const gl=canvas.getContext('webgl',{antialias:true,alpha:false});
@@ -260,8 +253,8 @@ export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
     if(!patchTexture)patchTexture=gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D,patchTexture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
-    // RGBA texels: 4 bytes per pixel (a 3-byte array with an RGBA upload is
-    // rejected by WebGL and leaves the texture black = flat at minM).
+    // RGBA texels, 4 bytes per pixel: a 3-byte array on an RGBA upload gets
+    // rejected by WebGL and the texture stays black = flat at minM.
     const texels=new Uint8Array(width*height*4);
     for(let i=0;i<data.length;i++){
       const v=Math.max(0,Math.min(4095,Math.round(((Number(data[i])||0)-minM)/range*4095)));
@@ -387,8 +380,8 @@ export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
   };
   const onDbl=()=>{yaw=0;pitch=2;fov=75;schedule();};
   const onResize=()=>schedule();
-  // The overlay starts hidden (zero-size canvas): re-render as soon as it
-  // gains real size, so the first frame is never a stretched empty buffer.
+  // Overlay starts hidden (zero-size canvas): re-render once it has real
+  // size so the first frame isn't a stretched empty buffer.
   const observer=typeof ResizeObserver==='function'?new ResizeObserver(()=>schedule()):null;
   observer?.observe(canvas);
   canvas.style.cursor='grab';

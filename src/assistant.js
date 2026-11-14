@@ -1,15 +1,9 @@
-/**
- * LunarNav Gemini mission-assistant front-end.
- *
- * Renders the floating chat panel and sends messages to /api/chat with a
- * compact, sanitised snapshot of the live mission configuration. Gemini
- * function calling runs on the server (src/tools.js) and the executed tool
- * chips come back with the reply. Conversation history stays in browser
- * memory (plus sessionStorage when available).
- *
- * The Gemini API key is never present in any front-end file; it only exists
- * as the server-side GEMINI_API_KEY env var.
- */
+// Gemini mission-assistant front-end. The floating chat panel posts to
+// /api/chat with a compact, sanitised snapshot of the live mission state.
+// Function calling runs server-side (tools.js); executed tool chips come back
+// with the reply. History lives in browser memory (sessionStorage when
+// available). The API key only exists as the server-side GEMINI_API_KEY env
+// var, never in a front-end file.
 
 const WELCOME = 'Ask about the selected mission, visibility, power, windows or travel. Calculations use the planner’s models; an API key must be configured on the server.';
 const STORAGE_KEY = 'lunarnav:assistant:history:v1';
@@ -28,7 +22,7 @@ function escapeHTML(str){
   return String(str).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 }
-/** Minimal Markdown rendering tuned for scientific answers (no raw HTML). */
+// Minimal Markdown rendering tuned for scientific answers (no raw HTML).
 function renderMarkdown(text){
   return String(text)
     .replace(/^[ \t]*\u2022[ \t]*/gm, '- ')
@@ -48,7 +42,7 @@ function renderMarkdown(text){
     .replace(/\n/g, '<br/>');
 }
 
-/* ---- State ---- */
+// State
 const ui = {};
 let history = [];
 let busy = false;
@@ -211,7 +205,7 @@ function showTyping(){
   ui.messages.scrollTop = ui.messages.scrollHeight;
   return node;
 }
-/* ---- API round trip ---- */
+// API round trip
 async function sendMessage(text){
   const userText = text.trim();
   if (!userText || busy) return;
@@ -263,7 +257,7 @@ async function sendMessage(text){
   }
 }
 
-/* ---- session persistence (local, no database on the server) ---- */
+// Session persistence (local; nothing stored server-side).
 function persistHistory(){
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-20)));

@@ -15,7 +15,7 @@ export const TOUR_STEPS=[
   {page:'explore',target:'#assistant-fab',title:'Ask the AI assistant',text:'Open Assistant to ask about your site, visibility, mission windows or engineering results.'}
 ];
 
-/** Loading → memory notice → graphics → spotlight tour on every visit. No visit flags. */
+// Loading -> memory notice -> graphics -> spotlight tour on every visit. No visit flags.
 export function initOnboarding({navigateView,getPage,onGraphicsChange,doc=document,clock=window}={}){
   const dialog=doc.getElementById('onboarding-dialog'),app=doc.getElementById('app');
   const title=doc.getElementById('onboarding-title'),description=doc.getElementById('onboarding-description');

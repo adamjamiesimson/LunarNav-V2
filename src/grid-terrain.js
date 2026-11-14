@@ -1,14 +1,10 @@
-/**
- * Instant terrain horizons from the baked NASA relief grids
- * (assets/moon-relief*.png  -  the same LOLA-derived surfaces used to displace
- * the 3D globe; provenance in data/relief.json).
- *
- * Deriving the horizon here gives every custom waypoint a real local sky view
- * immediately and offline: the polar grids (60°–90° in either hemisphere) at
- * 480 m, and the global grid for lower latitudes at its honest ~1.33 km
- * resolution. The horizon maths is shared: deriveHorizonFromRaster is the
- * same function used for the preset sites and the native DEM loader.
- */
+// Terrain horizons straight from the baked NASA relief grids
+// (assets/moon-relief*.png, the LOLA-derived surfaces the globe displaces;
+// provenance in data/relief.json). Deriving the horizon here gives every
+// custom waypoint a real local sky view immediately and offline: polar grids
+// (60-90 deg either hemisphere) at 480 m, global grid below that at ~1.33 km.
+// The maths is shared: deriveHorizonFromRaster is the same function the
+// preset sites and the native DEM loader use.
 import {polarXY,polarFrameXY,deriveHorizonFromRaster} from './terrain.js';
 import {MOON_RADIUS_M,globalReliefUV} from './relief.js';
 
@@ -32,7 +28,7 @@ function loadImage(file){
     imageCache.set(file,new Promise((resolve,reject)=>{
       const img=new Image();
       img.onload=()=>{
-        // Retain at most one decoded grid (~128 MiB for the global PNG).
+        // Keep at most one decoded grid around (~128 MiB for the global PNG).
         for(const key of imageCache.keys())if(key!==file)imageCache.delete(key);
         resolve(img);
       };
@@ -43,7 +39,7 @@ function loadImage(file){
   return imageCache.get(file);
 }
 
-/** Polar-stereographic window (shared with the tests). */
+// Polar-stereographic window.
 export function gridRasterWindow({size,domainKm,north},site,{radiusKm=20}={}){
   const gsd=domainKm*1000/size;
   const {x,y}=polarXY(site.lat,site.lon);
@@ -58,7 +54,7 @@ export function gridRasterWindow({size,domainKm,north},site,{radiusKm=20}={}){
     resolutionX:gsd,resolutionY:north?gsd:-gsd};
 }
 
-/** Equirectangular window in a local east/north metre frame around the site. */
+// Equirectangular window in a local east/north metre frame around the site.
 export function globalRasterWindow({width,height},lat,lon,{radiusKm=20}={}){
   const latGsd=Math.PI*MOON_RADIUS_M/height;
   const lonGsd=2*Math.PI*MOON_RADIUS_M*Math.max(0.05,Math.cos(lat*Math.PI/180))/width;
@@ -70,9 +66,9 @@ export function globalRasterWindow({width,height},lat,lon,{radiusKm=20}={}){
     originX:(x0-px)*lonGsd,originY:(py-y0)*latGsd,resolutionX:lonGsd,resolutionY:-latGsd};
 }
 
-/** Extract a metre-valued raster window; grid edges stay NaN (NoData). */
+// Metre-valued raster window; grid edges stay NaN (NoData).
 function readRasterWindow(img,x0,y0,w,h,block,wrap=false){
-  // Read only the small requested window, never an 8192×4096 RGBA canvas.
+  // Read just the requested window, never a 8192x4096 RGBA canvas.
   const canvas=document.createElement('canvas');
   canvas.width=w;canvas.height=h;
   const ctx=canvas.getContext('2d',{willReadFrequently:true});
@@ -140,28 +136,26 @@ async function deriveFromGlobal(site,meta,{azimuthBins,radiusKm}){
     resolutionM);
 }
 
-/**
- * Derive a local horizon profile for any coordinate: high-resolution polar
- * grids near the caps, the global grid elsewhere. Throws only when no grid
- * covers the location or the sampled window lacks valid elevation pixels.
- */
+// Local horizon profile for any coordinate: high-res polar grids near the
+// caps, the global grid elsewhere. Throws only when no grid covers the spot
+// or the window has no valid elevation pixels.
 export async function deriveGridHorizon(site,{azimuthBins=360,radiusKm=20}={}){
   const meta=await loadMeta();
   const opts={azimuthBins,radiusKm};
   if(Math.abs(site.lat)>=60){
     try{return await deriveFromPolar(site,meta,opts);}
     catch(error){
-      // Sites at the cap edge can fall outside the polar window: use the
-      // global grid instead of failing to flat horizon.
+      // Cap-edge sites can fall outside the polar window: use the global grid
+      // instead of failing to flat horizon.
       try{return await deriveFromGlobal(site,meta,opts);}catch{throw error;}
     }
   }
   return deriveFromGlobal(site,meta,opts);
 }
 
-/** Native SLDEM2015: PDS PC_REAL float32 little-endian, kilometres above R=1737.4 km.
- * The pixel-registered cylindrical grid is 128 px/degree, 0–360°E, 60°N–60°S.
- */
+// SLDEM2015 native format: PDS PC_REAL float32 little-endian, kilometres
+// above R=1737.4 km. Pixel-registered cylindrical grid, 128 px/degree,
+// 0-360E, 60N-60S.
 const SLDEM_IMG='/assets/sldem.img';
 const SLDEM_COLS=46080,SLDEM_ROWS=15360,SLDEM_ROW_BYTES=SLDEM_COLS*4;
 const SLDEM_PIXEL_M=2*Math.PI*MOON_RADIUS_M/SLDEM_COLS;
@@ -172,7 +166,7 @@ export function sldemPixelAt(x,y,hemisphere){
   return {row:Math.floor((60-lat)*128),col:Math.floor(((lon%360)+360)%360*128)};
 }
 
-/** Reject full-file and malformed responses before reading even one body byte. */
+// Reject full-file and malformed responses before reading a single body byte.
 export async function fetchSldemRow(row,c0,c1,{signal}={}){
   if(!Number.isInteger(row)||row<0||row>=SLDEM_ROWS||!Number.isInteger(c0)||!Number.isInteger(c1)||c0<0||c1>SLDEM_COLS||c0>=c1)
     throw Error('Invalid SLDEM range');
@@ -222,7 +216,7 @@ export async function deriveSldemPatch(site,{azimuthBins=360,radiusKm=20,fetchRo
     if(!columns.has(col))columns.set(col,[]);
     columns.get(col).push(j*w+i);
   }
-  // Separate spans at 0°/360°: never read a whole row across a longitude seam.
+  // Separate spans at 0/360: never read a whole row across the seam.
   const spans=[];
   for(const [row,columns] of rows){
     const sorted=[...columns.keys()].sort((a,b)=>a-b);
@@ -263,9 +257,9 @@ export async function deriveSldemPatch(site,{azimuthBins=360,radiusKm=20,fetchRo
   return finishProfile(profile,site,'NASA LOLA+Kaguya SLDEM2015 patch ('+Math.round(SLDEM_PIXEL_M)+' m)',SLDEM_PIXEL_M,{gridDerived:false});
 }
 
-/* ---- elevation samplers for the panoramic surface view ---- */
+// Elevation samplers for the surface panorama.
 
-/** Bilinear grid sample in pixel coordinates; null outside the window. */
+// Bilinear grid sample in pixel coordinates; null outside the window.
 export function sampleBilinear(data,width,height,fx,fy){
   if(!(fx>=0&&fy>=0&&fx<=width-1&&fy<=height-1))return null;
   const x0=Math.floor(fx),y0=Math.floor(fy),x1=Math.min(x0+1,width-1),y1=Math.min(y0+1,height-1);
@@ -275,11 +269,9 @@ export function sampleBilinear(data,width,height,fx,fy){
   return v00*(1-tx)*(1-ty)+v10*tx*(1-ty)+v01*(1-tx)*ty+v11*tx*ty;
 }
 
-/**
- * Terrain heights around any site for the surface panorama: the native
- * waypoint patch (when loaded) refines the near field, the baked DEM grid
- * covers the rest of the radius. Heights are metres above R=1737.4 km.
- */
+// Terrain heights around a site for the surface panorama: the native patch
+// (when loaded) refines the near field, the baked grid covers the rest of the
+// radius. Heights are metres above R=1737.4 km.
 export async function loadSiteHeights(site,{radiusKm=45,patch=null}={}){
   if(!Number.isFinite(site?.lat)||Math.abs(site.lat)>90||!Number.isFinite(site.lon))
     throw Error('Invalid panorama coordinates');

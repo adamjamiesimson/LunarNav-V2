@@ -1,13 +1,8 @@
-/**
- * Decode a colour-coded elevation map into numerical heights : ONLY when a
- * documented elevation legend (colour ramp + elevation range) and a geographic
- * reference are supplied. Whenever the original numerical DEM is available it
- * takes precedence: this is an additional ingestion method for maps whose only
- * accessible source is the rendered image.
- *
- * Not for hillshade/shaded-relief images: their brightness encodes terrain
- * orientation and illumination, not elevation.
- */
+// Decoding colour-coded elevation maps into heights. Only usable when the map
+// ships a documented legend (colour ramp + elevation range) and a georeference.
+// If the original numerical DEM exists, use that instead; this is for maps
+// whose only accessible source is the rendered image. Hillshade images don't
+// count: their brightness is terrain shading, not elevation.
 const hex2rgb=hex=>{
   const m=/^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
   if(!m)throw Error('Invalid legend colour: '+hex);
@@ -15,16 +10,10 @@ const hex2rgb=hex=>{
   return [n>>16,(n>>8)&255,n&255];
 };
 
-/**
- * @param imageData {data:Uint8ClampedArray|Uint8Array,width,height}
- * @param opts.stops legend swatches [{color:'#rrggbb',heightM:Number},...]
- *        (ordered or unordered; at least two)
- * @param opts.tolerance max RGB distance to a legend colour before a pixel is
- *        treated as NoData instead of a fabricated elevation
- * @param opts.georef required; the decoded grid is only meaningful with a
- *        documented projection/extent, which is echoed back to the caller
- * @returns {{heights:Float32Array,coveragePct,minM,maxM,georef}}
- */
+// imageData: {data:Uint8ClampedArray|Uint8Array,width,height}
+// stops: legend swatches [{color:'#rrggbb',heightM:Number},...] (2+, any order)
+// tolerance: max RGB distance to the legend before a pixel becomes NoData
+// georef: required; echoed back so the caller can't lose the projection
 export function decodeColorElevation(imageData,{stops,tolerance=24,georef=null}={}){
   if(!imageData||!imageData.data||!imageData.width||!imageData.height)throw Error('Invalid image data');
   if(!Array.isArray(stops)||stops.length<2)throw Error('A documented elevation legend with at least two colour stops is required');
@@ -41,9 +30,9 @@ export function decodeColorElevation(imageData,{stops,tolerance=24,georef=null}=
   let matched=0,min=Infinity,max=-Infinity;
   for(let i=0;i<imageData.width*imageData.height;i++){
     const r=imageData.data[i*4],g=imageData.data[i*4+1],b=imageData.data[i*4+2];
-    // Distance to the legend *ramp* (the polyline through the stops), so
-    // continuous ramps decode their intermediate colours and anything off the
-    // ramp is masked as NoData instead of becoming a fabricated elevation.
+    // Distance to the legend ramp (polyline through the stops) so continuous
+    // ramps decode their intermediate colours. Anything off the ramp gets
+    // masked as NoData rather than turned into a made-up elevation.
     let bestDist=Infinity,bestH=null;
     for(let s=0;s<ramp.length-1;s++){
       const a=ramp[s],c=ramp[s+1];

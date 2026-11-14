@@ -1,8 +1,6 @@
-/**
- * Provenance-aware lunar situation reports and the local sky diagram.
- * The Moon globe is illustrative; only azimuth-based horizon lines incorporate
- * loaded LOLA data. No surface-lighting or antenna link budget is implied.
- */
+// Situation reports and the local sky diagram. The globe is illustrative;
+// only the azimuth-based horizon lines carry loaded LOLA data. Nothing here
+// implies surface lighting or an antenna link budget.
 import {horizonAt} from './mission.js';
 import {ephemeris} from './astro.js';
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
@@ -63,11 +61,9 @@ export function buildSkyDiagram(obs,profile=null){
     '<circle cx="140" cy="140" r="3" fill="#98A2A8"/></svg>';
 }
 
-/** Find the next sampled transition of local Sun or Earth horizon visibility.
- * 30-minute bracket sampling, refined to approximately one minute. This is
- * screening precision, NOT physical or ephemeris accuracy, and it deliberately
- * does not estimate remote RF communication link viability.
- */
+// Next sampled transition of local Sun/Earth horizon visibility. 30-minute
+// brackets refined to about a minute. Screening precision, not ephemeris
+// accuracy, and deliberately no RF link viability.
 export function findNextHorizonEvent({startUTC,site,durationHours,offsetHours=0,profile=null,
   stepMinutes=30}={}){
   const origin=new Date(startUTC).getTime();

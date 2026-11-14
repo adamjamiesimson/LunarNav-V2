@@ -1,9 +1,7 @@
-/**
- * Portable derived terrain profiles. Only allow compact, versioned data
- * with exact NASA COG provenance and coordinates matching the selected site.
- * Profiles contain 72 *derived* horizon angles, not the original NASA DEM.
- * They are still exploratory and not separately raytrace or flight validated.
- */
+// Portable derived terrain profiles. Only compact, versioned data with exact
+// NASA COG provenance and coordinates matching the selected site gets in.
+// Profiles carry 72 derived horizon angles, not the original NASA DEM, and
+// are exploratory: not raytraced or flight validated separately.
 import {LOLA_COG} from './terrain.js';
 
 export const TERRAIN_CACHE_VERSION='lola-local-horizon-v1';
