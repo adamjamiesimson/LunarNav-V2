@@ -1,17 +1,11 @@
-/**
- * Same-window comparison metrics for sites and mission dates.
- *
- * Every metric is derived from the shared sampleWindow()/summarize() outputs at
- * one time resolution and one horizon rule, so comparison figures can never
- * disagree with the planner timeline. Terrain profiles (when supplied) use the
- * same bodyVisible() horizon rule as the rest of the application. Nothing here
- * ranks a site as suitable for a mission: outputs are comparative planning
- * information only.
- */
+// Same-window comparison metrics for sites and mission dates. Everything runs
+// off the shared sampleWindow()/summarize() outputs at one sampling step and
+// one horizon rule, so these numbers can't drift from the planner timeline.
+// Comparative info only, no site is ranked as mission-ready here.
 import {sampleWindow,summarize,longestDualWindow,longestRunHours} from './astro.js';
 import {simulateMission,DEFAULT_ENGINEERING} from './mission.js';
 
-/** Metrics for one site over one mission window (fixed sampling resolution). */
+// One site over one mission window.
 export function windowMetrics({start,days,lat,lon,profile=null,stepHours=2}={}){
   const samples=sampleWindow({start,days,lat,lon,stepHours,profile});
   const stats=summarize(samples);
@@ -35,7 +29,7 @@ export function windowMetrics({start,days,lat,lon,profile=null,stepHours=2}={}){
   };
 }
 
-/** Fixed metric table shared by the site and mission-date comparisons. */
+// Fixed metric table for both comparison views.
 export function comparisonRows(entries){
   const cell=(fn,unit,digits=1)=>entries.map(e=>({value:fn(e.metrics),unit,digits}));
   return [
@@ -48,10 +42,7 @@ export function comparisonRows(entries){
   ];
 }
 
-/**
- * Plain-language differences computed from the metrics themselves (never
- * hardcoded): illumination trade-offs, darkness exposure and Earth view.
- */
+// Plain-language differences read off the metrics themselves (never hardcoded).
 export function differenceNotes(entries){
   if(entries.length<2)return [];
   const byLight=[...entries].sort((a,b)=>b.metrics.illuminationHours-a.metrics.illuminationHours||a.name.localeCompare(b.name));

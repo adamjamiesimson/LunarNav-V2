@@ -1,12 +1,7 @@
-/**
- * Sliding mission-window scan for Moon south-pole candidate sites.
- *
- * Uses exactly the same analytical ephemeris as the mission planner, sampled
- * on a uniform UTC grid. Optional loaded NASA LOLA horizon profiles can be
- * applied to sites whose DEM was actually loaded; no mixed-mode rankings.
- * All percentages are sample-based exploratory estimates, NOT verified
- * JPL Horizons or flight-qualified operational probabilities.
- */
+// Sliding mission-window scan for south-pole candidate sites. Same analytical
+// ephemeris as the planner, sampled on a uniform UTC grid. Loaded LOLA horizon
+// profiles can be applied per site; rankings never mix modes. Percentages are
+// sample-based screening estimates, not JPL Horizons or flight numbers.
 import {ephemeris,longestRunHours} from './astro.js';
 import {bodyVisible} from './mission.js';
 
@@ -29,7 +24,7 @@ function ensureDate(date,time){
   return n;
 }
 
-/** Analyze each possible UTC start date, sharing one sampled ephemeris array per site. */
+// Analyse each possible UTC start date, one sampled ephemeris array per site.
 export function findMissionWindows({
   sites,startDate,startTime='12:00',searchDays=30,windowDays=7,stepHours=4,priority='balanced',
   terrainProfiles=null,terrainMode='flat'
@@ -103,9 +98,8 @@ export function findMissionWindows({
   model:terrainMode==='terrain'?'analytical-screening-v1 + loaded LOLA 20km local horizon, UTC, sampled intervals':'analytical-screening-v1, smooth horizon, UTC, sampled intervals'};
 }
 
-/** Compare matched site/date/duration windows only, never cross-site rankings.
- * Deltas are percentage points, not probabilities or validated accuracy bounds.
- */
+// Compare matched site/date/duration windows only, never cross-site rankings.
+// Deltas are percentage points, not probabilities or accuracy bounds.
 export function compareFinderModels(geometric,terrain){
   if(!geometric||!terrain||geometric.terrainMode!=='flat'||terrain.terrainMode!=='terrain'||
       geometric.startDate!==terrain.startDate ||

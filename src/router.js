@@ -1,8 +1,6 @@
-/**
- * LunarNav client-side page navigation. URL paths work as direct Vercel entries
- * (server rewrites to index.html) and browser Back/Forward preserves the view.
- * Legacy #planner/#finder links resolve to their modern locations.
- */
+// Client-side page navigation. URL paths work as direct Vercel entries (the
+// server rewrites to index.html) and Back/Forward preserves the view. Legacy
+// #planner/#finder links resolve to their modern locations.
 export const PAGE_ROUTES=Object.freeze({
  explore:'/explore',planning:'/planning',engineering:'/engineering',science:'/science'
 });

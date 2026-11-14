@@ -1,13 +1,9 @@
-/**
- * Immersive lunar globe : a dependency-free WebGL visualization backed by the
- * NASA SVS 2025 LROC color map. Surface appearance is visual context only;
- * it is NOT a terrain horizon model, elevation dataset or landing-risk map.
- * https://svs.gsfc.nasa.gov/4720/
- *
- * Earth, Moon and Sun are ray-traced as spheres in a shared Moon-fixed scene.
- * Celestial directions follow the ephemeris; their displayed size/distance is
- * deliberately compressed for inspection. The 2D polar fallback remains.
- */
+// Immersive lunar globe: dependency-free WebGL over the NASA SVS 2025 LROC
+// colour map (svs.gsfc.nasa.gov/4720). Surface appearance is visual context
+// only, not a terrain horizon, elevation dataset or landing-risk map.
+// Earth/Moon/Sun are ray-traced spheres in one Moon-fixed scene; directions
+// come from the ephemeris, sizes/distances are squashed for inspection. A 2D
+// polar fallback remains for no-WebGL environments.
 import {SITES} from './sites.js';
 import {createMap as createPolarMap} from './map.js';
 import {skyBodies,hitCelestialBody,celestialSpin,horizontalToLunarVector} from './celestial.js';
@@ -134,8 +130,8 @@ float heightAt(vec3 n){
      vec4 sampleHeight=texture2D(patchMap,puv);
      if(sampleHeight.a<0.99)return base;
      float patchH=hDecode(sampleHeight.rgb,patchCfg);
-     // Cross-fade the native-resolution patch into the coarser grid at its
-     // border, so the sub-grid relief difference cannot draw a seam.
+     // Cross-fade the native patch into the coarser grid at its border so the
+     // sub-grid relief difference can't draw a seam.
      float edge=min(min(puv.x,1.0-puv.x),min(puv.y,1.0-puv.y));
      return mix(base,patchH,smoothstep(0.0,0.08,edge));
    }
@@ -227,7 +223,7 @@ void main(){
      space+=vec3(0.035,0.25,0.75)*halo*0.20;
    }
  }
- // An occluded or out-of-view sphere cannot draw on top of a nearer body.
+ // An occluded or out-of-view sphere can't draw on top of a nearer body.
  float nearT=min(moonT,min(sunT,earthT));
  if(nearT>9.0e5){gl_FragColor=vec4(space,1.0);return;}
 
@@ -264,7 +260,7 @@ void main(){
    float clouds=0.85*smoothstep(0.57,0.72,fbm(cloudUV*vec2(23.0,13.0)+vec2(0.0,3.9)));
    clouds+=0.25*smoothstep(0.61,0.75,fbm(cloudUV*vec2(46.0,26.0)));
    albedo=mix(albedo,vec3(0.94,0.98,1.0),clamp(clouds,0.0,0.92));
-   // Lighting is based on the Moon-fixed Sun direction, not screen-space dots.
+   // Lighting off the Moon-fixed Sun direction, not screen-space dots.
    float daylight=max(0.0,dot(normal,normalize(sun)));
    float reflected=pow(max(0.0,dot(reflect(-normalize(sun),normal),forward))+0.002,28.0);
    vec3 earthColor=albedo*(0.045+0.98*pow(daylight+0.002,0.76));
@@ -326,7 +322,7 @@ export function createMap(canvas,{onPick,onHover}){
  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);
  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
- // Start with a complete texture so shader sampling always has a valid fallback.
+ // Start with a complete texture so sampling always has a valid fallback.
  gl.generateMipmap(gl.TEXTURE_2D);
  gl.uniform1i(u.moon,0);
 
@@ -377,7 +373,7 @@ export function createMap(canvas,{onPick,onHover}){
    const R=h*0.5*0.87*zoom;
    ctx.save();ctx.translate(w/2,h/2);
    ctx.strokeStyle='rgba(174,208,217,0.17)';ctx.lineWidth=1;
-   // Lunar parallels are rendered only on the visible hemisphere.
+   // Lunar parallels only on the visible hemisphere.
    for(const latitude of [-70,-80,-85,-88]){
      ctx.beginPath();let started=false;
      for(let L=0;L<=360;L+=3){const q=project({lat:latitude,lon:L});const x=q.x-w/2,y=q.y-h/2;
@@ -500,7 +496,7 @@ export function createMap(canvas,{onPick,onHover}){
    if(dragging&&origin){
      const dx=e.clientX-origin.x,dy=e.clientY-origin.y;
      if(Math.hypot(dx,dy)>4)moved=true;
-     if(moved){viewMode='manual';lon=wrap(origin.lon-dx*0.3/zoom);lat=clamp(origin.lat+dy*0.24/zoom,-89,89);request();}
+     if(moved){cancelFly();viewMode='manual';lon=wrap(origin.lon-dx*0.3/zoom);lat=clamp(origin.lat+dy*0.24/zoom,-89,89);request();}
      onHover(null,e);
    }else{
      const celestial=showSkyBodies&&layout?hitCelestialBody(layout,point.x,point.y,w,h):null;
@@ -665,6 +661,24 @@ export function createMap(canvas,{onPick,onHover}){
  if(typeof ResizeObserver!=='undefined')new ResizeObserver(size).observe(stage);
  else window.addEventListener('resize',size);
  size();
+ let flyRAF=0,flySiteKey=null;
+ function cancelFly(){if(flyRAF){cancelAnimationFrame(flyRAF);flyRAF=0;}}
+ // Smooth camera re-orientation: eased interpolation of latitude, longitude
+ // (shortest way around) and zoom. Cancelled the moment the user takes over.
+ function flyCamera(targetLat,targetLon,targetZoom,{durationMs=1500}={}){
+   cancelFly();
+   const startLat=lat,startLon=lon,startZoom=zoom,t0=performance.now();
+   const ease=t=>t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+   const step=()=>{
+     const t=Math.min(1,(performance.now()-t0)/durationMs),k=ease(t);
+     lat=startLat+(targetLat-startLat)*k;
+     lon=wrap(startLon+(((targetLon-startLon+540)%360)-180)*k);
+     zoom=startZoom+(targetZoom-startZoom)*k;
+     request();
+     if(t<1)flyRAF=requestAnimationFrame(step);else flyRAF=0;
+   };
+   flyRAF=requestAnimationFrame(step);
+ }
  return {
    setCelestialVisible(enabled){
      showSkyBodies=Boolean(enabled);
@@ -674,27 +688,31 @@ export function createMap(canvas,{onPick,onHover}){
    },
    rotateBody(name,yaw,pitch=0){
      if(!Object.hasOwn(manualSpin,name))return;
-     if(name==='moon'){lon=wrap(lon-yaw/D);lat=clamp(lat+pitch/D,-89,89);viewMode='manual';}
+     if(name==='moon'){cancelFly();lon=wrap(lon-yaw/D);lat=clamp(lat+pitch/D,-89,89);viewMode='manual';}
      else{manualSpin[name].yaw+=yaw;manualSpin[name].pitch=clamp(manualSpin[name].pitch+pitch,-1.35,1.35);}
      request();
    },
    resetBodies(){for(const name of ['sun','earth'])manualSpin[name]={yaw:0,pitch:0};request();},
    render(newSite=site){
+     const key=newSite.custom?`c:${newSite.lat},${newSite.lon}`:`p:${newSite.id}`;
+     const targetLon=wrap(newSite.lon);
+     const targetLat=newSite.custom?clamp(newSite.lat,-85,45)
+       :(viewMode==='focus'?clamp(newSite.lat,-89,50):-73);
+     const siteChanged=key!==flySiteKey;
+     flySiteKey=key;
      site=newSite;
-     if(!newSite.custom){
-       lon=wrap(newSite.lon);
-       lat=viewMode==='focus'?clamp(newSite.lat,-89,50):-73;
-     }else{
-       // Custom waypoints face their own coordinate, tilted so the south
-       // polar region stays in frame at the default zoom.
-       lon=wrap(newSite.lon);
-       lat=clamp(newSite.lat,-85,45);
+     if(siteChanged){
+       // Smoothly re-orient when the site changes. Re-renders of the same
+       // site keep the user's camera, so manual orbit survives date and
+       // scenario updates without a snap-back.
+       flyCamera(targetLat,targetLon,zoom);
      }
      request();
    },
-   focusSite(){viewMode='focus';lat=clamp(site.lat,-89,50);lon=wrap(site.lon);zoom=1.35;request();return Math.round(zoom*100);},
+   focusSite(){viewMode='focus';flyCamera(clamp(site.lat,-89,50),wrap(site.lon),1.35,{durationMs:1100});request();return 135;},
   panoramaZoom(target,onArrive,{durationMs=1200}={}){
     // Fly from orbit toward the waypoint before the panorama takes over.
+    cancelFly();
     viewMode='focus';
     const startLat=lat,startLon=lon,startZoom=zoom,targetLat=clamp(target.lat,-89,50),targetLon=wrap(target.lon);
     const t0=performance.now();
@@ -709,8 +727,8 @@ export function createMap(canvas,{onPick,onHover}){
     };
     requestAnimationFrame(step);
   },
-   zoomBy(delta){zoom=zoomLevel(zoom+delta);request();return Math.round(zoom*100);},
-   resetView(){viewMode='overview';lat=site.custom?clamp(site.lat,-85,45):-73;lon=wrap(site.lon);zoom=DEFAULT_ZOOM;request();return Math.round(DEFAULT_ZOOM*100);},
+   zoomBy(delta){cancelFly();zoom=zoomLevel(zoom+delta);request();return Math.round(zoom*100);},
+   resetView(){viewMode='overview';flyCamera(site.custom?clamp(site.lat,-85,45):-73,wrap(site.lon),DEFAULT_ZOOM,{durationMs:1100});request();return Math.round(DEFAULT_ZOOM*100);},
    setSun(obs,focus=site){
      sunlight=horizontalToLunarVector(obs.sun,focus.lat,focus.lon);
      earthlight=horizontalToLunarVector(obs.earth,focus.lat,focus.lon);

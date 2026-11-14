@@ -31,7 +31,7 @@ const params=new URLSearchParams(location.search);
 const startSite=SITES.find(x=>x.id===params.get('site'))||SITES[0];
 const startDays=[3,7,14,28].includes(Number(params.get('days')))?Number(params.get('days')):7;
 const startDate=/^\d{4}-\d{2}-\d{2}$/.test(params.get('date')||'')?params.get('date'):'2026-11-14';
-const state={site:startSite,date:startDate,time:'12:00',days:startDays,offset:0,base:null,samples:[],playing:false,terrain:null,engineering:{...DEFAULT_ENGINEERING},simulation:null};
+const state={site:startSite,date:startDate,time:'12:00',days:startDays,offset:0,base:null,samples:[],playing:false,terrain:null,engineering:{...DEFAULT_ENGINEERING},simulation:null,customSite:null};
 let currentPage=routeFromURL(location.pathname,location.hash);
 const terrainProfiles=new Map();
 const terrainAttempted=new Set();
@@ -85,7 +85,7 @@ window.addEventListener('popstate',()=>{
 });
 
 
-/** Keep current-site settings shareable across distinct page URLs. */
+// Keep current-site settings shareable across distinct page URLs.
 function selectionQuery(){
   const p=new URLSearchParams();
   if(!state.site.custom)p.set('site',state.site.id);
@@ -123,7 +123,7 @@ function navigatePage(page,{replace=false}={}){
 }
 
 function toast(message){const el=$('#toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2800);}
-/** Write a CSV from row arrays (every cell quoted). */
+// Write a CSV from row arrays (every cell quoted).
 function downloadCSV(filename,rows){const cell=v=>'"'+String(v).replaceAll('"','""')+'"';const text=rows.map(r=>r.map(cell).join(',')).join('\n');const url=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
 function updateURL(){if(state.site.custom)return;history.replaceState({page:currentPage},'',buildPageURL(currentPage,selectionQuery()));}
 let map;
@@ -134,10 +134,10 @@ map=createMap($('#moon-map'),{onPick:selectSite,onHover:(site,e)=>{const tip=$('
   console.warn('Globe unavailable:',error);
   map={render(){},zoomBy:()=>100,resetView:()=>100,focusSite:()=>135};
 }
-function selectSite(site){cancelTerrainRequest();stopPlay();state.site=site;if(site.custom&&!siteSelect.querySelector('[value="custom"]'))siteSelect.add(new Option('Custom waypoint: Map-selected','custom'));siteSelect.value=site.id;updateAnalysis();toast(`${site.name} selected`);maybeAutoTerrain();}
-/** Custom waypoints get real NASA terrain automatically: picking a point on the
- * globe is an explicit request for its local horizon, so one DEM patch read is
- * proportionate. Failures are remembered so the session never retries in vain. */
+function selectSite(site){cancelTerrainRequest();stopPlay();state.site=site;if(site.custom){state.customSite=site;if(!siteSelect.querySelector('[value="custom"]'))siteSelect.add(new Option('Custom waypoint: Map-selected','custom'));}siteSelect.value=site.id;updateAnalysis();toast(`${site.name} selected`);maybeAutoTerrain();}
+// Custom waypoints get real NASA terrain automatically: picking a point on the
+// globe is an explicit request for its local horizon, so one DEM patch read is
+// proportionate. Failures are remembered so the session doesn't retry in vain.
 function maybeAutoTerrain(){
   const site=state.site;
   if(getCachedTerrain(site))return;
@@ -255,7 +255,7 @@ function onIndicatorKeyDown(e){
   setOffset(state.offset+step);
 }
 function updateIndicator(){const x=indicatorX(state.offset,state.days*24);const l=$('#time-indicator');const tri=$('#indicator-triangle');const handle=$('#indicator-handle');if(l){l.setAttribute('x1',x);l.setAttribute('x2',x);}if(tri)tri.setAttribute('d',`M${x-4} 4 L${x+4} 4 L${x} 11 Z`);if(handle)handle.setAttribute('d',`M${x-11} 11 a11 11 0 0 0 22 0 Z`);if(document.querySelector('#timeline-graph [role="slider"]'))document.querySelector('#timeline-graph [role="slider"]').setAttribute('aria-valuenow',String(Math.round(state.offset)));}
-/* ---- panoramic surface view ---- */
+// Panoramic surface view
 let panoramaView=null,panoramaColumns=null;
 function panoramaBodyLine(obs,pano){
   const part=(label,body)=>label+' '+Math.round(body.azimuth)+'° azimuth, '+body.elevation.toFixed(1)+'° elevation: '+bodyStatus(pano,body);
@@ -364,7 +364,7 @@ function updateInspection(){
   updateIndicator();
 }
 function setOffset(v){state.offset=Math.max(0,Math.min(SUN_CIRCUIT_HOURS,Number(v)||0));updateInspection();}
-/** Every results panel states which horizon model produced its numbers. */
+// Every results panel states which horizon model produced its numbers.
 function horizonBadgeText(profile){
   if(!profile)return 'Flat 0° horizon';
   const res=profile.resolutionM>=1000?(profile.resolutionM/1000).toFixed(1)+' km':Math.round(profile.resolutionM)+' m';
@@ -378,15 +378,27 @@ function updateModelNotes(){
 // ---- Side-by-side comparison of sites and mission dates ----
 function compareEntries(){
   const terrainMode=$('#finder-mode').value==='terrain';
-  return SITES.filter(site=>!terrainMode||getCachedTerrain(site)).map(site=>{
+  const entries=SITES.filter(site=>!terrainMode||getCachedTerrain(site)).map(site=>{
     const profile=terrainMode?getCachedTerrain(site):null;
     return {site,name:site.name,kind:site.kind,profile,
       metrics:windowMetrics({start:state.base,days:state.days,lat:site.lat,lon:site.lon,profile})};
   });
+  // The custom waypoint picked on the 3D globe joins the comparison as an
+  // extra column, labelled as the user's own selection. Its metrics use the
+  // same window and horizon rules as every preset site.
+  const custom=state.customSite;
+  if(custom&&(!terrainMode||getCachedTerrain(custom))){
+    const profile=terrainMode?getCachedTerrain(custom):null;
+    entries.push({site:custom,custom:true,name:'Custom waypoint',kind:'Selected by you on the 3D globe',profile,
+      metrics:windowMetrics({start:state.base,days:state.days,lat:custom.lat,lon:custom.lon,profile})});
+  }
+  return entries;
 }
 function compareTableHTML(entries,rows){
   return '<table class="metric-table"><thead><tr><th scope="col">Metric</th>'+entries.map(e=>{
-    const name=e.site?'<button type="button" class="planning-site" data-site="'+e.site.id+'" aria-label="Inspect '+escapeHTML(e.name)+'">'+escapeHTML(e.name)+' ↗</button>':escapeHTML(e.name);
+    const name=e.custom
+      ?'<button type="button" class="planning-site" data-custom="1" aria-label="Inspect '+escapeHTML(e.name)+'">'+escapeHTML(e.name)+' ↗</button>'
+      :e.site?'<button type="button" class="planning-site" data-site="'+e.site.id+'" aria-label="Inspect '+escapeHTML(e.name)+'">'+escapeHTML(e.name)+' ↗</button>':escapeHTML(e.name);
     const model=e.profile?'Terrain: '+(e.profile.resolutionM>=1000?(e.profile.resolutionM/1000).toFixed(1)+' km':Math.round(e.profile.resolutionM)+' m'):'Flat 0°';
     return '<th scope="col">'+name+'<small>'+escapeHTML(e.kind)+'<br>'+model+'</small></th>';
   }).join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr><th scope="row">'+r.label+'</th>'+r.values.map(v=>'<td>'+v.value.toFixed(v.digits)+' '+v.unit+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
@@ -419,7 +431,9 @@ function renderComparePanel(){
   $('#compare-table').innerHTML=compareTableHTML(entries,comparisonRows(entries));
   $('#compare-timeline').innerHTML=compareTimelineSVG(entries);
   for(const button of $$('#compare-table .planning-site'))button.addEventListener('click',()=>{
-    selectSite(SITES.find(site=>site.id===button.dataset.site));navigatePage('explore');
+    const site=button.dataset.custom?state.customSite:SITES.find(site=>site.id===button.dataset.site);
+    if(!site)return;
+    selectSite(site);navigatePage('explore');
   });
 }
 function renderDateComparison(){
@@ -439,7 +453,7 @@ function renderDateComparison(){
   badge.textContent=horizonBadgeText(profile);badge.classList.toggle('flat',!profile);
 }
 function generateCSV(){const model=state.terrain?'NASA LOLA 20km terrain horizon':'flat 0deg geometric horizon';const rows=[['utc','site','latitude_deg','longitude_deg_east','horizon_model','sun_azimuth_deg','sun_elevation_deg','sun_visible_horizon','earth_azimuth_deg','earth_elevation_deg','earth_visible_horizon','both_visible']];state.samples.forEach(r=>rows.push([r.time,state.site.name,state.site.lat,state.site.lon,model,r.sun.azimuth.toFixed(4),r.sun.elevation.toFixed(4),r.sun.visible,r.earth.azimuth.toFixed(4),r.earth.elevation.toFixed(4),r.earth.visible,r.dual]));downloadCSV(`lunarnav-${state.site.id}-${state.date}-${state.days}d.csv`,rows);toast('Mission timeline CSV exported');}
-function briefText(){const {site,date,time,days}=state;const q=summarize(state.samples);const best=longestDualWindow(state.samples);const horizon=state.terrain?'NASA LOLA 20 km terrain horizon ('+(state.terrain.azimuthDeg.length)+' azimuth bins)':'flat 0 deg geometric horizon (no terrain profile loaded)';return `LunarNav V2: Mission screening brief\nGenerated: ${new Date().toISOString()}\nSite: ${site.name} (${site.kind})\nCoordinates: ${fmtCoord(site.lat,site.lon)}\nPeriod: ${date} ${time} UTC + ${days} days\nHorizon model: ${horizon}\n\nSun visible: ${fmtPct(q.sun)}\nGeometric Earth visible: ${fmtPct(q.earth)}\nSun + Earth together: ${fmtPct(q.dual)}\nLongest sampled Earth blackout: ${q.longestBlackoutHours.toFixed(0)} hours\nLongest continuous dual-access period: ${best.hours.toFixed(0)} hours (${best.start||'none'} to ${best.end||'none'})\n\nMETHOD: analytical ephemeris; ${horizon}; two-hour samples. Geometric Earth visibility is line-of-sight geometry, NOT a radio link budget. No terrain occlusion beyond the sampled horizon, solar power guarantee or landing hazard validation. For research screening only. Not for flight operations.\nSource reference: ${site.source||'User-selected coordinates'}\n`;}
+function briefText(){const {site,date,time,days}=state;const q=summarize(state.samples);const best=longestDualWindow(state.samples);const horizon=state.terrain?'NASA LOLA 20 km terrain horizon ('+(state.terrain.azimuthDeg.length)+' azimuth bins)':'flat 0 deg geometric horizon (no terrain profile loaded)';return `LunarNav: Mission screening brief\nGenerated: ${new Date().toISOString()}\nSite: ${site.name} (${site.kind})\nCoordinates: ${fmtCoord(site.lat,site.lon)}\nPeriod: ${date} ${time} UTC + ${days} days\nHorizon model: ${horizon}\n\nSun visible: ${fmtPct(q.sun)}\nGeometric Earth visible: ${fmtPct(q.earth)}\nSun + Earth together: ${fmtPct(q.dual)}\nLongest sampled Earth blackout: ${q.longestBlackoutHours.toFixed(0)} hours\nLongest continuous dual-access period: ${best.hours.toFixed(0)} hours (${best.start||'none'} to ${best.end||'none'})\n\nMETHOD: analytical ephemeris; ${horizon}; two-hour samples. Geometric Earth visibility is line-of-sight geometry, NOT a radio link budget. No terrain occlusion beyond the sampled horizon, solar power guarantee or landing hazard validation. For research screening only. Not for flight operations.\nSource reference: ${site.source||'User-selected coordinates'}\n`;}
 function openBrief(){const q=summarize(state.samples);const best=longestDualWindow(state.samples);const horizon=escapeHTML(horizonBadgeText(state.terrain));$('#brief-content').innerHTML=`<h3>${escapeHTML(state.site.name)}</h3><p class="report-coordinates">${escapeHTML(fmtCoord(state.site.lat,state.site.lon))}: ${escapeHTML(state.site.kind)}</p><div class="report-grid"><div><small>Mission duration</small><strong>${state.days} days</strong></div><div><small>Start time (UTC)</small><strong>${escapeHTML(state.date)} ${escapeHTML(state.time)}</strong></div><div><small>Horizon model</small><strong>${horizon}</strong></div><div><small>Sunlight</small><strong>${fmtPct(q.sun)}</strong></div><div><small>Geometric Earth visibility</small><strong>${fmtPct(q.earth)}</strong></div><div><small>Sun and Earth together</small><strong>${fmtPct(q.dual)}</strong></div><div><small>Longest Earth blackout</small><strong>${q.longestBlackoutHours.toFixed(0)} h</strong></div><div><small>Longest continuous overlap</small><strong>${best.hours.toFixed(0)} h</strong></div></div><p class="report-warning">Research screening only. Earth visibility measures line of sight. Flight decisions require separate checks for communications, power, landing hazards and terrain beyond the sampled horizon.</p>`;$('#brief-dialog').showModal();}
 function stopPlay(){
   state.playing=false;

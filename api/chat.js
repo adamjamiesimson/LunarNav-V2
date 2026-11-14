@@ -1,10 +1,7 @@
-/**
- * LunarNav Gemini mission-assistant API (Vercel serverless function).
- * The Gemini API key never reaches the browser: it is read here from the
- * GEMINI_API_KEY env var (model configurable via GEMINI_MODEL). Function
- * calling runs the shared planner calculations in src/tools.js, so the
- * assistant never invents ephemeris values.
- */
+// Gemini mission-assistant API (Vercel serverless function). The API key
+// stays server-side (GEMINI_API_KEY; model via GEMINI_MODEL). Function
+// calling runs the shared planner maths in src/tools.js so the assistant
+// can't invent ephemeris values.
 import {GoogleGenAI} from '@google/genai';
 import {TOOL_DECLARATIONS,executeTool} from '../src/tools.js';
 
@@ -14,10 +11,9 @@ const MAX_CONTEXT_BYTES = 128 * 1024;
 const MAX_TOOL_ROUNDS = 8;
 const MODEL_TIMEOUT_MS = 25000;
 const CIRCUIT_BREAKER_MS = 90 * 1000;
-// Preferred model (GEMINI_MODEL, default gemini-3.8-flash) with automatic
-// fallbacks for transient unavailability (404/429/503 or a hang).
-const DEFAULT_MODEL = 'gemini-3.8-flash';
-const DEFAULT_FALLBACK_MODELS = ['gemini-3.5-flash', 'gemini-3.1-flash-lite'];
+
+const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
+const DEFAULT_FALLBACK_MODELS = ['gemini-3.1-flash-lite', 'gemini-3.5-flash'];
 function modelChain(){
   const preferred = (process.env.GEMINI_MODEL || '').trim() || DEFAULT_MODEL;
   const fallbacks = (process.env.GEMINI_FALLBACK_MODELS || '')
@@ -40,7 +36,7 @@ function orderedModelAttempts(){
   return chain.filter(m => !isCircuitOpen(m)).concat(chain.filter(m => isCircuitOpen(m)));
 }
 
-/* ---- Context sanitisation: only known, bounded fields reach the model ---- */
+/* Context sanitisation: only known, bounded fields reach the model. */
 function pickNumbers(object, keys){
   const out = {};
   for (const k of keys){
@@ -153,7 +149,7 @@ function sanitizeMessages(messages){
   }
   return clean;
 }
-const SYSTEM_INSTRUCTION = `You are the LunarNav mission-analysis assistant, an expert analyst inside the LunarNav V2 lunar south-pole mission-planning application.
+const SYSTEM_INSTRUCTION = `You are the LunarNav mission-analysis assistant, an expert analyst inside the LunarNav lunar south-pole mission-planning application.
 
 Your job is to answer planning questions about the user's current mission configuration and the study locations (Mons Mouton, Malapert Region, Shackleton Rim, Faustini Rim, Nobile Region, plus custom coordinates) using the LIVE application state in the context and by CALLING THE PROVIDED TOOLS whenever a question needs real numbers.
 
@@ -175,7 +171,7 @@ const buildContextBlock = context => ({
   parts: [{text: '[LunarNav live application state: authoritative current data, act on it as-is; do not re-derive unless you call a tool]:\n' + JSON.stringify(context)}]
 });
 
-/** Test seam: tests may swap the SDK constructor via a global (never used in prod). */
+  // Test seam: a runner can swap the SDK constructor via a global. Unused in prod.
 function geminiConstructor(){
   return globalThis.__LUNARNAV_GEMINI_CTOR || GoogleGenAI;
 }
@@ -200,14 +196,13 @@ function geminiErrorStatus(error){
 function isTransientGeminiError(error){
   if (!error) return true;
   const status = geminiErrorStatus(error);
-  // Transient/unretryable-only: 429 quota/throttle, 5xx capacity (incl. 504
-  // deadline), and 404 model not available/retired. Hard auth/validation
-  // failures (400/401/403) must NOT be retried.
+  // Retryable: 429 quota/throttle, 5xx capacity (incl. 504 deadline), 404
+  // model retired. Auth/validation failures (400/401/403) are never retried.
   if (status === 404){
     return /model.*(?:not|no longer|unavailable|not supported)/i.test(String(error?.message || ''));
   }
   if (status === 429 || (status >= 500 && status < 600)) return true;
-  // SDK timeouts / retry exhaustion are surfaced as errors with these hints.
+  // SDK timeouts / retry exhaustion surface as errors with these hints.
   return /deadline|deadline_exceeded|timeout|abort|retries? exhausted|503|429|504|unavailable|high demand/i.test(String(error?.message || ''));
 }
 async function generateContentWithTimeout(genAI, model, contents){
@@ -237,15 +232,14 @@ async function generateContentWithTimeout(genAI, model, contents){
   }
 }
 async function generateContentWithFallback(genAI, contents){
-  // Healthy models first; open (recently failed) models are pushed to the end
-  // so their 25 s stall is only paid again after the circuit re-arms.
+  // Healthy models first; recently failed ones go last so their stall is only
+  // paid again after the circuit re-arms.
   const attempts = orderedModelAttempts();
   let lastError = null;
   for (const model of attempts){
-    // One quick retry per model for fast transient failures (e.g. Google's
-    // 504 DEADLINE_EXCEEDED returned in under a few seconds). Slow timeouts
-    // are not retried in place so the request stays within the function's
-    // time budget; the next model in the list is tried instead.
+    // One quick retry per model for fast transient failures (e.g. a 504 that
+    // comes back in seconds). Slow timeouts aren't retried in place (function
+    // time budget); the next model takes over instead.
     for (let attempt = 0; attempt < 2; attempt++){
       const started = Date.now();
       try {
@@ -254,7 +248,11 @@ async function generateContentWithFallback(genAI, contents){
         lastError = error;
         if (!isTransientGeminiError(error)) throw error;
         openCircuit(model);
-        if (Date.now() - started >= 8000 || attempt === 1) break;
+        // 429 is per-minute quota: retrying the same model in the same second
+        // can't work, so move on immediately. Other transients get one quick
+        // retry when they fail fast.
+        const quota = geminiErrorStatus(error) === 429 || /resource_exhausted|quota/i.test(String(error?.message || ''));
+        if (quota || Date.now() - started >= 8000 || attempt === 1) break;
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }
@@ -265,6 +263,9 @@ function friendlyModelError(error){
   const detail = String(error?.message || 'unknown error');
   if (/deadline|deadline_exceeded|timed out|timeout|504/i.test(detail)){
     return 'The AI provider timed out before answering. Asking again usually succeeds; history and context are kept for the retry. Provider detail: ' + detail;
+  }
+  if (/high demand|\bunavailable\b|503|resource_exhausted|\bquota\b|usage limit|\bbusy\b/i.test(detail)){
+    return 'The AI service is busy or at its free-tier usage limit right now. Press retry in a few seconds; the app already tries several Gemini models automatically. Provider detail: ' + detail;
   }
   if (/api key|API_KEY|401|403|PERMISSION_DENIED|UNAUTHENTICATED/i.test(detail)){
     return 'Gemini rejected the configured API key or its access. Verify GEMINI_API_KEY on the Vercel deployment. Provider detail: ' + detail;
@@ -283,8 +284,8 @@ async function runGeminiRoundtrip(coreMessage, history, context){
     const calls = result.functionCalls;
     if (!calls || !calls.length) return {text, toolTraces};
 
-    // Include the model's own response content in history for multi-turn
-    // function calling before appending the tool results.
+    // Keep the model's own reply in history for multi-turn function calling
+    // before appending tool results.
     const next = [...contents];
     const model = modelContent(result);
     if (model && Array.isArray(model.parts) && model.parts.length){

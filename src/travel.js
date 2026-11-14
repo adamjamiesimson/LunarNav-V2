@@ -1,9 +1,7 @@
-/**
- * Lunar surface traverse estimator. Great-circle (haversine) distance on a
- * sphere of radius 1737.4 km, with the planner's analytical ephemeris sampled
- * along the journey. Geodesic distance only : no slope, obstacle or
- * traversability model, so a straight-line distance is not a safe route.
- */
+// Lunar surface traverse estimator. Great-circle (haversine) distance on a
+// 1737.4 km sphere with the planner ephemeris sampled along the way. Distance
+// only: no slope, obstacle or traversability model, so a straight line is not
+// a safe route.
 import {ephemeris} from './astro.js';
 import {horizonAt,bodyVisible} from './mission.js';
 
@@ -11,8 +9,7 @@ export const MOON_RADIUS_KM = 1737.4;
 export const HAVERSINE_MODEL = 'great-circle-spherical-lunar-surface-v1';
 const DEG = Math.PI / 180;
 
-/** Great-circle surface distance in kilometres between two lunar coordinates
- * (east-positive longitude, degrees). */
+// Great-circle surface distance in km (east-positive longitude, degrees).
 export function greatCircleDistanceKm(lat1, lon1, lat2, lon2){
   const valid = v => Number.isFinite(v) && Math.abs(v) <= 90;
   const validLon = v => Number.isFinite(v) && Math.abs(v) <= 360;
@@ -27,7 +24,7 @@ export function greatCircleDistanceKm(lat1, lon1, lat2, lon2){
   return MOON_RADIUS_KM * c;
 }
 
-/** Total wall-clock hours for a traverse (driving + operational delay). */
+// Total wall-clock hours for a traverse (driving + operational delay).
 export function totalDurationHours(distanceKm, speedKph, delayHours = 0){
   if(!Number.isFinite(distanceKm) || distanceKm < 0) throw new Error('Invalid traverse distance');
   if(!Number.isFinite(speedKph) || speedKph <= 0) throw new Error('Invalid rover speed');
@@ -35,8 +32,8 @@ export function totalDurationHours(distanceKm, speedKph, delayHours = 0){
   return distanceKm / speedKph + delayHours;
 }
 
-/** Sample Sun/Earth visibility along the journey every sampleHours,
- * optionally against a loaded terrain profile at the origin. */
+// Sun/Earth visibility sampled along the journey every sampleHours, optionally
+// against a loaded terrain profile at the origin.
 export function visibilityAlongTraverse({departureUTC, distanceKm, speedKph, delayHours = 0, lat, lon, profile = null, sampleHours = 1} = {}){
   const departure = new Date(departureUTC);
   if(Number.isNaN(departure.getTime())) throw new Error('Invalid traverse departure UTC time');
@@ -62,7 +59,7 @@ export function visibilityAlongTraverse({departureUTC, distanceKm, speedKph, del
   return result;
 }
 
-/** Simplified illumination summary over sampled visibility data. */
+// Simplified illumination summary over the sampled visibility data.
 export function summarizeTraverseVisibility(samples){
   const steps = Math.max(1, samples.length - 1);
   const average = key => 100 * samples.slice(0, -1).filter(x => key(x)).length / steps;
@@ -78,7 +75,7 @@ export function summarizeTraverseVisibility(samples){
   };
 }
 
-/** Full traverse estimate shared by the travel panel and the assistant tool. */
+// Full traverse estimate, shared by the travel panel and the assistant tool.
 export function estimateSurfaceTraverse({
   originLat, originLon, destinationLat, destinationLon,
   departUTC, speedKph = 10, delayHours = 0, profile = null, sampleHours = 1

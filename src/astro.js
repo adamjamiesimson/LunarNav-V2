@@ -1,10 +1,6 @@
-/**
- * LunarNav analytical screening ephemeris.
- * Geocentric Sun/Moon positions: truncated Meeus/NOAA series.
- * IAU Moon orientation: 2015 WGCCRE periodic rotation model.
- * Intentionally NOT SPICE / Horizons / terrain-aware / flight-qualified.
- * Longitude input east-positive; all timestamps UTC.
- */
+// Analytical screening ephemeris. Sun/Moon from truncated Meeus/NOAA series,
+// Moon orientation from the IAU 2015 WGCCRE periodic model. Arcminute-ish
+// accuracy, nothing like SPICE or Horizons. East-positive longitudes, UTC.
 import {bodyVisible} from './mission.js';
 const R = Math.PI / 180;
 const s = d => Math.sin(d*R);
@@ -17,7 +13,7 @@ const jd = date => date.getTime()/86400000 + 2440587.5;
 const radToDeg = a => a/R;
 const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
 
-/** Sun direction from the Earth's center, equatorial J2000-like of-date approximation. */
+// Sun from Earth centre, equatorial of-date approximation.
 function sunFromEarth(T) {
   const meanLon=wrap(280.46646+36000.76983*T+0.0003032*T*T);
   const M=wrap(357.52911+35999.05029*T-0.0001537*T*T);
@@ -29,7 +25,7 @@ function sunFromEarth(T) {
   return [rAU*c(lon),rAU*s(lon)*c(eps),rAU*s(lon)*s(eps)];
 }
 
-/** Moon direction from Earth's center, truncated terms within a few arcminutes. */
+// Moon from Earth centre, truncated to a few arcminutes.
 function moonFromEarth(T) {
   const L=wrap(218.3164477+481267.88123421*T-0.0015786*T*T);
   const D=wrap(297.8501921+445267.1114034*T-0.0018819*T*T);
@@ -44,7 +40,7 @@ function moonFromEarth(T) {
   return [eclip[0],eclip[1]*c(eps)-eclip[2]*s(eps),eclip[1]*s(eps)+eclip[2]*c(eps)];
 }
 
-/** IAU Moon principal-axis directions, expressed in the equatorial inertial frame. */
+// IAU Moon principal axes in the equatorial inertial frame.
 function moonAxes(julianDay) {
   const d=julianDay-2451545, T=d/36525;
   const E=[125.045-0.0529921*d,250.089-0.1059842*d,260.008+13.0120009*d,176.625+13.3407154*d,357.529+0.9856003*d,311.589+26.4057084*d,134.963+13.0649930*d,276.617+0.3287146*d,34.226+1.7484877*d,15.134-0.1589763*d,119.743+0.0036096*d,239.961+0.1643573*d,25.053+12.9590088*d];
@@ -60,7 +56,7 @@ function moonAxes(julianDay) {
   return [x,y,z];
 }
 
-/** Returns source azimuth clockwise from north and elevation over a spherical flat horizon. */
+// Azimuth clockwise from north, elevation over a spherical flat horizon.
 function horizontal(dir,lat,lon) {
   const east=[-s(lon),c(lon),0];
   const north=[-s(lat)*c(lon),-s(lat)*s(lon),c(lat)];
@@ -89,8 +85,8 @@ export function sampleWindow({start,days=7,stepHours=2,lat,lon,profile=null}) {
   const result=[];
   for(let n=0;n<=Math.round(days*24/stepHours);n++) {
     const r=ephemeris(new Date(base+n*stepHours*3600000),lat,lon);
-    // Visibility always goes through the shared horizon rule so terrain-aware
-    // and flat-horizon sampling cannot diverge.
+    // Always through the shared horizon rule so terrain-aware and flat-horizon
+    // sampling can't diverge.
     const sun=bodyVisible(profile,r.sun.azimuth,r.sun.elevation);
     const earth=bodyVisible(profile,r.earth.azimuth,r.earth.elevation);
     result.push({...r,
@@ -101,7 +97,7 @@ export function sampleWindow({start,days=7,stepHours=2,lat,lon,profile=null}) {
   return result;
 }
 
-/** Longest uninterrupted run on a uniformly sampled interval grid. */
+// Longest uninterrupted run on a uniform interval grid.
 export function longestRunHours(values,stepHours,predicate,start=0,length=values.length-start){
   let best=0,current=0;
   for(let i=start;i<start+length;i++){
@@ -120,7 +116,7 @@ export function summarize(samples) {
     longestBlackoutHours:longestRunHours(samples,step,x=>!x.earth.visible,0,n)};
 }
 
-/** Longest sampled continuous period with the Sun and Earth both above the horizon. */
+// Longest sampled stretch with Sun and Earth both above the horizon.
 export function longestDualWindow(samples) {
   if (samples.length < 2) return {start:null,end:null,hours:0};
   const step=(Date.parse(samples[1].time)-Date.parse(samples[0].time))/3600000;
@@ -138,9 +134,8 @@ export function longestDualWindow(samples) {
   return best;
 }
 
-/** Same-window site ranking. When terrain profiles are supplied (by site id),
- * each site is scored with its own horizon so the comparison stays consistent
- * with the terrain-aware planner views. */
+// Same-window site ranking. With terrain profiles (by site id) each site is
+// scored on its own horizon, matching the terrain-aware planner views.
 export function rankedSites(sites,start,days,profiles=null) {
   return sites.map(site=>({site,stats:summarize(sampleWindow({start,days,stepHours:4,lat:site.lat,lon:site.lon,profile:profiles?.[site.id]||null}))}))
     .sort((a,b)=>b.stats.dual-a.stats.dual || b.stats.sun-a.stats.sun);

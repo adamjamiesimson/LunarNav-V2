@@ -3,7 +3,7 @@
   "generatedUtc": "2026-10-11T04:55:40.000Z",
   "datasetUrl": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_80MPP_ADJ.TIF",
   "method": "NASA 80m south polar DEM, 20km sampling radius, azimuth every 5°, radial samples 200m; coarse experimental lunar curvature correction",
-  "sourceRunUrl": "https://github.com/adamjamiesimson/LunarNav-V2/actions/runs/38113102807",
+  "sourceRunUrl": "https://github.com/friendlyfoe241-cyber/LunarNav/actions/runs/38113102807",
   "note": "Extracted from actual NASA PGDA COG pixels by five independently successful GitHub Actions jobs; not independently geospatial raytrace or flight validated",
   "profiles": {
     "mons-mouton": {

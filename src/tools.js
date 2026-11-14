@@ -1,8 +1,6 @@
-/**
- * Gemini tool layer for the mission assistant. Tools call the same modules as
- * the browser planner (astro.js, finder.js, mission.js, situation.js, travel.js,
- * transit.js); no separate astronomy lives here.
- */
+// Tool layer for the mission assistant. Tools call the same modules as the
+// browser planner (astro.js, finder.js, mission.js, situation.js, travel.js,
+// transit.js); no separate astronomy lives here.
 import {ephemeris,sampleWindow,summarize,longestDualWindow,rankedSites} from './astro.js';
 import {SITES} from './sites.js';
 import {simulateMission,validateEngineering} from './mission.js';
@@ -119,7 +117,7 @@ export const TOOL_DECLARATIONS=Object.freeze([
 }
 ]);
 
-/** Look up a site reference (id string or coordinate object). */
+// Look up a site reference (id string or coordinate object).
 function resolveSite(ref){
   if(typeof ref==='string'){
     const known=SITES.find(s=>s.id===ref);
@@ -156,7 +154,7 @@ function runGetMissionContext(args, context){
   const site=contextSite(context);
   const base=contextBaseUTC(context);
   return {
-    app:'LunarNav V2: lunar mission planning',
+    app:'LunarNav: lunar mission planning',
     selectedSite:site,
     mission:{startDate:context.date,startTimeUTC:context.time,startUTC:base.toISOString(),durationDays:context.days},
     inspectionOffsetHours:context.offsetHours,
@@ -385,8 +383,8 @@ const EXECUTORS={
   estimate_earth_moon_transit:runEstimateEarthMoonTransit
 };
 
-/** Execute a declared tool against the live mission context. Never fails badly:
- * tool errors are returned as structured failures so the model can explain them. */
+// Execute a declared tool against the live mission context. Tool errors come
+// back as structured failures so the model can explain them.
 export function executeTool(name,args={},context={}){
   const fn=EXECUTORS[name];
   if(!fn)return {ok:false,error:'Unknown tool: '+name};
