@@ -1,6 +1,3 @@
-// Reference bodies drawn behind the interactive Moon. Directions are
-// lunar-body-fixed off the analytical ephemeris. Sizes are enlarged and the
-// sky projection is illustrative: a directional aid, not to scale.
 const TAU=Math.PI*2;
 const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
 const wrapRadians=n=>((n%TAU)+TAU)%TAU;
@@ -17,16 +14,12 @@ export function horizontalToLunarVector(observation,lat,lon){
   return n.map(v=>v/length);
 }
 
-// The Moon-fixed 3D scene shared by the GPU renderer and pointer picking.
-// Sun/Earth directions come from the ephemeris; the radii and distances are
-// squashed so all three spheres fit on screen. The Sun sits a bit further out
-// and draws bigger than Earth. Not a distance/size/orbit model.
+// Sun and Earth use ephemeris directions with compressed distances and enlarged radii.
 export const SCENE_BODIES = Object.freeze({
   sun: Object.freeze({distance:2.6,radius:0.25}),
   earth: Object.freeze({distance:2.1,radius:0.19})
 });
 
-// Projects the same spheres the WebGL ray tracer intersects.
 export function skyBodies(camera,sunDirection,earthDirection,width,height,moonRadius=0.87){
   const project=(direction,{distance,radius})=>{
     const unit=direction.map(v=>v/(Math.hypot(...direction)||1));
@@ -49,7 +42,6 @@ export function skyBodies(camera,sunDirection,earthDirection,width,height,moonRa
   };
 }
 
-// Frontmost ray-sphere intersection (not a flat 2D hit test).
 export function hitCelestialBody(layout,x,y,width,height){
   const scale=height*0.5;
   const px=(x-width*0.5)/scale,py=(height*0.5-y)/scale;
@@ -70,7 +62,7 @@ export function hitCelestialBody(layout,x,y,width,height){
   return nearest;
 }
 
-// Rough visual surface spin by UTC, independent of the horizon maths.
+// Texture spin is visual only and independent of the ephemeris.
 export function celestialSpin(timeUTC){
   const ms=typeof timeUTC==='number'?timeUTC:Date.parse(timeUTC);
   if(!Number.isFinite(ms))return {sun:0,earth:0,moon:0};

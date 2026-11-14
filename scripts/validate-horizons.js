@@ -1,16 +1,6 @@
 #!/usr/bin/env node
-/**
- * Compare the analytical model to independently obtained ephemeris samples.
- *
- * Input: a curated reference CSV exported from (or transcribed from) JPL
- * Horizons for observers on the Moon; no reference samples are included in
- * the repository, so the tool MUST NOT claim the model is already validated.
- *
- * utc,latitude_deg,longitude_deg_east,sun_azimuth_deg,sun_elevation_deg,earth_azimuth_deg,earth_elevation_deg
- *
- * Usage:
- *   node scripts/validate-horizons.js path/to/references.csv [maximum-error-degrees]
- */
+// Compare the ephemeris with a reference CSV such as data/benchmark/jpl-horizons-three-seasons.csv.
+// utc,latitude_deg,longitude_deg_east,sun_azimuth_deg,sun_elevation_deg,earth_azimuth_deg,earth_elevation_deg
 import {readFileSync} from 'node:fs';
 import {ephemeris} from '../src/astro.js';
 const angleError=(a,b)=>Math.abs(((a-b+540)%360)-180);

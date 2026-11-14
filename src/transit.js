@@ -1,23 +1,18 @@
-// Earth-to-Moon transit estimator: a scheduling estimate, not a trajectory
-// solver. Transfers use published reference durations that bracket real
-// families (direct ~3-4 days, low-energy ~7.5 days); dividing an average
-// distance by an assumed speed would invent precision. Arrival, LOI, descent
-// and touchdown are separate events. The destination site is the landing
-// target but doesn't change the transit duration.
+// Transfer durations come from reference profiles. Destination coordinates identify the landing site.
 
 export const TRANSIT_PROFILES = Object.freeze({
   direct: {
     id: 'direct',
     label: 'Direct transfer',
-    referenceHours: 84,          // 3.5 days  -  nominal direct-transfer family.
-    rangeHours: [72, 96],        // ~3–4 days, per the feature brief.
+    referenceHours: 84,
+    rangeHours: [72, 96],
     description: 'Short, higher-energy direct Earth–Moon transfer. Nominal planning estimate ~3–4 days.',
     assumptions: 'Reference duration only. A real direct transfer trajectory requires a patched-conic or full ephemeris propagator with launch windows, dV budget and insertion geometry.'
   },
   extended: {
     id: 'extended',
     label: 'Extended / fuel-efficient transfer',
-    referenceHours: 180,         // 7.5 days  -  low-energy / fuel-frugal family.
+    referenceHours: 180,
     rangeHours: [96, 240],
     description: 'Longer, lower-energy transfer (for example lunar transfer via weak stability boundaries or a higher phasing orbit). Fuel-efficient but slower.',
     assumptions: 'Longer reference duration deliberately chosen to represent fuel-optimal families. No trajectory solver is run; treat as a scheduling band.'
@@ -31,7 +26,6 @@ export const TRANSIT_PROFILES = Object.freeze({
   }
 });
 
-// Hours as "3 d 12 h" (or "12 h", or "0 h").
 export function formatHours(hours){
   if (!Number.isFinite(hours) || hours < 0) return 'N/A';
   const h = Math.round(hours);
@@ -42,27 +36,24 @@ export function formatHours(hours){
   return `${rem} h`;
 }
 
-// Phase timeline (hours from departure) summing to the total transit duration.
 export function transitPhases(totalHours){
   const total = Number(totalHours);
   if (!Number.isFinite(total) || total <= 0) throw new Error('Invalid transit duration');
   const approachHours = total * 0.16;   // terminal approach to lunar arrival / LOI window
   const detach = Math.min(2, total * 0.02);
-  const loihours = Math.max(0.5, total * 0.03);
+  const insertionHours = Math.max(0.5, total * 0.03);
   const descentHours = Math.max(0.6, Math.min(1.9, total * 0.024));
   const touchdownHours = 0.25;
-  const remaining = total - (approachHours + detach + loihours + descentHours + touchdownHours);
+  const remaining = total - (approachHours + detach + insertionHours + descentHours + touchdownHours);
   return [
     {phase: 'Earth departure & escape burn', startHours: 0, endHours: remaining, kind: 'transfer'},
     {phase: 'Lunar transfer (cruise)', startHours: remaining, endHours: remaining + approachHours, kind: 'transfer'},
-    {phase: 'Lunar arrival / LOI burn', startHours: remaining + approachHours, endHours: remaining + approachHours + detach + loihours, kind: 'insertion'},
+    {phase: 'Lunar arrival / LOI burn', startHours: remaining + approachHours, endHours: remaining + approachHours + detach + insertionHours, kind: 'insertion'},
     {phase: 'Descent to the surface', startHours: total - descentHours - touchdownHours, endHours: total - touchdownHours, kind: 'descent'},
     {phase: 'Surface touchdown at site', startHours: total - touchdownHours, endHours: total, kind: 'touchdown'}
   ];
 }
 
-// Estimate an Earth-Moon transit for a landing destination. Anchors on either
-// a departure time (forward) or a desired landing time (backward).
 export function estimateEarthMoonTransit({
   destination = null,
   profile = 'direct',
@@ -79,7 +70,6 @@ export function estimateEarthMoonTransit({
     throw new Error('Invalid lunar destination coordinates for transit estimate');
   }
   const spec = TRANSIT_PROFILES[profile] || TRANSIT_PROFILES.direct;
-  // Unknown profiles fall back to the direct reference instead of throwing.
   const totalHours = profile === 'custom'
     ? (Number.isFinite(Number(referenceHours)) ? Number(referenceHours) : 84)
     : spec.referenceHours;
@@ -120,7 +110,7 @@ export function estimateEarthMoonTransit({
     totalTransitLabel: formatHours(totalHours),
     departureUTC,
     arrivalUTC,
-    destination: dest || null,
+    destination: dest,
     scheduleMode: mode,
     phases: phaseEvents,
     assumptions: spec.assumptions,

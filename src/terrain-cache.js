@@ -1,7 +1,4 @@
-// Portable derived terrain profiles. Only compact, versioned data with exact
-// NASA COG provenance and coordinates matching the selected site gets in.
-// Profiles carry 72 derived horizon angles, not the original NASA DEM, and
-// are exploratory: not raytraced or flight validated separately.
+// The archive stores 72 angles per site. Match the site coordinates and NASA source before using a profile.
 import {LOLA_COG} from './terrain.js';
 
 export const TERRAIN_CACHE_VERSION='lola-local-horizon-v1';
@@ -26,11 +23,10 @@ export function importVerifiedCache(catalog,sites){
      typeof catalog.profiles!=='object')return [];
   const entries=[];
   for(const site of sites){
-    const p=catalog.profiles[site.id];
-    if(!p)continue;
-    if(!validateProfile(site,p))continue;
+    const profile=catalog.profiles[site.id];
+    if(!validateProfile(site,profile))continue;
     entries.push({site,profile:{
-      ...p,verifiedSource:true,provenance:'Bundled NASA-derived profile, exported in GitHub Actions; geospatial raytrace not independently validated',
+      ...profile,verifiedSource:true,provenance:'Bundled NASA-derived profile, exported in GitHub Actions; geospatial raytrace not independently validated',
       source:'NASA GSFC PGDA LOLA 80m-derived local horizon (archived)'
     }});
   }

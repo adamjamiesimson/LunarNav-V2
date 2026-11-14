@@ -1,7 +1,3 @@
-// Gemini mission-assistant API (Vercel serverless function). The API key
-// stays server-side (GEMINI_API_KEY; model via GEMINI_MODEL). Function
-// calling runs the shared planner maths in src/tools.js so the assistant
-// can't invent ephemeris values.
 import {GoogleGenAI} from '@google/genai';
 import {TOOL_DECLARATIONS,executeTool} from '../src/tools.js';
 
@@ -21,8 +17,7 @@ function modelChain(){
   const chain = [preferred, ...(fallbacks.length ? fallbacks : DEFAULT_FALLBACK_MODELS)];
   return [...new Set(chain)];
 }
-// In-process circuit breaker: a model that just failed transiently is tried
-// last for a short window (per-isolate on Vercel, so it is a soft guard).
+// The cooldown is per Vercel isolate. Recent failures move to the end of the model list.
 const recentlyFailing = new Map();
 function isCircuitOpen(model){
   const until = recentlyFailing.get(model);
@@ -36,7 +31,6 @@ function orderedModelAttempts(){
   return chain.filter(m => !isCircuitOpen(m)).concat(chain.filter(m => isCircuitOpen(m)));
 }
 
-/* Context sanitisation: only known, bounded fields reach the model. */
 function pickNumbers(object, keys){
   const out = {};
   for (const k of keys){
@@ -133,7 +127,6 @@ function sanitizeContext(raw){
     }
     if (!Object.keys(out.terrainProfilesBySite).length) delete out.terrainProfilesBySite;
   }
-  // Guard against an oversized payload.
   if (JSON.stringify(out).length > MAX_CONTEXT_BYTES) return {contextTooLarge:true};
   return out;
 }
@@ -171,7 +164,6 @@ const buildContextBlock = context => ({
   parts: [{text: '[LunarNav live application state: authoritative current data, act on it as-is; do not re-derive unless you call a tool]:\n' + JSON.stringify(context)}]
 });
 
-  // Test seam: a runner can swap the SDK constructor via a global. Unused in prod.
 function geminiConstructor(){
   return globalThis.__LUNARNAV_GEMINI_CTOR || GoogleGenAI;
 }
@@ -188,21 +180,17 @@ function modelContent(result){
 function geminiErrorStatus(error){
   const direct = Number(error?.status);
   if (direct) return direct;
-  // The GenAI SDK surfaces provider failures as raw JSON in message:
-  // {"error":{"code":504,...,"status":"DEADLINE_EXCEEDED"}}
+  // The SDK sometimes puts the HTTP code inside a JSON error message.
   const code = String(error?.message || '').match(/"code"\s*:\s*(\d{3})/);
   return code ? Number(code[1]) : 0;
 }
 function isTransientGeminiError(error){
   if (!error) return true;
   const status = geminiErrorStatus(error);
-  // Retryable: 429 quota/throttle, 5xx capacity (incl. 504 deadline), 404
-  // model retired. Auth/validation failures (400/401/403) are never retried.
   if (status === 404){
     return /model.*(?:not|no longer|unavailable|not supported)/i.test(String(error?.message || ''));
   }
   if (status === 429 || (status >= 500 && status < 600)) return true;
-  // SDK timeouts / retry exhaustion surface as errors with these hints.
   return /deadline|deadline_exceeded|timeout|abort|retries? exhausted|503|429|504|unavailable|high demand/i.test(String(error?.message || ''));
 }
 async function generateContentWithTimeout(genAI, model, contents){
@@ -232,14 +220,10 @@ async function generateContentWithTimeout(genAI, model, contents){
   }
 }
 async function generateContentWithFallback(genAI, contents){
-  // Healthy models first; recently failed ones go last so their stall is only
-  // paid again after the circuit re-arms.
   const attempts = orderedModelAttempts();
   let lastError = null;
   for (const model of attempts){
-    // One quick retry per model for fast transient failures (e.g. a 504 that
-    // comes back in seconds). Slow timeouts aren't retried in place (function
-    // time budget); the next model takes over instead.
+    // Retry fast failures once. Slow timeouts would consume the function budget.
     for (let attempt = 0; attempt < 2; attempt++){
       const started = Date.now();
       try {
@@ -248,9 +232,7 @@ async function generateContentWithFallback(genAI, contents){
         lastError = error;
         if (!isTransientGeminiError(error)) throw error;
         openCircuit(model);
-        // 429 is per-minute quota: retrying the same model in the same second
-        // can't work, so move on immediately. Other transients get one quick
-        // retry when they fail fast.
+        // Skip same-model retries for quota errors because the quota has yet to reset.
         const quota = geminiErrorStatus(error) === 429 || /resource_exhausted|quota/i.test(String(error?.message || ''));
         if (quota || Date.now() - started >= 8000 || attempt === 1) break;
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -284,8 +266,7 @@ async function runGeminiRoundtrip(coreMessage, history, context){
     const calls = result.functionCalls;
     if (!calls || !calls.length) return {text, toolTraces};
 
-    // Keep the model's own reply in history for multi-turn function calling
-    // before appending tool results.
+    // Gemini needs its function-call message before the corresponding tool results.
     const next = [...contents];
     const model = modelContent(result);
     if (model && Array.isArray(model.parts) && model.parts.length){

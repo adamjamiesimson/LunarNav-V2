@@ -1,7 +1,3 @@
-// Sliding mission-window scan for south-pole candidate sites. Same analytical
-// ephemeris as the planner, sampled on a uniform UTC grid. Loaded LOLA horizon
-// profiles can be applied per site; rankings never mix modes. Percentages are
-// sample-based screening estimates, not JPL Horizons or flight numbers.
 import {ephemeris,longestRunHours} from './astro.js';
 import {bodyVisible} from './mission.js';
 
@@ -15,7 +11,7 @@ export const finderScore=(v,priority)=>{
     v.sunPct*FINDER_WEIGHTS.sun+v.earthPct*FINDER_WEIGHTS.earth;
 };
 
-function ensureDate(date,time){
+function parseSearchStart(date,time){
   if(typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date))throw Error('Invalid finder UTC date');
   if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(time))throw Error('Invalid finder UTC time');
   const n=Date.parse(date+'T'+time+':00Z');
@@ -24,19 +20,17 @@ function ensureDate(date,time){
   return n;
 }
 
-// Analyse each possible UTC start date, one sampled ephemeris array per site.
 export function findMissionWindows({
   sites,startDate,startTime='12:00',searchDays=30,windowDays=7,stepHours=4,priority='balanced',
   terrainProfiles=null,terrainMode='flat'
 }={}){
-  const epoch=ensureDate(startDate,startTime);
+  const epoch=parseSearchStart(startDate,startTime);
   if(!['flat','terrain'].includes(terrainMode))throw Error('Unknown terrain mode');
   if(!Array.isArray(sites)||!sites.length||sites.length>20)throw Error('Select 1–20 valid sites');
   if(!Number.isInteger(searchDays)||searchDays<1||searchDays>90)throw Error('Search must be 1–90 days');
   if(!Number.isInteger(windowDays)||windowDays<1||windowDays>28)throw Error('Mission duration must be 1–28 days');
   if(![1,2,3,4,6,8,12,24].includes(stepHours))throw Error('Unsupported sampling step');
   if(!['balanced','sun','earth'].includes(priority))throw Error('Invalid finder priority');
-  if(24%stepHours!==0)throw Error('Sampling must evenly divide a day');
   if(terrainMode==='terrain'){
     if(!terrainProfiles||typeof terrainProfiles!=='object')throw Error('NASA terrain data must be loaded before terrain-aware rankings');
     const missing=sites.filter(site=>{
@@ -63,6 +57,7 @@ export function findMissionWindows({
       const earth=bodyVisible(profile,obs.earth.azimuth,obs.earth.elevation);
       return {sun,earth,dual:sun&&earth};
     });
+    // Prefix counts let overlapping windows reuse the same ephemeris samples.
     const sun=[0],earth=[0],dual=[0];
     for(const item of samples){
       sun.push(sun.at(-1)+Number(item.sun));
@@ -98,8 +93,7 @@ export function findMissionWindows({
   model:terrainMode==='terrain'?'analytical-screening-v1 + loaded LOLA 20km local horizon, UTC, sampled intervals':'analytical-screening-v1, smooth horizon, UTC, sampled intervals'};
 }
 
-// Compare matched site/date/duration windows only, never cross-site rankings.
-// Deltas are percentage points, not probabilities or accuracy bounds.
+// Deltas compare the same site and UTC window, in percentage points.
 export function compareFinderModels(geometric,terrain){
   if(!geometric||!terrain||geometric.terrainMode!=='flat'||terrain.terrainMode!=='terrain'||
       geometric.startDate!==terrain.startDate ||
@@ -108,17 +102,17 @@ export function compareFinderModels(geometric,terrain){
       geometric.stepHours!==terrain.stepHours||
       geometric.priority!==terrain.priority)
     throw Error('Comparison requires same UTC date, duration, step size and priority');
-  const baseline=new Map(geometric.ranked.map(w=>[w.siteId+'|'+w.startDate,w]));
+  const flatWindows=new Map(geometric.ranked.map(window=>[window.siteId+'|'+window.startDate,window]));
   const rows=[];
-  for(const t of terrain.ranked){
-    const b=baseline.get(t.siteId+'|'+t.startDate);
-    if(!b)throw Error('Missing geometric comparison for '+t.siteId+' '+t.startDate);
+  for(const window of terrain.ranked){
+    const flat=flatWindows.get(window.siteId+'|'+window.startDate);
+    if(!flat)throw Error('Missing geometric comparison for '+window.siteId+' '+window.startDate);
     rows.push({
-      siteId:t.siteId,siteName:t.siteName,startDate:t.startDate,windowDays:t.windowDays,
-      flatSunPct:b.sunPct,terrainSunPct:t.sunPct,deltaSunPp:t.sunPct-b.sunPct,
-      flatEarthPct:b.earthPct,terrainEarthPct:t.earthPct,deltaEarthPp:t.earthPct-b.earthPct,
-      flatDualPct:b.dualPct,terrainDualPct:t.dualPct,deltaDualPp:t.dualPct-b.dualPct,
-      flatScore:b.score,terrainScore:t.score,deltaScore:t.score-b.score
+      siteId:window.siteId,siteName:window.siteName,startDate:window.startDate,windowDays:window.windowDays,
+      flatSunPct:flat.sunPct,terrainSunPct:window.sunPct,deltaSunPp:window.sunPct-flat.sunPct,
+      flatEarthPct:flat.earthPct,terrainEarthPct:window.earthPct,deltaEarthPp:window.earthPct-flat.earthPct,
+      flatDualPct:flat.dualPct,terrainDualPct:window.dualPct,deltaDualPp:window.dualPct-flat.dualPct,
+      flatScore:flat.score,terrainScore:window.score,deltaScore:window.score-flat.score
     });
   }
   return rows.sort((a,b)=>a.startDate.localeCompare(b.startDate)||a.siteName.localeCompare(b.siteName));

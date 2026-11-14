@@ -1,13 +1,4 @@
-/**
- * Real Chromium smoke test for the built static application.
- * Run after:
- *   npm run build
- *   npm ci
- *   npx playwright install --with-deps chromium
- *   node scripts/browser-smoke.mjs
- * The test blocks third-party requests to confirm the procedural lunar fallback
- * works when optional NASA imagery and runtime terrain networks are unavailable.
- */
+// Run after npm run build. Block upstream imagery and DEM requests so fallbacks are covered.
 import {chromium} from 'playwright';
 import {spawn} from 'node:child_process';
 import {setTimeout as sleep} from 'node:timers/promises';
@@ -181,8 +172,9 @@ async function checkCSV(page,selector){
 }
 async function completeWelcome(page,preset='5'){
   const graphics=page.locator('#onboarding-dialog[data-stage="graphics"]');
-  if(!await graphics.isVisible()){
-    await page.locator('#onboarding-dialog[data-stage="notice"]').waitFor();
+  const notice=page.locator('#onboarding-dialog[data-stage="notice"]');
+  await notice.or(graphics).waitFor();
+  if(await notice.isVisible()){
     await page.locator('#notice-okay').click();
     assert(await graphics.isVisible(),'Okay did not immediately skip the notice');
   }
@@ -463,6 +455,13 @@ try{
   await visitor.addInitScript(()=>{
     sessionStorage.setItem('lunarnav:intro:session:v1','1');
     localStorage.setItem('lunarnav:onboarding:complete:v1','1');
+    const welcomeTimes=window.welcomeTimes={};
+    // Record transitions in the page. Playwright can observe them late under load.
+    new MutationObserver(records=>{
+      for(const {target} of records){
+        if(target.id==='onboarding-dialog')welcomeTimes[target.dataset.stage]=performance.now();
+      }
+    }).observe(document,{subtree:true,attributes:true,attributeFilter:['data-stage']});
   });
   const arrival=Date.now();
   await visitor.goto(host+'/',{waitUntil:'domcontentloaded'});
@@ -483,8 +482,7 @@ try{
   assert(await visitor.locator('#onboarding-dialog').evaluate(el=>el.open),'loading backdrop click stranded the workspace');
   await visitor.screenshot({path:'smoke-artifacts/loading.png'});
   await visitor.locator('#onboarding-dialog[data-stage="notice"]').waitFor();
-  const noticeAt=Date.now();
-  assert(noticeAt-arrival>=9900,'loading screen ended before ten seconds');
+  assert(Date.now()-arrival>=9900,'loading screen ended before ten seconds');
   assert((await visitor.locator('#loading-percent').textContent())==='100%','loading percentage did not complete at 100%');
   assert((await visitor.locator('#onboarding-title').textContent())==='Before you explore','notice title missing');
   assert((await visitor.locator('#onboarding-description').textContent()).includes('incognito tab'),'memory and troubleshooting notice missing');
@@ -501,7 +499,8 @@ try{
     'notice should be centered text on pure black with a focused Okay button: '+JSON.stringify(appearance));
   await visitor.screenshot({path:'smoke-artifacts/memory-notice.png'});
   await visitor.locator('#onboarding-dialog[data-stage="graphics"]').waitFor();
-  assert(Date.now()-noticeAt>=9900,'memory notice ended before ten seconds');
+  const noticeDuration=await visitor.evaluate(()=>welcomeTimes.graphics-welcomeTimes.notice);
+  assert(noticeDuration>=9900,'memory notice ended before ten seconds: '+noticeDuration+' ms');
   assert(Date.now()-arrival>=19900,'graphics selector appeared too early');
   await visitor.screenshot({path:'smoke-artifacts/graphics.png'});
   await visitor.locator('input[name="startup-graphics"][value="10"]').check();
@@ -557,6 +556,23 @@ try{
     assert(await visitor.locator('#finder-duration').inputValue()==='28','legacy link lost the mission duration');
   }
 
+  const {size:polarGridSize}=JSON.parse(readFileSync('dist/data/relief.json','utf8'));
+  const metrics={};
+  for(const [name,target,limit] of [['desktop',page,4096],['mobile',mobile,2048]]){
+    const uploads=await target.evaluate(()=>gpuUploads);
+    assert(uploads.every(u=>u.error===0),name+' WebGL upload error');
+    const globeTextures=uploads.filter(u=>u.canvas==='moon-globe'&&u.bytes===null);
+    assert(globeTextures.length>0&&globeTextures.every(u=>u.width<=limit&&u.height<=limit),name+' globe exceeded texture budget');
+    const surfaceTextures=uploads.filter(u=>u.canvas==='panorama-canvas'&&u.bytes===null);
+    assert(surfaceTextures.length===1&&surfaceTextures[0].width===polarGridSize&&surfaceTextures[0].height===polarGridSize,
+      name+' surface panorama did not upload its single full-resolution polar grid');
+    metrics[name]=await target.evaluate(()=>({uploads:gpuUploads,jsHeapBytes:performance.memory?.usedJSHeapSize||null}));
+  }
+  writeFileSync('smoke-artifacts/render-metrics.json',JSON.stringify(metrics,null,2));
+
+  // Release the three WebGL pages before exercising the native terrain fixture.
+  await Promise.all([page.close(),mobile.close(),visitor.close()]);
+
   // Fixture-backed integration: exercise the real browser decoder and WebGL patch upload.
   // These synthetic rows test wiring only; live NASA verification is a separate command.
   smokePhase='native terrain fixtures';
@@ -576,6 +592,9 @@ try{
   await terrainPage.goto(host+'/explore',{waitUntil:'domcontentloaded'});
   await completeWelcome(terrainPage);
   await terrainPage.waitForFunction(()=>document.querySelector('#finder-terrain-count').textContent.startsWith('5 of 5'));
+  smokePhase='selecting a mid-latitude waypoint for the SLDEM fixture';
+  // Let the initial camera flight settle before rotating the Moon with the keyboard.
+  await terrainPage.waitForTimeout(850);
   await terrainPage.locator('#moon-map').press('3');
   for(let i=0;i<7;i++)await terrainPage.locator('#moon-map').press('ArrowUp');
   await terrainPage.waitForTimeout(100);
@@ -584,11 +603,15 @@ try{
   await terrainPage.waitForFunction(()=>document.querySelector('#site-select').value==='custom');
   await terrainPage.waitForFunction(()=>document.querySelector('#metrics-model').textContent.includes('NASA terrain'));
   await terrainPage.locator('a.nav-link[data-route="engineering"]').click();
+  smokePhase='loading the native SLDEM range fixture';
+  const waypoint=await terrainPage.locator('#selected-coord').textContent();
   await terrainPage.locator('#terrain-load').click();
-  await terrainPage.waitForFunction(()=>document.querySelector('#terrain-status').textContent.includes('SLDEM2015'));
-  await terrainPage.waitForFunction(()=>!document.querySelector('#terrain-load').disabled);
+  await terrainPage.waitForFunction(()=>!document.querySelector('#terrain-load').disabled,{},{timeout:35000});
+  const terrainStatus=await terrainPage.locator('#terrain-status').textContent();
+  assert(terrainStatus.includes('SLDEM2015'),'SLDEM fixture for '+waypoint+': '+terrainStatus);
   const patchUploads=await terrainPage.evaluate(()=>gpuUploads.filter(u=>u.bytes>4&&u.width>10));
   assert(patchUploads.length>0&&patchUploads.every(u=>u.bytes===u.width*u.height*4&&u.error===0),'native RGBA patch upload failed');
+  smokePhase='switching sites during a native terrain load';
   hold=true;started=false;
   await terrainPage.locator('#terrain-load').click();
   for(let i=0;i<40&&!started;i++)await sleep(25);
@@ -598,6 +621,8 @@ try{
   release();await terrainPage.waitForTimeout(150);
   assert((await terrainPage.locator('#selected-name').textContent())==='Nobile Region','stale terrain restored old site');
   assert(!(await terrainPage.locator('#terrain-status').textContent()).includes('SLDEM2015'),'stale terrain replaced current profile');
+
+  await terrainPage.close();
 
   // Leave the production loader and renderer modules intact. Block only the
   // surface canvas WebGL context so the real DEM samples drive the 2D skyline.
@@ -614,23 +639,10 @@ try{
   await closePanorama(fallback);
   await fallback.close();
 
-  const {size:polarGridSize}=JSON.parse(readFileSync('dist/data/relief.json','utf8'));
-  const metrics={};
-  for(const [name,target,limit] of [['desktop',page,4096],['mobile',mobile,2048]]){
-    const uploads=await target.evaluate(()=>gpuUploads);
-    assert(uploads.every(u=>u.error===0),name+' WebGL upload error');
-    const globeTextures=uploads.filter(u=>u.canvas==='moon-globe'&&u.bytes===null);
-    assert(globeTextures.length>0&&globeTextures.every(u=>u.width<=limit&&u.height<=limit),name+' globe exceeded texture budget');
-    const surfaceTextures=uploads.filter(u=>u.canvas==='panorama-canvas'&&u.bytes===null);
-    assert(surfaceTextures.length===1&&surfaceTextures[0].width===polarGridSize&&surfaceTextures[0].height===polarGridSize,
-      name+' surface panorama did not upload its single full-resolution polar grid');
-    metrics[name]=await target.evaluate(()=>({uploads:gpuUploads,jsHeapBytes:performance.memory?.usedJSHeapSize||null}));
-  }
-  writeFileSync('smoke-artifacts/render-metrics.json',JSON.stringify(metrics,null,2));
   assert(errors.length===0,'uncaught JavaScript errors: '+errors.join(' | '));
   console.log('Browser smoke PASS: four pages, shared planning inputs, recommendations, date comparison, transit, direct URLs, back/forward, desktop/mobile, science refresh, globe, real terrain panoramas, terrain Finder and exports.');
 }catch(error){
-  console.error('Browser smoke FAIL:',error.message,'during',smokePhase);
+  console.error('Browser smoke FAIL during',smokePhase,error);
   if(errors.length)console.error('JavaScript errors:',errors.join(' | '));
   process.exitCode=1;
 }finally{

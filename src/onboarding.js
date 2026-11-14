@@ -15,7 +15,6 @@ export const TOUR_STEPS=[
   {page:'explore',target:'#assistant-fab',title:'Ask the AI assistant',text:'Open Assistant to ask about your site, visibility, mission windows or engineering results.'}
 ];
 
-// Loading -> memory notice -> graphics -> spotlight tour on every visit. No visit flags.
 export function initOnboarding({navigateView,getPage,onGraphicsChange,doc=document,clock=window}={}){
   const dialog=doc.getElementById('onboarding-dialog'),app=doc.getElementById('app');
   const title=doc.getElementById('onboarding-title'),description=doc.getElementById('onboarding-description');
@@ -64,8 +63,7 @@ export function initOnboarding({navigateView,getPage,onGraphicsChange,doc=docume
     let position=candidates.find(p=>p.x>=pad&&p.y>=pad&&p.x+cw<=w-pad&&p.y+ch<=h-pad);
     if(!position){
       position={x:clamp(w-cw-pad,pad,w-cw-pad),y:Math.max(pad,h-ch-pad)};
-      // Very short screens show the visible portion of a tall feature above
-      // the card, rather than letting the card obscure the spotlight.
+      // Clip the spotlight above the card on short screens.
       box.bottom=Math.min(box.bottom,position.y-gap);
       box.y=Math.min(box.y,box.bottom-24);
     }

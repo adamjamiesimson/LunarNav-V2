@@ -1,4 +1,4 @@
-// East-positive longitude; reference point metadata is transparent to the user.
+// Longitude is east-positive.
 export const SITES = [
   {id:'mons-mouton',name:'Mons Mouton',tag:'CLPS: IM-2',region:'Lunar highlands',lat:-84.79,lon:29.20,kind:'Historic landing',accent:'#AAAAAA',source:'https://pds.nasa.gov/ds-view/pds/viewContext.jsp?identifier=urn%3Anasa%3Apds%3Acontext%3Ainstrument_host%3Aspacecraft.clps_to_prime1_athena&version=1.0',detail:'NASA PDS documents the IM-2 Athena landing at 84.79°S, 29.20°E on 6 March 2025.'},
   {id:'malapert',name:'Malapert Region',tag:'Research region',region:'Malapert massif region',lat:-85.99,lon:357.07,kind:'Reference coordinate',accent:'#AAAAAA',source:'https://science.nasa.gov/image-detail/20100618/',detail:'NASA describes the Malapert region near 85.99°S, 357.07°E as promising for illumination and communications.'},

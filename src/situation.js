@@ -1,6 +1,3 @@
-// Situation reports and the local sky diagram. The globe is illustrative;
-// only the azimuth-based horizon lines carry loaded LOLA data. Nothing here
-// implies surface lighting or an antenna link budget.
 import {horizonAt} from './mission.js';
 import {ephemeris} from './astro.js';
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
@@ -61,9 +58,7 @@ export function buildSkyDiagram(obs,profile=null){
     '<circle cx="140" cy="140" r="3" fill="#98A2A8"/></svg>';
 }
 
-// Next sampled transition of local Sun/Earth horizon visibility. 30-minute
-// brackets refined to about a minute. Screening precision, not ephemeris
-// accuracy, and deliberately no RF link viability.
+// Search in 30-minute brackets by default. Return a crossing on the half-hour inspection grid.
 export function findNextHorizonEvent({startUTC,site,durationHours,offsetHours=0,profile=null,
   stepMinutes=30}={}){
   const origin=new Date(startUTC).getTime();
@@ -83,7 +78,6 @@ export function findNextHorizonEvent({startUTC,site,durationHours,offsetHours=0,
     if(different(current,prior)){
       let low=prevMinute,high=right;
       const baseline=prior;
-      // Binary search first changed side of a bracket; no false subminute claim.
       for(let i=0;i<10;i++){
         const mid=(low+high)/2;
         if(different(stateAt(mid),baseline))high=mid;else low=mid;

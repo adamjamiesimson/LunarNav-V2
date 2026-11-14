@@ -1,10 +1,5 @@
-// First-person surface panorama: a Street-View-style look around any
-// waypoint, rendered from the same DEM heights the globe displaces (native
-// patch near, grid beyond). Every pixel is a ray marched against the terrain,
-// lit by the real Sun direction (Earth adds a faint fill). Sun (0.53 deg) and
-// Earth (1.98 deg) discs sit at their real az/el and hide behind terrain.
-// Star field is decorative, and the panel says so.
-import {directionFromAzEl,projectDirection,horizonAtAzimuth} from './panorama.js';
+// Ray-march the native DEM in the near field and the bundled grid beyond it. The stars and micro-relief are visual.
+import {directionFromAzEl,projectDirection} from './panorama.js';
 
 const RAD=Math.PI/180;
 
@@ -115,15 +110,11 @@ void main(){
       hitT=b;break;
     }
     last=t;lastDz=dz;
-    // Step sizing avoids the vertical-stripe ("cliff") artifact at grazing
-    // angles: shrink when the ray hugs the terrain so ridges never get
-    // tunneled through, grow when it flies high above.
+    // Use shorter steps near the terrain to catch ridges at grazing angles.
     t+=clamp(dz*1.15,max(2.5,t*0.0035),t*0.12);
     if(t>140000.0)break;
   }
-  // A ray that ran out of budget while still grazing the surface is looking
-  // along distant terrain: fill terrain at the last sample instead of
-  // punching a see-through sky gap. Rays with real clearance stay sky.
+  // At grazing angles, shade the last terrain sample if the march runs out of steps.
   if(hitT<0.0&&lastDz<max(45.0,t*0.02))hitT=t;
   vec3 col;
   if(hitT<0.0){
@@ -212,8 +203,6 @@ const GRID_FILES={
   global:'/assets/moon-relief-global.png'
 };
 
-// Build the interactive surface view. Throws when WebGL is missing so the
-// caller can fall back to the cylindrical panorama.
 export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
   onHeading=null,bodyLabel=null,observerHeightM=5,maxDevicePixelRatio=1.25}={}){
   const gl=canvas.getContext('webgl',{antialias:true,alpha:false});
@@ -253,8 +242,7 @@ export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
     if(!patchTexture)patchTexture=gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D,patchTexture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
-    // RGBA texels, 4 bytes per pixel: a 3-byte array on an RGBA upload gets
-    // rejected by WebGL and the texture stays black = flat at minM.
+    // RGBA uploads require four bytes per pixel even though only R and G store elevation.
     const texels=new Uint8Array(width*height*4);
     for(let i=0;i<data.length;i++){
       const v=Math.max(0,Math.min(4095,Math.round(((Number(data[i])||0)-minM)/range*4095)));
@@ -281,7 +269,6 @@ export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
     ctx.clearRect(0,0,w,h);
     ctx.font='11px ui-monospace, SFMono-Regular, Menlo, monospace';
     ctx.textBaseline='middle';
-    // Compass strip: real azimuth ticks projected through the camera.
     for(let az=0;az<360;az+=15){
       const p=projectDirection(directionFromAzEl(az,0),camera());
       if(!p.visible||p.x<-0.05||p.x>1.05)continue;
@@ -297,7 +284,6 @@ export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
         ctx.textAlign='left';
       }
     }
-    // Centre reticle.
     ctx.strokeStyle='rgba(230,234,236,0.35)';
     ctx.beginPath();
     ctx.moveTo(w/2-8,h/2);ctx.lineTo(w/2-2,h/2);
@@ -305,7 +291,6 @@ export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
     ctx.moveTo(w/2,h/2-8);ctx.lineTo(w/2,h/2-2);
     ctx.moveTo(w/2,h/2+2);ctx.lineTo(w/2,h/2+8);
     ctx.stroke();
-    // Body labels at their projected positions.
     for(const [body,color] of [[obs?.earth,'#9BC4D0'],[obs?.sun,'#E4C084']]){
       if(!body)continue;
       const p=projectDirection(bodyDir(body),camera());
@@ -380,8 +365,7 @@ export async function createSurfaceView(canvas,{site,obs,patch=null,hud=null,
   };
   const onDbl=()=>{yaw=0;pitch=2;fov=75;schedule();};
   const onResize=()=>schedule();
-  // Overlay starts hidden (zero-size canvas): re-render once it has real
-  // size so the first frame isn't a stretched empty buffer.
+  // The overlay opens after setup, so redraw once the canvas has size.
   const observer=typeof ResizeObserver==='function'?new ResizeObserver(()=>schedule()):null;
   observer?.observe(canvas);
   canvas.style.cursor='grab';

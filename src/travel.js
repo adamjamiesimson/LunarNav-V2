@@ -1,7 +1,3 @@
-// Lunar surface traverse estimator. Great-circle (haversine) distance on a
-// 1737.4 km sphere with the planner ephemeris sampled along the way. Distance
-// only: no slope, obstacle or traversability model, so a straight line is not
-// a safe route.
 import {ephemeris} from './astro.js';
 import {horizonAt,bodyVisible} from './mission.js';
 
@@ -24,7 +20,6 @@ export function greatCircleDistanceKm(lat1, lon1, lat2, lon2){
   return MOON_RADIUS_KM * c;
 }
 
-// Total wall-clock hours for a traverse (driving + operational delay).
 export function totalDurationHours(distanceKm, speedKph, delayHours = 0){
   if(!Number.isFinite(distanceKm) || distanceKm < 0) throw new Error('Invalid traverse distance');
   if(!Number.isFinite(speedKph) || speedKph <= 0) throw new Error('Invalid rover speed');
@@ -32,8 +27,7 @@ export function totalDurationHours(distanceKm, speedKph, delayHours = 0){
   return distanceKm / speedKph + delayHours;
 }
 
-// Sun/Earth visibility sampled along the journey every sampleHours, optionally
-// against a loaded terrain profile at the origin.
+// Sample Sun and Earth at the origin over the traverse schedule. The model has no route terrain.
 export function visibilityAlongTraverse({departureUTC, distanceKm, speedKph, delayHours = 0, lat, lon, profile = null, sampleHours = 1} = {}){
   const departure = new Date(departureUTC);
   if(Number.isNaN(departure.getTime())) throw new Error('Invalid traverse departure UTC time');
@@ -59,23 +53,22 @@ export function visibilityAlongTraverse({departureUTC, distanceKm, speedKph, del
   return result;
 }
 
-// Simplified illumination summary over the sampled visibility data.
 export function summarizeTraverseVisibility(samples){
-  const steps = Math.max(1, samples.length - 1);
-  const average = key => 100 * samples.slice(0, -1).filter(x => key(x)).length / steps;
+  const intervals = samples.slice(0, -1);
+  const steps = Math.max(1, intervals.length);
+  const percent = visible => 100 * intervals.filter(visible).length / steps;
   return {
-    sunIlluminatedPct: average(s => s.sun.visible),
-    sunAboveFlatHorizonPct: average(s => s.sun.exposedToSun),
-    earthVisiblePct: average(s => s.earth.visible),
-    earthGeometricPct: average(s => s.earth.geometricVisible),
-    anyLimitedSolar: samples.slice(0, -1).some(s => !s.sun.visible),
-    anyEarthLimited: samples.slice(0, -1).some(s => !s.earth.visible),
+    sunIlluminatedPct: percent(s => s.sun.visible),
+    sunAboveFlatHorizonPct: percent(s => s.sun.exposedToSun),
+    earthVisiblePct: percent(s => s.earth.visible),
+    earthGeometricPct: percent(s => s.earth.geometricVisible),
+    anyLimitedSolar: intervals.some(s => !s.sun.visible),
+    anyEarthLimited: intervals.some(s => !s.earth.visible),
     terrainApplied: samples.some(s => (s.sun.horizonDeg || 0) > 0 || (s.earth.horizonDeg || 0) > 0),
     model: 'analytical-screening-v1 samples over geodesic traverse'
   };
 }
 
-// Full traverse estimate, shared by the travel panel and the assistant tool.
 export function estimateSurfaceTraverse({
   originLat, originLon, destinationLat, destinationLon,
   departUTC, speedKph = 10, delayHours = 0, profile = null, sampleHours = 1

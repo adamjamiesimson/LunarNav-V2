@@ -1,15 +1,6 @@
 #!/usr/bin/env node
-/**
- * Prepare a single site horizon profile from actual NASA GSFC PGDA LOLA
- * 80 m/pixel COG data using HTTP byte-range reads. Logs only compact
- * derived values (72 azimuth bins, not the original elevation raster).
- *
- * This is a reproducible extraction utility; absence of output indicates a
- * failed NASA transfer. Never substitute zeros or synthetic data.
- *
- * Usage: npm install --no-save --no-package-lock geotiff@2.1.3
- *        node scripts/export-lola-site.js <site-id>
- */
+// Export 72 horizon angles from the NASA 80 m COG.
+// Usage: node scripts/export-lola-site.js <site-id>
 import * as GeoTIFF from 'geotiff';
 import {SITES} from '../src/sites.js';
 import {loadLolaTerrain,LOLA_COG} from '../src/terrain.js';

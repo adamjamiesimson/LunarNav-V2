@@ -1,20 +1,12 @@
-// Immersive lunar globe: dependency-free WebGL over the NASA SVS 2025 LROC
-// colour map (svs.gsfc.nasa.gov/4720). Surface appearance is visual context
-// only, not a terrain horizon, elevation dataset or landing-risk map.
-// Earth/Moon/Sun are ray-traced spheres in one Moon-fixed scene; directions
-// come from the ephemeris, sizes/distances are squashed for inspection. A 2D
-// polar fallback remains for no-WebGL environments.
+// NASA SVS LROC color mosaic (svs.gsfc.nasa.gov/4720).
 import {SITES} from './sites.js';
 import {createMap as createPolarMap} from './map.js';
 import {skyBodies,hitCelestialBody,celestialSpin,horizontalToLunarVector} from './celestial.js';
 
 const D=Math.PI/180;
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
-// Zoom floor of 0.35 fits the compressed Sun/Earth orbits (1.75 scene units)
-// inside the viewport so the full simulation loop is visible.
+// Keep the compressed Sun and Earth orbits in view at minimum zoom.
 const zoomLevel=v=>clamp(v,0.35,2.1);
-// Default framing: the Moon at ~44% of panel height so the Sun and Earth
-// spheres (2.6 and 2.1 moon-radii out) are all visible on load.
 const DEFAULT_ZOOM=0.5;
 const wrap=n=>((n%360)+360)%360;
 // Earth's spin axis is tilted 23.44° (obliquity) from the orbital-plane normal.
@@ -75,7 +67,6 @@ vec3 moonAlbedo(vec3 n){
  float spots=pow(noise(uv*vec2(28.0,15.0)),2.7);
  return vec3(0.38+0.32*land-0.12*spots);
 }
-// Prototype: the terrain-aware ray march below calls this before its definition.
 float sphereHit(vec3 origin,vec3 ray,vec3 center,float radius);
 /* Terrain heights decode 12-bit values packed into PNG R (high) and the upper
    nibble of G (low). Sources: NASA LOLA polar grid (data/relief.json) and the
@@ -223,7 +214,6 @@ void main(){
      space+=vec3(0.035,0.25,0.75)*halo*0.20;
    }
  }
- // An occluded or out-of-view sphere can't draw on top of a nearer body.
  float nearT=min(moonT,min(sunT,earthT));
  if(nearT>9.0e5){gl_FragColor=vec4(space,1.0);return;}
 
@@ -260,7 +250,6 @@ void main(){
    float clouds=0.85*smoothstep(0.57,0.72,fbm(cloudUV*vec2(23.0,13.0)+vec2(0.0,3.9)));
    clouds+=0.25*smoothstep(0.61,0.75,fbm(cloudUV*vec2(46.0,26.0)));
    albedo=mix(albedo,vec3(0.94,0.98,1.0),clamp(clouds,0.0,0.92));
-   // Lighting off the Moon-fixed Sun direction, not screen-space dots.
    float daylight=max(0.0,dot(normal,normalize(sun)));
    float reflected=pow(max(0.0,dot(reflect(-normalize(sun),normal),forward))+0.002,28.0);
    vec3 earthColor=albedo*(0.045+0.98*pow(daylight+0.002,0.76));
@@ -373,7 +362,6 @@ export function createMap(canvas,{onPick,onHover}){
    const R=h*0.5*0.87*zoom;
    ctx.save();ctx.translate(w/2,h/2);
    ctx.strokeStyle='rgba(174,208,217,0.17)';ctx.lineWidth=1;
-   // Lunar parallels only on the visible hemisphere.
    for(const latitude of [-70,-80,-85,-88]){
      ctx.beginPath();let started=false;
      for(let L=0;L<=360;L+=3){const q=project({lat:latitude,lon:L});const x=q.x-w/2,y=q.y-h/2;
@@ -382,7 +370,6 @@ export function createMap(canvas,{onPick,onHover}){
      }
      ctx.stroke();
    }
-   // Selected-area crosshair and latitude labels; not a topographic map.
    ctx.setLineDash([3,7]);ctx.strokeStyle='rgba(165,200,210,0.21)';
    ctx.beginPath();ctx.moveTo(-R-16,0);ctx.lineTo(R+16,0);ctx.moveTo(0,-R-16);ctx.lineTo(0,R+16);ctx.stroke();
    ctx.setLineDash([]);
@@ -547,8 +534,7 @@ export function createMap(canvas,{onPick,onHover}){
    }
    request();
  });
- // Load real NASA Blue Marble surface imagery, with shader-based oceans/land
- // available when a network request or image CORS permission fails.
+ // The shader supplies fallback Earth imagery if Blue Marble fails to load.
  const earthTexture=gl.createTexture();
  gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,earthTexture);
  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([35,98,154,255]));
@@ -558,10 +544,7 @@ export function createMap(canvas,{onPick,onHover}){
  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
  gl.generateMipmap(gl.TEXTURE_2D);
  gl.uniform1i(u.earthImage,1);
- // NASA relief textures (baked by scripts/build-relief.mjs): the wide global
- // grid loads first and the finer polar grid upgrades it when ready; the
- // waypoint DEM patch uploads separately at native resolution. Heights are
- // 12-bit values packed into R/G (see data/relief.json).
+ // The global grid loads first. Polar grids and the native waypoint patch refine it as they arrive.
  const makeDataTexture=(unit,repeat)=>{
    const tex=gl.createTexture();
    gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,tex);
@@ -663,8 +646,7 @@ export function createMap(canvas,{onPick,onHover}){
  size();
  let flyRAF=0,flySiteKey=null;
  function cancelFly(){if(flyRAF){cancelAnimationFrame(flyRAF);flyRAF=0;}}
- // Smooth camera re-orientation: eased interpolation of latitude, longitude
- // (shortest way around) and zoom. Cancelled the moment the user takes over.
+ // Interpolate longitude along the shortest arc. User input cancels the flight.
  function flyCamera(targetLat,targetLon,targetZoom,{durationMs=1500}={}){
    cancelFly();
    const startLat=lat,startLon=lon,startZoom=zoom,t0=performance.now();
@@ -702,16 +684,13 @@ export function createMap(canvas,{onPick,onHover}){
      flySiteKey=key;
      site=newSite;
      if(siteChanged){
-       // Smoothly re-orient when the site changes. Re-renders of the same
-       // site keep the user's camera, so manual orbit survives date and
-       // scenario updates without a snap-back.
+       // Only fly on a site change so date and duration edits preserve the camera.
        flyCamera(targetLat,targetLon,zoom);
      }
      request();
    },
    focusSite(){viewMode='focus';flyCamera(clamp(site.lat,-89,50),wrap(site.lon),1.35,{durationMs:1100});request();return 135;},
   panoramaZoom(target,onArrive,{durationMs=1200}={}){
-    // Fly from orbit toward the waypoint before the panorama takes over.
     cancelFly();
     viewMode='focus';
     const startLat=lat,startLon=lon,startZoom=zoom,targetLat=clamp(target.lat,-89,50),targetLon=wrap(target.lon);
@@ -732,7 +711,6 @@ export function createMap(canvas,{onPick,onHover}){
    setSun(obs,focus=site){
      sunlight=horizontalToLunarVector(obs.sun,focus.lat,focus.lon);
      earthlight=horizontalToLunarVector(obs.earth,focus.lat,focus.lon);
-     // Earth texture rotation follows the selected UTC inspection time.
      const ms=Date.parse(obs.time);
      if(Number.isFinite(ms))simulatedUTC=ms;
      request();

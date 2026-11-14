@@ -1,8 +1,4 @@
-// Decoding colour-coded elevation maps into heights. Only usable when the map
-// ships a documented legend (colour ramp + elevation range) and a georeference.
-// If the original numerical DEM exists, use that instead; this is for maps
-// whose only accessible source is the rendered image. Hillshade images don't
-// count: their brightness is terrain shading, not elevation.
+// Only decode georeferenced maps with a documented elevation legend. Hillshade brightness encodes shading.
 const hex2rgb=hex=>{
   const m=/^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
   if(!m)throw Error('Invalid legend colour: '+hex);
@@ -30,9 +26,7 @@ export function decodeColorElevation(imageData,{stops,tolerance=24,georef=null}=
   let matched=0,min=Infinity,max=-Infinity;
   for(let i=0;i<imageData.width*imageData.height;i++){
     const r=imageData.data[i*4],g=imageData.data[i*4+1],b=imageData.data[i*4+2];
-    // Distance to the legend ramp (polyline through the stops) so continuous
-    // ramps decode their intermediate colours. Anything off the ramp gets
-    // masked as NoData rather than turned into a made-up elevation.
+    // Interpolate between legend stops and mask colors too far from the ramp as NoData.
     let bestDist=Infinity,bestH=null;
     for(let s=0;s<ramp.length-1;s++){
       const a=ramp[s],c=ramp[s+1];

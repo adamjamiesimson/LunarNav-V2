@@ -1,7 +1,4 @@
-// First-order power and direct-to-Earth access screening. Terrain horizons
-// only count when an independently loaded DEM profile is passed in; no link
-// budget, no battery chemistry. Integration is piecewise constant over the
-// input UTC samples.
+// Hold power and access constant between successive UTC samples.
 const DEG=Math.PI/180;
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 const finite=(v,min,max,name)=>{
@@ -35,10 +32,7 @@ export function horizonAt(profile,azimuth){
   const i=Math.floor(az/step)%n,alpha=(az-i*step)/step;
   return Math.max(0,profile.elevationDeg[i]*(1-alpha)+profile.elevationDeg[(i+1)%n]*alpha);
 }
-// One visibility rule for the whole app: a body is visible when its centre
-// rises above the terrain horizon at that azimuth (0 deg geometric horizon
-// without a profile). Solar and Earth visibility both go through this so no
-// section can disagree.
+// The body centre must clear the local horizon. Without a profile, use 0°.
 export function bodyVisible(profile,azimuth,elevation){
   return elevation>horizonAt(profile,azimuth);
 }
@@ -57,9 +51,9 @@ export function simulateMission(samples,settings={},terrainProfile=null){
     const sunEl=r.sun.elevation,earthEl=r.earth.elevation;
     const sunBarrier=horizonAt(terrainProfile,r.sun.azimuth),earthBarrier=horizonAt(terrainProfile,r.earth.azimuth);
     const sunVisible=bodyVisible(terrainProfile,r.sun.azimuth,sunEl);
-    // Earth above a geometric antenna mask, NOT a radio-link budget.
+    // The antenna elevation mask adds to the Earth line-of-sight constraint.
     const earthVisible=earthEl>Math.max(p.earthCutoffDeg,earthBarrier);
-    // Flat fixed panel: no tracking, eclipse or low-angle optical losses.
+    // Horizontal array with no tracking, eclipse or low-angle optical losses.
     const solarW=sunVisible?1361*p.areaM2*(p.efficiencyPct/100)*(p.deratePct/100)*Math.max(0,Math.sin(sunEl*DEG)):0;
     const gain=solarW*hours,need=p.loadW*hours;
     const available=charge+gain-need;

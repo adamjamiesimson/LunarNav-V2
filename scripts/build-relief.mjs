@@ -35,8 +35,7 @@ const GLOBAL_W=8192,GLOBAL_H=4096; // 4.9 km/px at the equator (source SLDEM is 
 const POLAR_DOMAIN_M=931200;    // 60°S stereographic half-width
 const RMOON=1737400;
 
-// ---- minimal PNG writer: 8-bit RGB, 12-bit height packed into R (high) and
-// the upper nibble of G (low) ----
+// Pack each 12-bit height into R and the upper nibble of G.
 function png12(width,height,codes){
   const crcTable=[...Array(256)].map((_,n)=>{let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;return c>>>0;});
   const crc=buf=>{let c=0xFFFFFFFF;for(const b of buf)c=crcTable[(c^b)&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;};
@@ -72,8 +71,7 @@ async function withRetry(fn,tries=6){
   }
 }
 
-// Run async tasks with bounded concurrency: thousands of small range reads are
-// round-trip bound, so parallel fetches cut the bake from ~40 min to ~2 min.
+// Parallel range reads keep SLDEM row fetches from bounding bake time.
 async function mapConcurrent(items,fn,workers=24){
   let next=0;
   const run=async()=>{while(next<items.length){const i=next++;await fn(items[i],i);}};
@@ -108,7 +106,6 @@ const sldemFetch=async(range,url=SLDEM_IMG)=>{
   return Buffer.from(await res.arrayBuffer());
 };
 
-// ---- 1. south-polar grid from the LOLA COG overview ----
 console.log('polar: opening',POLAR_COG);
 const tif=await withRetry(()=>fromUrl(POLAR_COG,{allowFullFile:false}));
 const levels=[];
@@ -129,10 +126,8 @@ for(let i=0;i<polarData.length;i++){
 }
 smoothGrid(polarVals,size,size,1); // light smoothing; geotiff already resamples
 
-// ---- 1b. north-polar grid from the LOLA GDR shape mosaic (LDEM_60N_240M)
-// Raw float32 rows, pole at pixel centre (offsets verified from the PDS label);
-// orientation verified empirically against SLDEM2015 (RMS 17 m in the overlap
-// ring: x=(col-off)*240, y=(row-off)*240, lon=atan2(x,y)).
+// LDEM_60N_240M uses raw Float32 rows with the pole at the pixel centre (PDS label).
+// The SLDEM2015 overlap confirms x=(col-off)*240, y=(row-off)*240, lon=atan2(x,y) (RMS 17 m).
 console.log('north: reading LDEM_60N_240M rows (strided byte ranges)');
 const NROWS=7760,NPIX=7760,NOFF=3879.5,NSCALE=240.0;
 const northVals=new Float32Array(size*size).fill(NaN);
@@ -163,7 +158,6 @@ for(let i=0;i<polarVals.length;i++){
   polarCodes[i]=Number.isFinite(v)?Math.round((v-pMin)/polarRange*4095):0;
 }
 
-// ---- 2. global equirectangular grid: SLDEM2015 rows + polar rows from the COG ----
 console.log('global: reading SLDEM2015 rows (strided byte ranges)');
 const rows=15360,cols=46080,rowBytes=cols*4;         // verified from the PDS label
 const globalCodes=new Uint16Array(GLOBAL_W*GLOBAL_H);
@@ -245,7 +239,6 @@ smoothGrid(gValues,GLOBAL_W,GLOBAL_H,2); // SLDEM rows are point-decimated: smoo
 for(let i=0;i<gValues.length;i++)
   globalCodes[i]=Number.isFinite(gValues[i])?Math.round((gValues[i]-gMin)/gRange*4095):0;
 
-// ---- 3. write textures + metadata ----
 mkdirSync('assets',{recursive:true});
 mkdirSync('data',{recursive:true});
 writeFileSync('assets/moon-relief.png',png12(size,size,polarCodes));

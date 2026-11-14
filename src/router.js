@@ -1,6 +1,4 @@
-// Client-side page navigation. URL paths work as direct Vercel entries (the
-// server rewrites to index.html) and Back/Forward preserves the view. Legacy
-// #planner/#finder links resolve to their modern locations.
+// Legacy hash links are resolved on the root and index.html. Vercel serves the same entry for page paths.
 export const PAGE_ROUTES=Object.freeze({
  explore:'/explore',planning:'/planning',engineering:'/engineering',science:'/science'
 });
@@ -9,14 +7,11 @@ export const PAGE_TITLES=Object.freeze({
 });
 export function routeFromURL(pathname='/',hash=''){
  const path=pathname.replace(/\/+$/,'')||'/';
- // Resolve old deep links BEFORE considering the default '/' overview route.
  if(path==='/'||path==='/index.html'){
-   if(hash==='#planner')return 'explore';
-   if(hash==='#finder')return 'planning';
-   if(hash==='#compare')return 'planning';
+   if(hash==='#finder'||hash==='#compare')return 'planning';
    if(hash==='#engineering')return 'engineering';
+   return 'explore';
  }
- if(path==='/'||path==='/index.html')return 'explore';
  for(const [name,href] of Object.entries(PAGE_ROUTES))if(path===href)return name;
  if(path==='/planner')return 'explore';
  if(['/finder','/windows','/compare'].includes(path))return 'planning';

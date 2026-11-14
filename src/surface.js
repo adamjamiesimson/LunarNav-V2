@@ -1,6 +1,3 @@
-// Surface-view geometry: local east-north-up frames, a surface camera, and
-// ephemeris directions in the local frame with terrain obstruction. Pure
-// maths, no DOM.
 import {MOON_RADIUS_M} from './relief.js';
 import {horizonAt} from './mission.js';
 
@@ -35,8 +32,6 @@ export function localHorizontal(direction,lat,lon){
   };
 }
 
-// Camera at the waypoint: eye above the terrain, looking along heading/pitch
-// in the local ENU frame.
 export function surfaceCamera({lat,lon,heightM=0,observerHeightM=1.7,headingDeg=0,pitchDeg=0,fovDeg=60}={}){
   const {up,north,east}=localFrame(lat,lon);
   const eye=surfacePoint(lat,lon,heightM+observerHeightM);
@@ -53,8 +48,6 @@ export function surfaceCamera({lat,lon,heightM=0,observerHeightM=1.7,headingDeg=
   return {eye,forward,right,up:norm(viewUp),fovDeg,observerHeightM};
 }
 
-// Does a body direction clear the terrain? Elevation vs the horizon profile at
-// that azimuth. Line-of-sight geometry only, not a radio-link guarantee.
 export function bodyClearsTerrain(direction,lat,lon,profile=null){
   const {azimuth,elevation}=localHorizontal(direction,lat,lon);
   const horizonDeg=horizonAt(profile,azimuth);

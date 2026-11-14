@@ -1,6 +1,4 @@
-// Analytical screening ephemeris. Sun/Moon from truncated Meeus/NOAA series,
-// Moon orientation from the IAU 2015 WGCCRE periodic model. Arcminute-ish
-// accuracy, nothing like SPICE or Horizons. East-positive longitudes, UTC.
+// Truncated Meeus/NOAA series and IAU 2015 WGCCRE lunar rotation. Longitude is east-positive. Time is UTC.
 import {bodyVisible} from './mission.js';
 const R = Math.PI / 180;
 const s = d => Math.sin(d*R);
@@ -85,8 +83,6 @@ export function sampleWindow({start,days=7,stepHours=2,lat,lon,profile=null}) {
   const result=[];
   for(let n=0;n<=Math.round(days*24/stepHours);n++) {
     const r=ephemeris(new Date(base+n*stepHours*3600000),lat,lon);
-    // Always through the shared horizon rule so terrain-aware and flat-horizon
-    // sampling can't diverge.
     const sun=bodyVisible(profile,r.sun.azimuth,r.sun.elevation);
     const earth=bodyVisible(profile,r.earth.azimuth,r.earth.elevation);
     result.push({...r,
@@ -116,7 +112,6 @@ export function summarize(samples) {
     longestBlackoutHours:longestRunHours(samples,step,x=>!x.earth.visible,0,n)};
 }
 
-// Longest sampled stretch with Sun and Earth both above the horizon.
 export function longestDualWindow(samples) {
   if (samples.length < 2) return {start:null,end:null,hours:0};
   const step=(Date.parse(samples[1].time)-Date.parse(samples[0].time))/3600000;
@@ -134,8 +129,7 @@ export function longestDualWindow(samples) {
   return best;
 }
 
-// Same-window site ranking. With terrain profiles (by site id) each site is
-// scored on its own horizon, matching the terrain-aware planner views.
+// Rank each site on its own loaded horizon, with a geometric fallback.
 export function rankedSites(sites,start,days,profiles=null) {
   return sites.map(site=>({site,stats:summarize(sampleWindow({start,days,stepHours:4,lat:site.lat,lon:site.lon,profile:profiles?.[site.id]||null}))}))
     .sort((a,b)=>b.stats.dual-a.stats.dual || b.stats.sun-a.stats.sun);

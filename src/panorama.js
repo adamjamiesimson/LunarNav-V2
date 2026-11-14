@@ -1,14 +1,9 @@
-// 360-degree horizon panorama at any waypoint, ray-marched from the same DEM
-// heights the globe displaces (native patch near, grid beyond). Sun and Earth
-// sit at their real azimuth/elevation from the shared ephemeris. Terrain
-// shading is distance/slope based; no invented textures or lighting.
 import {MOON_RADIUS_M} from './relief.js';
 
 const DEG=180/Math.PI,RAD=Math.PI/180;
 export const ELEV_BOTTOM=-35,ELEV_TOP=55;
 export const AZIMUTH_LABELS=[[0,'N'],[45,'NE'],[90,'E'],[135,'SE'],[180,'S'],[225,'SW'],[270,'W'],[315,'NW']];
 
-// Great-circle destination on a sphere of lunar radius.
 export function destinationPoint(lat,lon,azimuthDeg,distanceKm){
   const delta=distanceKm*1000/MOON_RADIUS_M;
   const theta=azimuthDeg*RAD,phi1=lat*RAD,lam1=lon*RAD;
@@ -18,7 +13,7 @@ export function destinationPoint(lat,lon,azimuthDeg,distanceKm){
   return {lat:phi2*DEG,lon:((lam2*DEG+540)%360)-180};
 }
 
-// Sample distances: dense near the observer, growing outward.
+// Sample densely near the observer so nearby terrain can block the sky.
 export function panoramaDistances(maxDistanceKm=45){
   const out=[];let d=0.08;
   while(d<maxDistanceKm){out.push(d);d*=1.13;}
@@ -26,10 +21,7 @@ export function panoramaDistances(maxDistanceKm=45){
   return out;
 }
 
-// One ray per azimuth bin: at each sample distance record the terrain's
-// apparent elevation above the local horizontal, minus the curvature dip. The
-// max angle is that azimuth's horizon; the distance where terrain blocks the
-// sky is kept for shading and body obstruction.
+// The highest apparent elevation defines the horizon. Keep its distance for terrain shading.
 export function computePanoramaColumns({heightAt,site,azimuthBins=720,maxDistanceKm=45,observerHeightM=1.7}={}){
   if(typeof heightAt!=='function')throw Error('A terrain height sampler is required');
   if(azimuthBins<24||azimuthBins>1440)throw Error('Invalid panorama azimuth bins');
@@ -62,13 +54,11 @@ export function computePanoramaColumns({heightAt,site,azimuthBins=720,maxDistanc
   return {observerHeightM:h0,columns,maxDistanceKm};
 }
 
-// Nearest sample whose angle reaches the elevation (what blocks the sky).
 export function distanceForElevation(column,elevationDeg){
   for(const s of column.samples)if(s.angleDeg>=elevationDeg)return s.dKm;
   return null;
 }
 
-// Horizon (silhouette) angle at an azimuth, from the nearest column.
 export function horizonAtAzimuth(panorama,azimuthDeg){
   const bins=panorama.columns.length;
   const index=Math.round((((azimuthDeg%360)+360)%360)/360*bins)%bins;
@@ -76,7 +66,6 @@ export function horizonAtAzimuth(panorama,azimuthDeg){
   return horizon==null?-90:horizon;
 }
 
-// Body status vs the ray-marched horizon (real terrain obstruction).
 export function bodyStatus(panorama,body){
   if(body.elevation<0)return 'Below horizon';
   return body.elevation<horizonAtAzimuth(panorama,body.azimuth)?'Behind terrain':'Above horizon';
@@ -90,8 +79,6 @@ function azimuthToX(azimuthDeg,width,pan){
   return (((azimuthDeg-pan)%360)+360)%360/360*width;
 }
 
-// Draw a computed panorama onto a canvas: terrain fill, silhouette edge,
-// elevation/azimuth grid, Sun/Earth markers. Drag pans.
 export function createPanoramaView(canvas,{site,panorama,obs}={}){
   const ctx=canvas.getContext('2d');
   const W=canvas.width,H=canvas.height;
@@ -209,15 +196,13 @@ export function createPanoramaView(canvas,{site,panorama,obs}={}){
   };
 }
 
-/* First-person surface view camera (local east/north/up frame). */
-
 // Direction vector from azimuth/elevation (0=north, east positive).
 export function directionFromAzEl(azimuthDeg,elevationDeg){
   const az=azimuthDeg*RAD,el=elevationDeg*RAD;
   return {x:Math.cos(el)*Math.sin(az),y:Math.cos(el)*Math.cos(az),z:Math.sin(el)};
 }
 
-// Camera basis for yaw/pitch (yaw 0 looks north).
+// Yaw 0 looks north in the local east/north/up frame.
 export function cameraBasis(yawDeg,pitchDeg){
   const y=yawDeg*RAD,p=pitchDeg*RAD;
   return {
@@ -227,8 +212,7 @@ export function cameraBasis(yawDeg,pitchDeg){
   };
 }
 
-// Project a local direction to normalised screen coords (0..1, y down) for
-// the marker labels drawn over the WebGL view.
+// Screen coordinates run from 0 to 1, with y increasing downwards.
 export function projectDirection(dir,camera){
   const {forward,right,up}=cameraBasis(camera.yawDeg,camera.pitchDeg);
   const fz=dir.x*forward.x+dir.y*forward.y+dir.z*forward.z;

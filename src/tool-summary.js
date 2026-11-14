@@ -1,6 +1,3 @@
-// One-line summaries of tool results, shared by the server (tools.js) and the
-// browser (tool-executor.js) so the two surfaces can't drift. Each summary is
-// the text beside a tool chip in the assistant.
 export function toolSummary(name, value, args){
   switch (name){
     case 'calculate_celestial_conditions':

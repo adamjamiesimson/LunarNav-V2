@@ -3,7 +3,7 @@ import {join} from 'node:path';
 const base=process.cwd(),dist=join(base,'dist');
 mkdirSync(dist,{recursive:true});
 const files=['index.html','src/app.js','src/astro.js','src/compare.js','src/color-dem.js','src/grid-terrain.js',
-    'src/panorama.js','src/panorama-gl.js','src/finder.js','src/relief.js','src/terrain-cache.js','src/router.js','src/onboarding.js','src/situation.js','src/mission.js','src/terrain.js','src/globe.js','src/celestial.js','src/map.js','src/sites.js','src/styles.css','src/surface.js','src/timeline.js','src/travel.js','src/tool-executor.js','src/tool-summary.js','src/tools.js','src/assistant.js','src/transit.js'];
+    'src/panorama.js','src/panorama-gl.js','src/finder.js','src/relief.js','src/terrain-cache.js','src/router.js','src/onboarding.js','src/situation.js','src/mission.js','src/terrain.js','src/globe.js','src/celestial.js','src/map.js','src/sites.js','src/styles.css','src/surface.js','src/timeline.js','src/travel.js','src/tool-summary.js','src/tools.js','src/assistant.js','src/transit.js'];
 for(const file of files){
   const path=join(base,file);
   if(!existsSync(path))throw new Error(`Missing app file: ${file}`);

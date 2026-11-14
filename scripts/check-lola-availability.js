@@ -1,10 +1,5 @@
 #!/usr/bin/env node
-/**
- * Deployment preflight: verify the remote NASA LOLA 80S/80MPP GeoTIFF endpoint
- * and the pinned GeoTIFF.js browser bundle, without downloading the DEM.
- * This is a network-readiness check ONLY, not proof of browser CORS, valid DEM
- * projection or scientific accuracy. All checks report independently.
- */
+// Check NASA LOLA byte-range support and the pinned GeoTIFF.js CDN bundle.
 const hosts=[
  {name:'NASA LOLA COG byte-range',url:'https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_80MPP_ADJ.TIF',range:true},
  {name:'GeoTIFF.js browser library',url:'https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js',range:false}

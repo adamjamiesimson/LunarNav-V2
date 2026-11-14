@@ -1,6 +1,4 @@
-// Relief geometry for the globe shader and the relief bake. The GLSL in
-// globe.js mirrors these formulas; kept here so the geometry works without a
-// GPU. Heights are metres vs the 1737.4 km mean radius.
+// CPU geometry mirrors the globe shader. Heights are metres above the 1737.4 km mean radius.
 export const MOON_RADIUS_M=1737400;
 export const POLAR_DOMAIN_M=931200; // half-width of the 60S stereo domain
 
@@ -13,7 +11,6 @@ export function polarReliefUV(lat,lon,domainM=POLAR_DOMAIN_M){
   return {u:(r*Math.sin(lonR)+domainM)/(2*domainM),v:(domainM-r*Math.cos(lonR))/(2*domainM),radiusM:r};
 }
 
-// Equirect UVs for the global grid.
 export function globalReliefUV(lat,lon){
   return {u:(((lon+180)%360)+360)%360/360,v:(90-lat)/180};
 }
@@ -31,15 +28,11 @@ export function sampleGrid(grid,u,v){
 
 export function displacedRadiusM(heightM,exaggeration=1){return MOON_RADIUS_M+exaggeration*heightM;}
 
-// CPU twin of the shader's ray march: step in from the bounding sphere and
-// bisect the first crossing of the displaced surface, so ridges and crater
-// walls really do change the silhouette. heightAt(direction) returns metres
-// for a unit direction vector.
+// Bisect the first terrain crossing so ridges affect the silhouette. heightAt takes a unit direction.
 export function intersectDisplacedSphere(origin,dir,{heightAt,exaggeration=1,heightMinM=-12000,heightMaxM=12000,step=0.002,bisect=9}={}){
   const len=v=>Math.hypot(v[0],v[1],v[2]);
   const radiusAt=n=>(MOON_RADIUS_M+exaggeration*heightAt(n))/MOON_RADIUS_M; // scene units, moon radius = 1
   const bound=(1+Math.max(0,exaggeration*heightMaxM)/MOON_RADIUS_M);
-  // Ray-sphere entry against the outer bounding sphere.
   const b=origin[0]*dir[0]+origin[1]*dir[1]+origin[2]*dir[2];
   const c=len(origin)**2-bound*bound;
   const disc=b*b-c;
@@ -73,7 +66,6 @@ export function displacedNormal(dir,heightAt,{exaggeration=1,epsilon=1e-3}={}){
   const len=v=>Math.hypot(v[0],v[1],v[2]);
   const norm=v=>{const d=len(v)||1;return [v[0]/d,v[1]/d,v[2]/d];};
   const n=norm(dir);
-  // Tangent frame around n.
   const ref=Math.abs(n[2])<0.9?[0,0,1]:[1,0,0];
   const e1=norm([n[1]*ref[2]-n[2]*ref[1],n[2]*ref[0]-n[0]*ref[2],n[0]*ref[1]-n[1]*ref[0]]);
   const e2=[n[1]*e1[2]-n[2]*e1[1],n[2]*e1[0]-n[0]*e1[2],n[0]*e1[1]-n[1]*e1[0]];

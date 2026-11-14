@@ -1,10 +1,3 @@
-// Gemini mission-assistant front-end. The floating chat panel posts to
-// /api/chat with a compact, sanitised snapshot of the live mission state.
-// Function calling runs server-side (tools.js); executed tool chips come back
-// with the reply. History lives in browser memory (sessionStorage when
-// available). The API key only exists as the server-side GEMINI_API_KEY env
-// var, never in a front-end file.
-
 const WELCOME = 'Ask about the selected mission, visibility, power, windows or travel. Calculations use the planner’s models; an API key must be configured on the server.';
 const STORAGE_KEY = 'lunarnav:assistant:history:v1';
 
@@ -22,7 +15,7 @@ function escapeHTML(str){
   return String(str).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 }
-// Minimal Markdown rendering tuned for scientific answers (no raw HTML).
+// Render the Markdown subset used by the assistant.
 function renderMarkdown(text){
   return String(text)
     .replace(/^[ \t]*\u2022[ \t]*/gm, '- ')
@@ -42,19 +35,16 @@ function renderMarkdown(text){
     .replace(/\n/g, '<br/>');
 }
 
-// State
 const ui = {};
 let history = [];
 let busy = false;
-let contextHook = null;
+let readMission = null;
 
 export function initMissionAssistant({
-  root, fab, panel, messages, input, send, close, newConversation, context, toolsEl, contextText,
-  endpoint = '/api/chat',
-  getContext = null
-} = {}){
-  Object.assign(ui, {root, fab, panel, messages, input, send, close, newConversation, context, toolsEl, contextText, endpoint});
-  contextHook = getContext || null;
+  root, fab, messages, input, send, close, newConversation, contextText, getContext
+}){
+  Object.assign(ui, {root, fab, messages, input, send, contextText});
+  readMission = getContext;
 
   fab.addEventListener('click', () => toggle(true));
   for (const el of [close, ...document.querySelectorAll('[data-assistant-close]')]){
@@ -80,14 +70,7 @@ export function initMissionAssistant({
   updateContextBanner();
 }
 
-export function assistantOpen(){
-  return !(ui.root?.hidden ?? true);
-}
-export function toggleAssistant(open){
-  toggle(open);
-}
-function toggle(open){
-  const show = open ?? ui.root.hidden;
+function toggle(show){
   ui.root.hidden = !show;
   ui.fab.setAttribute('aria-expanded', String(show));
   ui.fab.setAttribute('aria-label', show ? 'Close Ask Spacey AI' : 'Open Ask Spacey AI');
@@ -99,8 +82,7 @@ function toggle(open){
   }
 }
 export function refreshAssistantContext(){
-  // Re-render the context banner whenever the mission config changes.
-  if (assistantOpen()) updateContextBanner();
+  if (ui.root && !ui.root.hidden) updateContextBanner();
 }
 function focusInput(){
   requestAnimationFrame(() => ui.input.focus({preventScroll: true}));
@@ -115,51 +97,47 @@ function updateContextBanner(){
 }
 
 function collectContext(){
-  const state = contextHook ? contextHook() : {};
+  const mission = readMission();
+  const transit = mission.transit;
   return {
-    site: state.site || null,
-    date: state.date || null,
-    time: state.time || null,
-    days: state.days,
-    offsetHours: state.offset,
-    inspectionUTC: state.inspectionUTC || (state.base ? new Date(state.base.getTime() + (state.offset || 0) * 3600000).toISOString() : null),
-    route: state.route,
-    isCustom: Boolean(state.site?.custom),
-    terrain: state.terrain ? {
-      applied: Boolean(state.terrain),
-      source: state.terrain.source || state.terrain.provenance || null,
-      verifiedSource: Boolean(state.terrain.verifiedSource),
-      coveragePct: state.terrain.coveragePct,
-      radiusKm: state.terrain.radiusKm,
-      resolutionM: state.terrain.resolutionM,
-      azimuthDeg: state.terrain.azimuthDeg,
-      elevationDeg: state.terrain.elevationDeg
+    site: mission.site || null,
+    date: mission.date || null,
+    time: mission.time || null,
+    days: mission.days,
+    offsetHours: mission.offset,
+    inspectionUTC: mission.inspectionUTC,
+    route: mission.route,
+    isCustom: Boolean(mission.site?.custom),
+    terrain: mission.terrain ? {
+      applied: Boolean(mission.terrain),
+      source: mission.terrain.source || mission.terrain.provenance || null,
+      verifiedSource: Boolean(mission.terrain.verifiedSource),
+      coveragePct: mission.terrain.coveragePct,
+      radiusKm: mission.terrain.radiusKm,
+      resolutionM: mission.terrain.resolutionM,
+      azimuthDeg: mission.terrain.azimuthDeg,
+      elevationDeg: mission.terrain.elevationDeg
     } : null,
-    simulation: state.simulation ? {
-      minimumSocPct: state.simulation.minimumSocPct, endingSocPct: state.simulation.endingSocPct,
-      generatedWh: state.simulation.generatedWh, consumedWh: state.simulation.consumedWh,
-      unmetWh: state.simulation.unmetWh, unmetHours: state.simulation.unmetHours,
-      solarAccessPct: state.simulation.solarAccessPct, earthAccessPct: state.simulation.earthAccessPct,
-      dualAccessPct: state.simulation.dualAccessPct, longestAccessGapHours: state.simulation.longestAccessGapHours,
-      terrainApplied: state.simulation.terrainApplied
+    simulation: mission.simulation ? {
+      minimumSocPct: mission.simulation.minimumSocPct, endingSocPct: mission.simulation.endingSocPct,
+      generatedWh: mission.simulation.generatedWh, consumedWh: mission.simulation.consumedWh,
+      unmetWh: mission.simulation.unmetWh, unmetHours: mission.simulation.unmetHours,
+      solarAccessPct: mission.simulation.solarAccessPct, earthAccessPct: mission.simulation.earthAccessPct,
+      dualAccessPct: mission.simulation.dualAccessPct, longestAccessGapHours: mission.simulation.longestAccessGapHours,
+      terrainApplied: mission.simulation.terrainApplied
     } : null,
-    missionSummary: state.missionSummary || null,
-    finder: state.finder ? {startDate: state.finder.startDate, startTime: state.finder.startTime, searchDays: state.finder.searchDays,
-      windowDays: state.finder.windowDays, priority: state.finder.priority, terrainMode: state.finder.terrainMode,
-      top: state.finder.top} : null,
-    terrainProfilesBySite: Object.fromEntries(Object.entries(state.terrainProfiles||{}).map(([id,p])=>[id,{
+    missionSummary: mission.missionSummary || null,
+    finder: mission.finder ? {startDate: mission.finder.startDate, startTime: mission.finder.startTime, searchDays: mission.finder.searchDays,
+      windowDays: mission.finder.windowDays, priority: mission.finder.priority, terrainMode: mission.finder.terrainMode,
+      top: mission.finder.top} : null,
+    terrainProfilesBySite: Object.fromEntries(Object.entries(mission.terrainProfiles||{}).map(([id,p])=>[id,{
       azimuthDeg:p.azimuthDeg,elevationDeg:p.elevationDeg,lat:p.lat,lon:p.lon,
       source:p.source,verifiedSource:p.verifiedSource,coveragePct:p.coveragePct,radiusKm:p.radiusKm,resolutionM:p.resolutionM
     }])),
-    transit: state.transit ? {
-      model: state.transit.model,
-      profile: state.transit.profile,
-      profileLabel: state.transit.profileLabel,
-      destination: state.transit.destination,
-      totalTransitHours: state.transit.totalTransitHours,
-      departureUTC: state.transit.departureUTC,
-      arrivalUTC: state.transit.arrivalUTC,
-      scheduleMode: state.transit.scheduleMode
+    transit: transit ? {
+      model: transit.model, profile: transit.profile, profileLabel: transit.profileLabel,
+      destination: transit.destination, totalTransitHours: transit.totalTransitHours,
+      departureUTC: transit.departureUTC, arrivalUTC: transit.arrivalUTC, scheduleMode: transit.scheduleMode
     } : null
   };
 }
@@ -205,7 +183,6 @@ function showTyping(){
   ui.messages.scrollTop = ui.messages.scrollHeight;
   return node;
 }
-// API round trip
 async function sendMessage(text){
   const userText = text.trim();
   if (!userText || busy) return;
@@ -216,7 +193,6 @@ async function sendMessage(text){
   const typing = showTyping();
   ui.send.disabled = true;
 
-  // Compact history for the API round trip.
   const context = collectContext();
   const historyForApi = history.slice(0, -1).map(e => ({role: e.role, text: e.text})).slice(-12);
 
@@ -226,7 +202,7 @@ async function sendMessage(text){
     const timeout = setTimeout(() => controller.abort(), 90000);
     let response;
     try {
-      response = await fetch(ui.endpoint, {
+      response = await fetch('/api/chat', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload),
@@ -257,7 +233,6 @@ async function sendMessage(text){
   }
 }
 
-// Session persistence (local; nothing stored server-side).
 function persistHistory(){
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-20)));
@@ -269,7 +244,6 @@ function restoreHistory(){
     if (!raw) return;
     const stored = JSON.parse(raw);
     if (Array.isArray(stored)){
-      // Do not duplicate the welcome message.
       const welcome = history[0];
       history = [];
       pushMessage('assistant', welcome.text);

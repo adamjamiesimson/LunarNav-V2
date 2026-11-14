@@ -1,8 +1,4 @@
-/**
- * Minimal local preview server with the same page-entry fallback as Vercel.
- * Source files are served in development; compiled /dist in browser smoke.
- * Usage: node scripts/preview-server.js [--dist] [port]
- */
+// Usage: node scripts/preview-server.js [--dist] [port]
 import {createServer} from 'node:http';
 import {readFile,stat} from 'node:fs/promises';
 import {createReadStream} from 'node:fs';
@@ -10,9 +6,7 @@ import {resolve,join,sep,extname} from 'node:path';
 const root=resolve(process.argv.includes('--dist')?'dist':'.');
 const port=Number(process.argv.find(x=>/^\d{3,5}$/.test(x))||4173);
 const pages=new Set(['/','/index.html','/explore','/planning','/windows','/engineering','/compare','/science','/planner','/finder','/methodology']);
-// Same-origin proxies as vercel.json, for assets that upstream hosts serve
-// without CORS headers. A local copy of the file always wins over the proxy.
-// Range requests are forwarded so cloud-optimized DEMs can be read in parts.
+// Serve local files first. Match Vercel's same-origin asset proxies, including DEM byte ranges.
 const remoteAssets={
   '/assets/lroc-color.jpg':'https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg',
   '/assets/bluemarble-1024.png':'https://svs.gsfc.nasa.gov/vis/a000000/a002900/a002915/bluemarble-1024.png',

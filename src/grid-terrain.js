@@ -1,10 +1,4 @@
-// Terrain horizons straight from the baked NASA relief grids
-// (assets/moon-relief*.png, the LOLA-derived surfaces the globe displaces;
-// provenance in data/relief.json). Deriving the horizon here gives every
-// custom waypoint a real local sky view immediately and offline: polar grids
-// (60-90 deg either hemisphere) at 480 m, global grid below that at ~1.33 km.
-// The maths is shared: deriveHorizonFromRaster is the same function the
-// preset sites and the native DEM loader use.
+// The bundled NASA grids supply offline horizons at 480 m near the poles and about 1.33 km at the equator.
 import {polarXY,polarFrameXY,deriveHorizonFromRaster} from './terrain.js';
 import {MOON_RADIUS_M,globalReliefUV} from './relief.js';
 
@@ -39,7 +33,6 @@ function loadImage(file){
   return imageCache.get(file);
 }
 
-// Polar-stereographic window.
 export function gridRasterWindow({size,domainKm,north},site,{radiusKm=20}={}){
   const gsd=domainKm*1000/size;
   const {x,y}=polarXY(site.lat,site.lon);
@@ -136,9 +129,6 @@ async function deriveFromGlobal(site,meta,{azimuthBins,radiusKm}){
     resolutionM);
 }
 
-// Local horizon profile for any coordinate: high-res polar grids near the
-// caps, the global grid elsewhere. Throws only when no grid covers the spot
-// or the window has no valid elevation pixels.
 export async function deriveGridHorizon(site,{azimuthBins=360,radiusKm=20}={}){
   const meta=await loadMeta();
   const opts={azimuthBins,radiusKm};
@@ -257,8 +247,6 @@ export async function deriveSldemPatch(site,{azimuthBins=360,radiusKm=20,fetchRo
   return finishProfile(profile,site,'NASA LOLA+Kaguya SLDEM2015 patch ('+Math.round(SLDEM_PIXEL_M)+' m)',SLDEM_PIXEL_M,{gridDerived:false});
 }
 
-// Elevation samplers for the surface panorama.
-
 // Bilinear grid sample in pixel coordinates; null outside the window.
 export function sampleBilinear(data,width,height,fx,fy){
   if(!(fx>=0&&fy>=0&&fx<=width-1&&fy<=height-1))return null;
@@ -269,9 +257,7 @@ export function sampleBilinear(data,width,height,fx,fy){
   return v00*(1-tx)*(1-ty)+v10*tx*(1-ty)+v01*(1-tx)*ty+v11*tx*ty;
 }
 
-// Terrain heights around a site for the surface panorama: the native patch
-// (when loaded) refines the near field, the baked grid covers the rest of the
-// radius. Heights are metres above R=1737.4 km.
+// Use the native patch in the near field and the bundled grid beyond it. Heights are metres above R = 1737.4 km.
 export async function loadSiteHeights(site,{radiusKm=45,patch=null}={}){
   if(!Number.isFinite(site?.lat)||Math.abs(site.lat)>90||!Number.isFinite(site.lon))
     throw Error('Invalid panorama coordinates');

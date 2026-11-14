@@ -1,10 +1,6 @@
 #!/usr/bin/env node
-/**
- * Independent live NASA/JPL Horizons check. Never claims validation if the API fails.
- * Moon-fixed observer coord@301, geodetic east longitude/latitude, 0 km altitude,
- * airless apparent azimuth/elevation, UTC, quantity 4.
- * Run npm run validate:jpl; outputs independent measured errors or a hard failure.
- */
+// Horizons observer coord@301, east longitude/latitude, 0 km altitude.
+// Compare airless apparent azimuth/elevation (quantity 4) in UTC.
 import {ephemeris} from '../src/astro.js';
 const endpoint='https://ssd.jpl.nasa.gov/api/horizons.api';
 const sites=[{name:'Mons Mouton',lat:-84.79,lon:29.2},{name:'Malapert Region',lat:-85.99,lon:357.07},
